@@ -6,7 +6,7 @@ export type ServiceDocument = Service & Document;
 
 @Schema({ timestamps: true })
 export class Service {
-  @Prop({ required: true, unique: true, trim: true, lowercase: true, maxlength: 80 })
+  @Prop({ required: true, trim: true, lowercase: true, maxlength: 80 })
   key: string; 
 
   @Prop({ required: true, trim: true, maxlength: 120 })
