@@ -70,7 +70,6 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
-    // ✅ make refresh resilient: map "user not found" to Unauthorized
     let user: UserDocument;
     try {
       user = await this.usersService.findById(payload.sub);
@@ -89,7 +88,6 @@ export class AuthService {
     const ok = await comparePassword(refreshToken, redisHash);
     if (!ok) throw new UnauthorizedException("Invalid refresh token");
 
-    // rotation: delete old session, create new
     await this.redisService.del(key);
     return this.generateTokens(user);
   }
@@ -103,7 +101,6 @@ export class AuthService {
         `refresh:${payload.sub}:${payload.sessionId}`,
       );
     } catch {
-      // ignore
     }
   }
 
