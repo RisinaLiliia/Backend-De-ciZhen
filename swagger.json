@@ -1,0 +1,282 @@
+{
+  "openapi": "3.0.0",
+  "security": [
+    {
+      "access-token": []
+    }
+  ],
+  "paths": {
+    "/users/me": {
+      "get": {
+        "operationId": "UsersController_me",
+        "summary": "Get current user profile (me)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_updateMe",
+        "summary": "Update current user profile (me)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "summary": "Register new user (client/provider)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "security": []
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "summary": "Login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "security": []
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "summary": "Refresh access token (uses refreshToken cookie)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "security": []
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "summary": "Logout (invalidate refresh session)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "security": []
+      }
+    }
+  },
+  "info": {
+    "title": "Decide API",
+    "description": "API documentation",
+    "version": "1.0.0",
+    "contact": {},
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "tags": [],
+  "servers": [
+    {
+      "url": "https://api.decide.dev",
+      "description": "Development"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "access-token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "UpdateMeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Liliia"
+          },
+          "city": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "language": {
+            "type": "string",
+            "example": "de"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+49123456789"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "example": "https://cdn.example.com/u/1.png"
+          }
+        }
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Liliia",
+            "description": "Full name"
+          },
+          "email": {
+            "type": "string",
+            "example": "liliia@example.com",
+            "description": "Email"
+          },
+          "password": {
+            "type": "string",
+            "example": "Password1",
+            "description": "Password"
+          },
+          "city": {
+            "type": "string",
+            "example": "Berlin",
+            "description": "City (optional, can be set later)"
+          },
+          "language": {
+            "type": "string",
+            "example": "de",
+            "description": "Language code (optional)"
+          },
+          "role": {
+            "type": "string",
+            "example": "client",
+            "description": "Role: client or provider (admin only via backoffice)"
+          },
+          "acceptPrivacyPolicy": {
+            "type": "boolean",
+            "example": true,
+            "description": "Accept privacy policy"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password",
+          "acceptPrivacyPolicy"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "Password1"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      }
+    }
+  }
+}
