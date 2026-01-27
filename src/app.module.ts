@@ -8,6 +8,7 @@ import { RedisModule } from "./config/redis";
 import { ThrottlerModule, ThrottlerModuleOptions } from "@nestjs/throttler";
 import { UsersModule } from "./modules/users/users.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { CatalogModule } from "./modules/catalog/catalog.module";
 
 @Module({
   imports: [
@@ -38,7 +39,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 
     DatabaseModule,
     RedisModule,
-
+    CatalogModule,
     UsersModule,
     AuthModule,
   ],
