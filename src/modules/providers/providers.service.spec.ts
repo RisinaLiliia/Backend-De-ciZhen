@@ -12,6 +12,7 @@ describe('ProvidersService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     findOneAndUpdate: jest.fn(),
+    find: jest.fn(),
   };
 
   const execWrap = (value: any) => ({ exec: jest.fn().mockResolvedValue(value) });
@@ -62,5 +63,34 @@ describe('ProvidersService', () => {
   it('blockProfile throws NotFound if missing', async () => {
     modelMock.findOneAndUpdate.mockReturnValue(execWrap(null));
     await expect(service.blockProfile('u1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('listPublic returns active + not blocked', async () => {
+    modelMock.find.mockReturnValue({
+      sort: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+    });
+
+    await service.listPublic({});
+
+    expect(modelMock.find).toHaveBeenLastCalledWith({
+      status: 'active',
+      isBlocked: false,
+    });
+  });
+
+  it('listPublic adds cityId and serviceKey only when not empty', async () => {
+    const sort = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    modelMock.find.mockReturnValue({ sort });
+
+    await service.listPublic({ cityId: '  ', serviceKey: '  ' });
+    expect(modelMock.find).toHaveBeenCalledWith({ status: 'active', isBlocked: false });
+
+    await service.listPublic({ cityId: 'c1', serviceKey: 'Home_Cleaning' });
+    expect(modelMock.find).toHaveBeenLastCalledWith({
+      status: 'active',
+      isBlocked: false,
+      cityId: 'c1',
+      serviceKeys: { $in: ['home_cleaning'] },
+    });
   });
 });

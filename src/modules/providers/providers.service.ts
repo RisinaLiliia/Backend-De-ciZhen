@@ -64,4 +64,24 @@ export class ProvidersService {
       .exec();
     if (!res) throw new NotFoundException('Provider profile not found');
   }
+
+
+  async listPublic(filters: { cityId?: string; serviceKey?: string }): Promise<ProviderProfileDocument[]> {
+  const q: Record<string, unknown> = {
+    status: 'active',
+    isBlocked: false,
+  };
+
+  const cityId = (filters.cityId ?? '').trim();
+  if (cityId.length > 0) q.cityId = cityId;
+
+  const serviceKey = (filters.serviceKey ?? '').trim().toLowerCase();
+  if (serviceKey.length > 0) q.serviceKeys = { $in: [serviceKey] };
+
+  return this.model
+    .find(q)
+    .sort({ ratingAvg: -1, ratingCount: -1, basePrice: 1, updatedAt: -1 })
+    .exec();
+}
+
 }
