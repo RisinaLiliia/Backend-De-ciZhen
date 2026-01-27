@@ -22,7 +22,6 @@ export class User {
   @Prop({ trim: true })
   phone?: string;
 
-  // --- Auth
   @Prop({ required: true, select: false })
   passwordHash: string;
 

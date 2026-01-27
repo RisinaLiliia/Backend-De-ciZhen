@@ -1,11 +1,18 @@
 // src/modules/users/users.controller.ts
 import { Body, Controller, Get, Patch, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from "@nestjs/swagger";
 import { UsersService } from "./users.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { UpdateMeDto } from "./dto/update-me.dto";
 import type { AppRole } from "./schemas/user.schema";
+import { MeResponseDto } from "./dto/me-response.dto";
+import { ApiMeErrors } from "../../common/swagger/api-errors.decorator";
 
 type CurrentUserPayload = {
   userId: string;
@@ -18,7 +25,7 @@ type CurrentUserPayload = {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  private toMeResponse(u: any) {
+  private toMeResponse(u: any): MeResponseDto {
     return {
       id: u._id.toString(),
       name: u.name,
@@ -44,7 +51,9 @@ export class UsersController {
   @Get("me")
   @ApiBearerAuth("access-token")
   @ApiOperation({ summary: "Get current user profile (me)" })
-  async me(@CurrentUser() user: CurrentUserPayload) {
+  @ApiOkResponse({ description: "Current user profile", type: MeResponseDto })
+  @ApiMeErrors()
+  async me(@CurrentUser() user: CurrentUserPayload): Promise<MeResponseDto> {
     const u = await this.usersService.findById(user.userId);
     return this.toMeResponse(u);
   }
@@ -53,10 +62,15 @@ export class UsersController {
   @Patch("me")
   @ApiBearerAuth("access-token")
   @ApiOperation({ summary: "Update current user profile (me)" })
+  @ApiOkResponse({
+    description: "Updated current user profile",
+    type: MeResponseDto,
+  })
+  @ApiMeErrors()
   async updateMe(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: UpdateMeDto,
-  ) {
+  ): Promise<MeResponseDto> {
     const updated = await this.usersService.updateMe(user.userId, dto);
     return this.toMeResponse(updated);
   }

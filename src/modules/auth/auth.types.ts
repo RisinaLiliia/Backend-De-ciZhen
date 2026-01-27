@@ -1,3 +1,4 @@
+// src/modules/auth/auth.types.ts
 export type AppRole = "client" | "provider" | "admin";
 
 export type JwtPayload = {
