@@ -2,6 +2,7 @@
 import { Test } from "@nestjs/testing";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { ConfigService } from "@nestjs/config";
 
 describe("AuthController (unit)", () => {
   let controller: AuthController;
@@ -11,6 +12,13 @@ describe("AuthController (unit)", () => {
     login: jest.fn(),
     refresh: jest.fn(),
     logout: jest.fn(),
+  };
+
+  const configServiceMock = {
+    get: jest.fn((key: string): string | undefined => {
+      if (key === "app.nodeEnv") return "development";
+      return undefined;
+    }),
   };
 
   const makeRes = () => {
@@ -25,7 +33,10 @@ describe("AuthController (unit)", () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: authServiceMock }],
+      providers: [
+        { provide: AuthService, useValue: authServiceMock },
+        { provide: ConfigService, useValue: configServiceMock },
+      ],
     }).compile();
 
     controller = moduleRef.get(AuthController);
@@ -87,10 +98,7 @@ describe("AuthController (unit)", () => {
 
       const result = await controller.login(dto, res);
 
-      expect(authServiceMock.login).toHaveBeenCalledWith(
-        "a@b.com",
-        "Password1",
-      );
+      expect(authServiceMock.login).toHaveBeenCalledWith("a@b.com", "Password1");
 
       expect(res.cookie).toHaveBeenCalledWith(
         "refreshToken",
@@ -186,14 +194,11 @@ describe("AuthController (unit)", () => {
   });
 
   describe("cookie flags", () => {
-    const originalEnv = process.env.NODE_ENV;
-
-    afterEach(() => {
-      process.env.NODE_ENV = originalEnv;
-    });
-
     it("sets secure=false and sameSite=lax in development", async () => {
-      process.env.NODE_ENV = "development";
+      configServiceMock.get.mockImplementation((key: string) => {
+        if (key === "app.nodeEnv") return "development";
+        return undefined;
+      });
 
       const res = makeRes();
       authServiceMock.login.mockResolvedValue({
@@ -203,10 +208,7 @@ describe("AuthController (unit)", () => {
         expiresIn: 900,
       });
 
-      await controller.login(
-        { email: "a@b.com", password: "Password1" } as any,
-        res,
-      );
+      await controller.login({ email: "a@b.com", password: "Password1" } as any, res);
 
       const cookieOptions = (res.cookie as jest.Mock).mock.calls[0][2];
       expect(cookieOptions.secure).toBe(false);
@@ -214,7 +216,10 @@ describe("AuthController (unit)", () => {
     });
 
     it("sets secure=true and sameSite=none in production", async () => {
-      process.env.NODE_ENV = "production";
+      configServiceMock.get.mockImplementation((key: string) => {
+        if (key === "app.nodeEnv") return "production";
+        return undefined;
+      });
 
       const res = makeRes();
       authServiceMock.login.mockResolvedValue({
@@ -224,10 +229,7 @@ describe("AuthController (unit)", () => {
         expiresIn: 900,
       });
 
-      await controller.login(
-        { email: "a@b.com", password: "Password1" } as any,
-        res,
-      );
+      await controller.login({ email: "a@b.com", password: "Password1" } as any, res);
 
       const cookieOptions = (res.cookie as jest.Mock).mock.calls[0][2];
       expect(cookieOptions.secure).toBe(true);

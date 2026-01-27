@@ -9,18 +9,32 @@ import {
   Res,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from "@nestjs/swagger";
+import { ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
+import { AuthResponseDto } from "./dto/auth-response.dto";
+import { RefreshResponseDto } from "./dto/refresh-response.dto";
+import { LogoutResponseDto } from "./dto/logout-response.dto";
+import { ApiErrors, ApiAuthErrors, ApiPublicErrors } from "../../common/swagger/api-errors.decorator";
 
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   private setRefreshCookie(res: Response, token: string) {
-    const isProd = process.env.NODE_ENV === "production";
+    const nodeEnv = this.config.get<string>("app.nodeEnv") ?? "development";
+    const isProd = nodeEnv === "production";
 
     res.cookie("refreshToken", token, {
       httpOnly: true,
@@ -30,14 +44,19 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
   }
-
+  
   @Post("register")
   @ApiOperation({ summary: "Register new user (client/provider)" })
-  @ApiResponse({ status: 201 })
+  @ApiCreatedResponse({
+    description: "User registered. Refresh token is set in httpOnly cookie.",
+    type: AuthResponseDto,
+  })
+  @ApiPublicErrors()  
+  @ApiErrors({ unauthorized: false, forbidden: false, notFound: false })
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<AuthResponseDto> {
     const { user, accessToken, refreshToken, expiresIn } =
       await this.authService.register(dto);
 
@@ -48,11 +67,15 @@ export class AuthController {
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Login" })
-  @ApiResponse({ status: 200 })
+  @ApiOkResponse({
+    description: "Login successful. Refresh token is set in httpOnly cookie.",
+    type: AuthResponseDto,
+  })
+  @ApiAuthErrors()
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<AuthResponseDto> {
     const { user, accessToken, refreshToken, expiresIn } =
       await this.authService.login(dto.email, dto.password);
 
@@ -63,20 +86,22 @@ export class AuthController {
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Refresh access token (uses refreshToken cookie)" })
-  @ApiResponse({ status: 200 })
+  @ApiOkResponse({
+    description:
+      "Access token refreshed. New refresh token is rotated and set in cookie.",
+    type: RefreshResponseDto,
+  })
+  @ApiAuthErrors()
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<RefreshResponseDto> {
     const refreshToken = (req as any).cookies?.refreshToken as
       | string
       | undefined;
 
-    const {
-      accessToken,
-      refreshToken: newRefresh,
-      expiresIn,
-    } = await this.authService.refresh(refreshToken);
+    const { accessToken, refreshToken: newRefresh, expiresIn } =
+      await this.authService.refresh(refreshToken);
 
     this.setRefreshCookie(res, newRefresh);
     return { accessToken, expiresIn };
@@ -85,11 +110,25 @@ export class AuthController {
   @Post("logout")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Logout (invalidate refresh session)" })
-  @ApiResponse({ status: 200 })
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  @ApiOkResponse({
+    description: "Refresh session invalidated. Cookie cleared.",
+    type: LogoutResponseDto,
+  })
+  @ApiErrors({
+    badRequest: false,
+    unauthorized: false,
+    forbidden: false,
+    notFound: false,
+    conflict: false,
+  })
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LogoutResponseDto> {
     const refreshToken = (req as any).cookies?.refreshToken as
       | string
       | undefined;
+
     await this.authService.logout(refreshToken);
 
     res.clearCookie("refreshToken", { path: "/auth" });

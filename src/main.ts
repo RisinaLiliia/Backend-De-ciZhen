@@ -9,6 +9,7 @@ import { GlobalExceptionFilter } from "./common/filters/global-exception.filter"
 import { RolesGuard } from "./modules/auth/guards/roles.guard";
 import { Reflector } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,12 +17,13 @@ async function bootstrap() {
 
   const isProd = config.get<string>("app.nodeEnv") === "production";
 
+  const requestIdMiddlewareInstance = new RequestIdMiddleware();
+  app.use(requestIdMiddlewareInstance.use.bind(requestIdMiddlewareInstance));
+
   app.use(helmet());
   app.use(cookieParser());
 
-  const origins = (config.get<string[]>("app.allowedOrigins") ?? []).filter(
-    Boolean,
-  );
+  const origins = (config.get<string[]>("app.allowedOrigins") ?? []).filter(Boolean);
 
   app.enableCors({
     origin: origins,
@@ -38,7 +40,7 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(new GlobalExceptionFilter(!isProd));
 
   if (!isProd) {
     const swaggerConfig = new DocumentBuilder()
@@ -64,3 +66,4 @@ bootstrap().catch((err) => {
   console.error("Fatal bootstrap error", err);
   process.exit(1);
 });
+

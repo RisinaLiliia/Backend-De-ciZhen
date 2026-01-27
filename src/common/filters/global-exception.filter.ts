@@ -1,12 +1,13 @@
 // src/common/filters/global-exception.filter.ts
 import {
+  ArgumentsHost,
   Catch,
   ExceptionFilter,
-  ArgumentsHost,
   HttpException,
   HttpStatus,
-} from '@nestjs/common';
-import type { Request, Response } from 'express';
+} from "@nestjs/common";
+import type { Response } from "express";
+import type { RequestWithId } from "../middleware/request-id.middleware";
 
 type HttpExceptionResponse =
   | string
@@ -14,53 +15,57 @@ type HttpExceptionResponse =
       statusCode?: number;
       message?: string | string[];
       error?: string;
-      [key: string]: unknown;
     };
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
+  constructor(private readonly isDev = process.env.NODE_ENV !== "production") {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
-    const req = ctx.getRequest<Request>();
+    const req = ctx.getRequest<RequestWithId>();
 
     const timestamp = new Date().toISOString();
-    const path = req.originalUrl || req.url;
-    const method = req.method;
+    const path = String(req.originalUrl || req.url || "");
+    const requestId = req.requestId;
 
-    // defaults
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-    let error = 'Internal Server Error';
-    let message: string | string[] = 'Internal Server Error';
+    let message: string | string[] = "Internal Server Error";
+    let error = "Internal Server Error";
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
-
       const response = exception.getResponse() as HttpExceptionResponse;
 
-      if (typeof response === 'string') {
+      if (typeof response === "string") {
         message = response;
         error = exception.name;
-      } else if (response && typeof response === 'object') {
-        // Nest usually provides { statusCode, message, error }
-        message = response.message ?? exception.message ?? 'Error';
-        error = (response.error as string) ?? exception.name;
       } else {
-        message = exception.message || 'Error';
-        error = exception.name;
+        message =
+          response.message ??
+          (typeof exception.message === "string" ? exception.message : "Error");
+        error = response.error ?? exception.name;
       }
     } else if (exception instanceof Error) {
-      message = exception.message || 'Internal Server Error';
-      error = exception.name || 'Error';
+      message = exception.message || message;
+      error = exception.name || error;
     }
 
-    res.status(statusCode).json({
+    const body: Record<string, unknown> = {
       statusCode,
-      error,
       message,
-      path,
-      method,
+      error,
       timestamp,
-    });
+      path,
+      ...(requestId ? { requestId } : {}),
+    };
+
+    if (this.isDev && exception instanceof Error && exception.stack) {
+      body.stack = exception.stack;
+    }
+
+    res.status(statusCode).json(body);
   }
 }
+

@@ -1,10 +1,5 @@
 {
   "openapi": "3.0.0",
-  "security": [
-    {
-      "access-token": []
-    }
-  ],
   "paths": {
     "/users/me": {
       "get": {
@@ -13,10 +8,74 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Current user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -44,13 +103,74 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "Updated current user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponseDto"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -80,16 +200,59 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "User registered. Refresh token is set in httpOnly cookie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           }
         },
         "tags": [
           "auth"
-        ],
-        "security": []
+        ]
       }
     },
     "/auth/login": {
@@ -109,19 +272,69 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "Login successful. Refresh token is set in httpOnly cookie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           }
         },
         "tags": [
           "auth"
-        ],
-        "security": []
+        ]
       }
     },
     "/auth/refresh": {
@@ -131,16 +344,69 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Access token refreshed. New refresh token is rotated and set in cookie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           }
         },
         "tags": [
           "auth"
-        ],
-        "security": []
+        ]
       }
     },
     "/auth/logout": {
@@ -150,16 +416,39 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Refresh session invalidated. Cookie cleared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponseDto"
+                }
+              }
+            }
           },
-          "401": {
-            "description": "Unauthorized"
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
           }
         },
         "tags": [
           "auth"
-        ],
-        "security": []
+        ]
       }
     }
   },
@@ -176,7 +465,7 @@
   "tags": [],
   "servers": [
     {
-      "url": "https://api.decide.dev",
+      "url": "http://localhost:3000",
       "description": "Development"
     }
   ],
@@ -189,6 +478,155 @@
       }
     },
     "schemas": {
+      "HttpErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 401
+          },
+          "message": {
+            "oneOf": [
+              {
+                "type": "string",
+                "example": "Unauthorized"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": [
+                  "email must be an email"
+                ]
+              }
+            ]
+          },
+          "error": {
+            "type": "string",
+            "example": "Unauthorized"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-01-27T10:20:30.123Z"
+          },
+          "path": {
+            "type": "string",
+            "example": "/auth/login"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "a9f7c8f0-1b2c-4d5e-9f00-123456789abc",
+            "description": "Request correlation id (x-request-id)"
+          },
+          "stack": {
+            "type": "string",
+            "example": "stack trace...",
+            "description": "Only in development"
+          }
+        },
+        "required": [
+          "statusCode",
+          "message",
+          "error",
+          "timestamp",
+          "path"
+        ]
+      },
+      "AvatarDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "/avatars/default.png"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "url",
+          "isDefault"
+        ]
+      },
+      "MeResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          },
+          "name": {
+            "type": "string",
+            "example": "Liliia"
+          },
+          "email": {
+            "type": "string",
+            "example": "liliia@test.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "client",
+              "provider",
+              "admin"
+            ],
+            "example": "client"
+          },
+          "city": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "language": {
+            "type": "string",
+            "example": "de"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+49123456789"
+          },
+          "avatar": {
+            "$ref": "#/components/schemas/AvatarDto"
+          },
+          "acceptedPrivacyPolicy": {
+            "type": "boolean",
+            "example": true
+          },
+          "acceptedPrivacyPolicyAt": {
+            "type": "object",
+            "example": "2025-01-01T12:00:00.000Z"
+          },
+          "isBlocked": {
+            "type": "boolean",
+            "example": false
+          },
+          "blockedAt": {
+            "type": "object",
+            "example": null
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2025-01-01T12:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2025-01-02T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role",
+          "acceptedPrivacyPolicy",
+          "isBlocked",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "UpdateMeDto": {
         "type": "object",
         "properties": {
@@ -260,6 +698,73 @@
           "acceptPrivacyPolicy"
         ]
       },
+      "SafeUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          },
+          "name": {
+            "type": "string",
+            "example": "Liliia"
+          },
+          "email": {
+            "type": "string",
+            "example": "liliia@test.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "client",
+              "provider",
+              "admin"
+            ],
+            "example": "client"
+          },
+          "city": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "language": {
+            "type": "string",
+            "example": "de"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2025-01-01T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role"
+        ]
+      },
+      "AuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/SafeUserDto"
+          },
+          "accessToken": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "expiresIn": {
+            "type": "number",
+            "example": 900,
+            "description": "Access token TTL in seconds"
+          }
+        },
+        "required": [
+          "user",
+          "accessToken",
+          "expiresIn"
+        ]
+      },
       "LoginDto": {
         "type": "object",
         "properties": {
@@ -275,6 +780,36 @@
         "required": [
           "email",
           "password"
+        ]
+      },
+      "RefreshResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "expiresIn": {
+            "type": "number",
+            "example": 900,
+            "description": "Access token TTL in seconds"
+          }
+        },
+        "required": [
+          "accessToken",
+          "expiresIn"
+        ]
+      },
+      "LogoutResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "ok"
         ]
       }
     }
