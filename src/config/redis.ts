@@ -22,6 +22,20 @@ type RedisClient = SimpleRedisClient;
       provide: "REDIS_CLIENT",
       inject: [ConfigService],
       useFactory: async (config: ConfigService): Promise<RedisClient> => {
+        const redisDisabled = Boolean(config.get("app.redisDisabled"));
+        if (redisDisabled) {
+          return {
+            async connect() {},
+            on() {},
+            async setEx() {},
+            async set() {},
+            async get() {
+              return null;
+            },
+            async del() {},
+          };
+        }
+
         const host = String(config.get("app.redisHost") ?? "127.0.0.1");
         const port = Number(config.get("app.redisPort") ?? 6379);
         const password = String(config.get("app.redisPassword") ?? "");
