@@ -13,6 +13,7 @@ export default registerAs("app", () => ({
   redisHost: process.env.REDIS_HOST,
   redisPort: Number(process.env.REDIS_PORT),
   redisPassword: process.env.REDIS_PASSWORD ?? "",
+  redisDisabled: process.env.REDIS_DISABLED === "true",
 
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "")
     .split(",")

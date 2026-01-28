@@ -16,7 +16,9 @@
     "test:cov": "jest --coverage",
     "swagger": "ts-node -r tsconfig-paths/register src/swagger.ts",
     "seed:cities": "ts-node -r tsconfig-paths/register src/database/seeds/seed-cities.ts",
-    "seed:services": "ts-node -r tsconfig-paths/register src/database/seeds/seed-services.ts"
+    "seed:services": "ts-node -r tsconfig-paths/register src/database/seeds/seed-services.ts",
+     "seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-marketplace.ts"
+
   },
   "dependencies": {
     "@nestjs/common": "^10.4.10",
