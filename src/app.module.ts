@@ -11,6 +11,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { CatalogModule } from "./modules/catalog/catalog.module";
 import { ProvidersModule } from './modules/providers/providers.module';
 import { RequestsModule } from './modules/requests/requests.module';
+import { ResponsesModule } from './modules/responses/responses.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { RequestsModule } from './modules/requests/requests.module';
     AuthModule,
     ProvidersModule,
     RequestsModule,
+    ResponsesModule,
   ],
 })
 export class AppModule {}
