@@ -17,7 +17,8 @@
     "swagger": "ts-node -r tsconfig-paths/register src/swagger.ts",
     "seed:cities": "ts-node -r tsconfig-paths/register src/database/seeds/seed-cities.ts",
     "seed:services": "ts-node -r tsconfig-paths/register src/database/seeds/seed-services.ts",
-     "seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-marketplace.ts"
+    "seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-marketplace.ts",
+    "migrate:bookings-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-bookings-indexes.ts"
 
   },
   "dependencies": {
@@ -36,6 +37,7 @@
     "cookie-parser": "^1.4.7",
     "helmet": "^7.1.0",
     "joi": "^18.0.2",
+    "luxon": "^3.7.2",
     "mongoose": "^8.6.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -52,6 +54,7 @@
     "@types/cookie-parser": "^1.4.7",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.14",
+    "@types/luxon": "^3.7.1",
     "@types/node": "^20.14.10",
     "@types/passport-jwt": "^4.0.1",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
