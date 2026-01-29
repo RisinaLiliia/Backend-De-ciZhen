@@ -12,6 +12,8 @@ import { CatalogModule } from "./modules/catalog/catalog.module";
 import { ProvidersModule } from './modules/providers/providers.module';
 import { RequestsModule } from './modules/requests/requests.module';
 import { ResponsesModule } from './modules/responses/responses.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { ResponsesModule } from './modules/responses/responses.module';
     ProvidersModule,
     RequestsModule,
     ResponsesModule,
+    AvailabilityModule,
+    BookingsModule
   ],
 })
 export class AppModule {}
