@@ -1,4 +1,4 @@
-//src/modules/responses/responses.service.ts
+// src/modules/responses/responses.service.ts
 import {
   BadRequestException,
   ConflictException,
@@ -11,13 +11,12 @@ import type { Model } from 'mongoose';
 import { Types } from 'mongoose';
 
 import { Response as Resp, ResponseDocument } from './schemas/response.schema';
-import {
-  ProviderProfile,
-  ProviderProfileDocument,
-} from '../providers/schemas/provider-profile.schema';
+import { ProviderProfile, ProviderProfileDocument } from '../providers/schemas/provider-profile.schema';
 import { Request, RequestDocument } from '../requests/schemas/request.schema';
+import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
 
 const PROVIDER_DAILY_RESPONSE_LIMIT = 30;
+const DEFAULT_BOOKING_DURATION_MIN = 60; 
 
 @Injectable()
 export class ResponsesService {
@@ -26,6 +25,7 @@ export class ResponsesService {
     @InjectModel(ProviderProfile.name)
     private readonly providerModel: Model<ProviderProfileDocument>,
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
+    @InjectModel(Booking.name) private readonly bookingModel: Model<BookingDocument>,
   ) {}
 
   private normalizeId(v?: string): string {
@@ -52,10 +52,12 @@ export class ResponsesService {
     const from = this.startOfTodayUtc();
     const to = this.startOfTomorrowUtc();
 
-    const cnt = await this.responseModel.countDocuments({
-      providerUserId,
-      createdAt: { $gte: from, $lt: to },
-    });
+    const cnt = await this.responseModel
+      .countDocuments({
+        providerUserId,
+        createdAt: { $gte: from, $lt: to },
+      })
+      .exec();
 
     if (cnt >= PROVIDER_DAILY_RESPONSE_LIMIT) {
       throw new ForbiddenException(
@@ -119,10 +121,22 @@ export class ResponsesService {
       .aggregate([
         { $match: match },
         { $sort: { createdAt: -1 } },
+
+        {
+          $addFields: {
+            requestObjId: {
+              $cond: [
+                { $and: [{ $ne: ['$requestId', null] }, { $ne: ['$requestId', ''] }] },
+                { $toObjectId: '$requestId' },
+                null,
+              ],
+            },
+          },
+        },
         {
           $lookup: {
             from: 'requests',
-            localField: 'requestId',
+            localField: 'requestObjId',
             foreignField: '_id',
             as: 'req',
           },
@@ -136,7 +150,7 @@ export class ResponsesService {
             requestStatus: '$req.status',
           },
         },
-        { $project: { req: 0 } },
+        { $project: { req: 0, requestObjId: 0 } },
       ])
       .exec();
   }
@@ -228,6 +242,29 @@ export class ResponsesService {
     }
 
     await this.responseModel.updateOne({ _id: resp._id }, { $set: { status: 'accepted' } }).exec();
+    
+    const durationMin = DEFAULT_BOOKING_DURATION_MIN;
+const startAt = new Date(req.preferredDate);
+const endAt = new Date(startAt.getTime() + durationMin * 60 * 1000);
+
+try {
+  await this.bookingModel.create({
+    requestId: String(req._id),
+    responseId: String(resp._id),
+    providerUserId: resp.providerUserId,
+    clientId: clientUserId,
+    startAt,
+    durationMin,
+    endAt,
+    status: 'confirmed',
+    cancelledAt: null,
+    cancelledBy: null,
+    cancelReason: null,
+    metadata: {},
+  } as any);
+} catch (e: any) {
+  if (e?.code !== 11000) throw e;
+}
 
     await this.responseModel
       .updateMany(

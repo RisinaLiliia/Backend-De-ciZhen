@@ -31,6 +31,5 @@ export class Response {
 export const ResponseSchema = SchemaFactory.createForClass(Response);
 
 ResponseSchema.index({ requestId: 1, providerUserId: 1 }, { unique: true });
-ResponseSchema.index({ requestId: 1, status: 1, createdAt: -1 });
 ResponseSchema.index({ providerUserId: 1, createdAt: -1 });
 ResponseSchema.index({ clientUserId: 1, createdAt: -1 });
