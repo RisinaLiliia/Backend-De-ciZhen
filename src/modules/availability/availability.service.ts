@@ -114,7 +114,7 @@ export class AvailabilityService {
     if (res.deletedCount === 0) throw new NotFoundException('Blackout not found');
   }
 
-  async getSlots(
+    async getSlots(
     providerUserId: string,
     from?: string,
     to?: string,
@@ -123,18 +123,21 @@ export class AvailabilityService {
     const avail = await this.availabilityModel.findOne({ providerUserId }).exec();
     if (!avail || !avail.isActive) return [];
 
-    const tz = (tzOverride ?? avail.timeZone ?? 'Europe/Berlin').trim();
-    this.ensureValidTimeZone(tz);
+    const providerTz = String(avail.timeZone ?? 'Europe/Berlin').trim();
+    this.ensureValidTimeZone(providerTz);
 
-    const startDay = this.parseLocalDay(from ?? this.todayISOInTZ(tz), tz);
-    const endDay = this.parseLocalDay(to ?? this.addDaysISOInTZ(startDay, tz, 7), tz);
+    const uiTz = String(tzOverride ?? providerTz).trim();
+    this.ensureValidTimeZone(uiTz);
 
-    const days = this.diffDaysLocal(startDay, endDay);
+    const startDayUi = this.parseLocalDay(from ?? this.todayISOInTZ(uiTz), uiTz);
+    const endDayUi = this.parseLocalDay(to ?? this.addDaysISOInTZ(startDayUi, uiTz, 7), uiTz);
+
+    const days = this.diffDaysLocal(startDayUi, endDayUi);
     if (days < 0) throw new BadRequestException('to must be >= from');
     if (days > 14) throw new BadRequestException('Date range is too large (max 14 days)');
 
-    const rangeStartUtc = startDay.startOf('day').toUTC();
-    const rangeEndUtc = endDay.endOf('day').toUTC();
+    const rangeStartUtc = startDayUi.startOf('day').toUTC();
+    const rangeEndUtc = endDayUi.endOf('day').toUTC();
 
     const blackouts = await this.blackoutModel
       .find({
@@ -146,8 +149,8 @@ export class AvailabilityService {
       .exec();
 
     const blackoutIntervals = blackouts.map((b) => ({
-      startMs: b.startAt.getTime(),
-      endMs: b.endAt.getTime(),
+      startMs: new Date(b.startAt).getTime(),
+      endMs: new Date(b.endAt).getTime(),
     }));
 
     const bookings = await this.bookingModel
@@ -168,24 +171,22 @@ export class AvailabilityService {
     const busy = [...blackoutIntervals, ...bookingIntervals];
 
     const slots: Slot[] = [];
-    const slotDuration = avail.slotDurationMin ?? 60;
-    const step = slotDuration + (avail.bufferMin ?? 0);
+    const slotDuration = Number(avail.slotDurationMin ?? 60);
+    const step = slotDuration + Number(avail.bufferMin ?? 0);
 
     for (let i = 0; i <= days; i++) {
-      const day = startDay.plus({ days: i });
+      const dayProvider = startDayUi.plus({ days: i }).setZone(providerTz).startOf('day');
 
-      const dayOfWeek = day.weekday % 7;
+      const dayOfWeek = dayProvider.weekday % 7;
 
       const schedule = (avail.weekly ?? []).find((x) => x.dayOfWeek === dayOfWeek);
       if (!schedule || !schedule.ranges?.length) continue;
 
       for (const r of schedule.ranges) {
         const { startMin, endMin } = this.parseRange(r);
-        for (let m = startMin; m + slotDuration <= endMin; m += step) {
-          const slotStartLocal = day
-            .startOf('day')
-            .plus({ minutes: m });
 
+        for (let m = startMin; m + slotDuration <= endMin; m += step) {
+          const slotStartLocal = dayProvider.startOf('day').plus({ minutes: m });
           const slotEndLocal = slotStartLocal.plus({ minutes: slotDuration });
 
           const slotStartUtc = slotStartLocal.toUTC();
@@ -205,6 +206,7 @@ export class AvailabilityService {
 
     return slots;
   }
+
 
   private intersectsAny(s: number,e: number, intervals: Array<{ startMs: number; endMs: number }>): boolean {
     for (const it of intervals) {

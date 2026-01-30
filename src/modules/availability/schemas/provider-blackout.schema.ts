@@ -20,9 +20,14 @@ export class ProviderBlackout {
 
   @Prop({ type: Boolean, default: true, index: true })
   isActive: boolean;
+
 }
 
 export const ProviderBlackoutSchema = SchemaFactory.createForClass(ProviderBlackout);
 
 ProviderBlackoutSchema.index({ providerUserId: 1, startAt: 1, endAt: 1 });
 ProviderBlackoutSchema.index({ providerUserId: 1, isActive: 1, startAt: 1 });
+ProviderBlackoutSchema.index(
+  { providerUserId: 1, isActive: 1, startAt: 1, endAt: 1 },
+  { name: 'idx_blackouts_active_overlap' },
+);

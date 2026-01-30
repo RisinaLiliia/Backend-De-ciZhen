@@ -101,11 +101,15 @@ BookingSchema.index(
 
 BookingSchema.index(
   { rescheduledFromId: 1 },
-  { name: 'uniq_rescheduled_from', unique: true, sparse: true },
+  {
+    name: 'uniq_rescheduled_from',
+    unique: true,
+    partialFilterExpression: { rescheduledFromId: { $type: 'string' } },
+  },
 );
 BookingSchema.index(
   { rescheduledToId: 1 },
-  { name: 'idx_rescheduled_to', sparse: true },
+  { name: 'idx_rescheduled_to', partialFilterExpression: { rescheduledToId: { $type: 'string' } } },
 );
 
 BookingSchema.index({ status: 1, endAt: 1 }, { name: 'idx_status_endAt' });
