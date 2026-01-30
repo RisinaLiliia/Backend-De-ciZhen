@@ -11,15 +11,17 @@
     "build": "nest build",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "test": "jest -c jest.config.ts",
+    "test:watch": "jest -c jest.config.ts --watch",
+    "test:cov": "jest -c jest.config.ts --coverage",
+    "test:e2e": "jest -c test/jest-e2e.json --runInBand",
     "swagger": "ts-node -r tsconfig-paths/register src/swagger.ts",
     "seed:cities": "ts-node -r tsconfig-paths/register src/database/seeds/seed-cities.ts",
     "seed:services": "ts-node -r tsconfig-paths/register src/database/seeds/seed-services.ts",
     "seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-marketplace.ts",
-    "migrate:bookings-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-bookings-indexes.ts"
-
+    "migrate:bookings-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-bookings-indexes.ts",
+    "migrate:availability-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-availability-indexes.ts"
+  
   },
   "dependencies": {
     "@nestjs/common": "^10.4.10",
@@ -57,12 +59,15 @@
     "@types/luxon": "^3.7.1",
     "@types/node": "^20.14.10",
     "@types/passport-jwt": "^4.0.1",
+    "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "jest": "^29.7.0",
+    "mongodb-memory-server": "^11.0.1",
     "prettier": "^3.3.3",
+    "supertest": "^7.2.2",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

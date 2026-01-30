@@ -6,6 +6,8 @@ import { envValidationSchema } from "./config/env.validation";
 import { DatabaseModule } from "./config/database";
 import { RedisModule } from "./config/redis";
 import { ThrottlerModule, ThrottlerModuleOptions } from "@nestjs/throttler";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
 import { UsersModule } from "./modules/users/users.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { CatalogModule } from "./modules/catalog/catalog.module";
@@ -53,5 +55,7 @@ import { BookingsModule } from './modules/bookings/bookings.module';
     AvailabilityModule,
     BookingsModule
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
