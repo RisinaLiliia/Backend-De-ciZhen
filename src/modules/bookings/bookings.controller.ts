@@ -1,10 +1,9 @@
 // src/modules/bookings/bookings.controller.ts
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards, ForbiddenException } from '@nestjs/common';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
-import { ForbiddenException } from '@nestjs/common';
 import { ApiErrors } from '../../common/swagger/api-errors.decorator';
 import { BookingsService } from './bookings.service';
 import { BookingDto } from './dto/booking.dto';
@@ -12,6 +11,8 @@ import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { BookingsQueryDto } from './dto/bookings-query.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import { BookingHistoryDto } from './dto/booking-history.dto';
+import { CreateBookingDto } from './dto/create-booking.dto';
+
 
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
@@ -42,6 +43,7 @@ export class BookingsController {
 
     };
   }
+
 
   @UseGuards(JwtAuthGuard)
   @Get('my')
@@ -173,4 +175,33 @@ export class BookingsController {
     return { ok: true, bookingId, status: 'completed' };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Client: create booking (must match availability slot)' })
+  @ApiCreatedResponse({ type: BookingDto })
+  @ApiErrors({ conflict: true })
+  async create(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: CreateBookingDto,
+  ): Promise<BookingDto> {
+    if (user.role !== 'client' && user.role !== 'admin') {
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (user.role === 'admin') {
+      throw new ForbiddenException('Admin create booking is not implemented');
+    }
+
+    const created = await this.bookings.createByClient(user.userId, {
+      requestId: dto.requestId,
+      responseId: dto.responseId,
+      providerUserId: dto.providerUserId,
+      startAt: dto.startAt,
+      durationMin: dto.durationMin,
+      note: dto.note,
+    });
+
+    return this.toDto(created);
+  }
 }
