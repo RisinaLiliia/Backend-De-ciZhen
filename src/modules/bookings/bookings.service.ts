@@ -5,6 +5,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef 
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
@@ -17,6 +19,7 @@ import {
   hoursToMs,
 } from './bookings.rules';
 import { ProviderBlackout, ProviderBlackoutDocument } from '../availability/schemas/provider-blackout.schema';
+import { AvailabilityService } from '../availability/availability.service';
 
 type Actor =
   | { userId: string; role: 'client' }
@@ -38,10 +41,91 @@ type BookingHistoryItem = {
 
 @Injectable()
 export class BookingsService {
-  constructor(
+    constructor(
     @InjectModel(Booking.name) private readonly bookingModel: Model<BookingDocument>,
     @InjectModel(ProviderBlackout.name) private readonly blackoutModel: Model<ProviderBlackoutDocument>,
+    @Inject(forwardRef(() => AvailabilityService))
+    private readonly availability: AvailabilityService,
   ) {}
+
+    private isMongoDupKey(e: any): boolean {
+    return !!e && (e.code === 11000 || e.name === 'MongoServerError' && /E11000/.test(String(e.message ?? '')));
+  }
+
+
+private async assertStartAtIsSlot(providerUserId: string, startAt: Date, durationMin: number) {
+    
+    const day = new Date(startAt).toISOString().slice(0, 10); 
+    const slots = await this.availability.getSlots(providerUserId, day, day, 'UTC');
+
+    const wantStartIso = startAt.toISOString();
+    const wantEndIso = new Date(startAt.getTime() + durationMin * 60 * 1000).toISOString();
+
+    const ok = slots.some((s) => s.startAt === wantStartIso && s.endAt === wantEndIso);
+    if (!ok) throw new ConflictException('Slot is not available (not in provider availability)');
+  }
+
+async createByClient(
+    clientId: string,
+    input: {
+      requestId: string;
+      responseId: string;
+      providerUserId: string;
+      startAt: string;
+      durationMin?: number;
+      note?: string;
+    },
+  ): Promise<BookingDocument> {
+    const requestId = this.normalizeId(input.requestId);
+    const responseId = this.normalizeId(input.responseId);
+    const providerUserId = this.normalizeId(input.providerUserId);
+
+    if (!requestId) throw new BadRequestException('requestId is required');
+    if (!responseId) throw new BadRequestException('responseId is required');
+    if (!providerUserId) throw new BadRequestException('providerUserId is required');
+
+    const startAt = this.parseDateOrThrow(input.startAt, 'startAt');
+    if (startAt.getTime() <= Date.now()) throw new BadRequestException('startAt must be in the future');
+
+    const durationMin = typeof input.durationMin === 'number' ? input.durationMin : 60;
+    if (!Number.isFinite(durationMin) || durationMin < 15 || durationMin > 24 * 60) {
+      throw new BadRequestException('durationMin is invalid');
+    }
+
+    const endAt = new Date(startAt.getTime() + durationMin * 60 * 1000);
+
+    await this.assertStartAtIsSlot(providerUserId, startAt, durationMin);
+
+    await this.assertSlotFree(providerUserId, startAt, endAt, null);
+
+    try {
+      const created = await this.bookingModel.create({
+        requestId,
+        responseId,
+        providerUserId,
+        clientId,
+        startAt,
+        durationMin,
+        endAt,
+        status: 'confirmed',
+        cancelledAt: null,
+        cancelledBy: null,
+        cancelReason: null,
+        rescheduledFromId: null,
+        rescheduledToId: null,
+        rescheduledAt: null,
+        rescheduleReason: null,
+        metadata: input.note?.trim?.() ? { note: input.note.trim() } : {},
+      });
+
+      return created;
+    } catch (e: any) {
+      if (this.isMongoDupKey(e)) {
+        throw new ConflictException('Booking already exists or slot already taken');
+      }
+      throw e;
+    }
+  }
 
   private ensureObjectId(id: string, field: string) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException(`${field} must be a valid ObjectId`);

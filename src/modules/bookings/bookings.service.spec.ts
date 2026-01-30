@@ -4,6 +4,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { BookingsService } from './bookings.service';
 import { Booking } from './schemas/booking.schema';
 import { ProviderBlackout } from '../availability/schemas/provider-blackout.schema';
+import { AvailabilityService } from '../availability/availability.service';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('BookingsService (unit)', () => {
@@ -25,6 +26,10 @@ describe('BookingsService (unit)', () => {
     countDocuments: jest.fn(),
   };
 
+  const availabilityMock = {
+    getSlots: jest.fn(),
+  };
+
   const execWrap = (value: any) => ({ exec: jest.fn().mockResolvedValue(value) });
 
   beforeEach(async () => {
@@ -35,6 +40,7 @@ describe('BookingsService (unit)', () => {
         BookingsService,
         { provide: getModelToken(Booking.name), useValue: bookingModelMock },
         { provide: getModelToken(ProviderBlackout.name), useValue: blackoutModelMock },
+        { provide: AvailabilityService, useValue: availabilityMock }, 
       ],
     }).compile();
 
@@ -42,8 +48,12 @@ describe('BookingsService (unit)', () => {
   });
 
   it('normalizeFilters throws if to < from', async () => {
-    expect(() => svc.normalizeFilters({ from: '2026-01-02T00:00:00.000Z', to: '2026-01-01T00:00:00.000Z' } as any))
-      .toThrow(BadRequestException);
+    expect(() =>
+      svc.normalizeFilters({
+        from: '2026-01-02T00:00:00.000Z',
+        to: '2026-01-01T00:00:00.000Z',
+      } as any),
+    ).toThrow(BadRequestException);
   });
 
   it('listMyClient applies status and date filters', async () => {
@@ -54,12 +64,14 @@ describe('BookingsService (unit)', () => {
         }),
       }),
     });
+
     await svc.listMyClient('c1', {
       status: 'confirmed',
       from: new Date('2026-01-01T00:00:00.000Z'),
       limit: 10,
       offset: 5,
     } as any);
+
     expect(bookingModelMock.find).toHaveBeenCalledWith(
       expect.objectContaining({
         clientId: 'c1',
@@ -71,6 +83,7 @@ describe('BookingsService (unit)', () => {
 
   it('cancel throws if booking not found', async () => {
     bookingModelMock.findById.mockReturnValue(execWrap(null));
+
     await expect(
       svc.cancel({ userId: 'c1', role: 'client' }, '507f1f77bcf86cd799439011', 'x'),
     ).rejects.toBeInstanceOf(NotFoundException);
@@ -114,9 +127,9 @@ describe('BookingsService (unit)', () => {
     expect(doc.cancelledBy).toBe('provider');
     expect(doc.save).toHaveBeenCalled();
   });
+
   it('reschedule cancels old and creates new (transaction)', async () => {
-    // old booking
-    const farFuture = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h to start
+    const farFuture = new Date(Date.now() + 48 * 60 * 60 * 1000);
     const oldDoc: any = {
       _id: 'b1',
       requestId: 'r1',
@@ -130,6 +143,7 @@ describe('BookingsService (unit)', () => {
     };
 
     bookingModelMock.findById.mockReturnValue(execWrap(oldDoc));
+
     bookingModelMock.countDocuments.mockReturnValue({
       session: jest.fn().mockResolvedValue(0),
     });
@@ -166,8 +180,8 @@ describe('BookingsService (unit)', () => {
     });
 
     bookingModelMock.db.startSession.mockResolvedValue({
-        withTransaction: async (fn: any) => fn(),
-        endSession: jest.fn().mockResolvedValue(undefined),
+      withTransaction: async (fn: any) => fn(),
+      endSession: jest.fn().mockResolvedValue(undefined),
     });
 
     const created = await svc.reschedule(
@@ -181,10 +195,8 @@ describe('BookingsService (unit)', () => {
     expect(created._id).toBe('b2');
   });
 
-    it('reschedule forbids if less than 24h before start', async () => {
-    const bookingModelAny: any = bookingModelMock;
-
-    const soon = new Date(Date.now() + 2 * 60 * 60 * 1000); 
+  it('reschedule forbids if less than 24h before start', async () => {
+    const soon = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const oldDoc: any = {
       _id: 'b1',
       requestId: 'r1',
@@ -197,18 +209,20 @@ describe('BookingsService (unit)', () => {
       status: 'confirmed',
     };
 
-    bookingModelAny.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(oldDoc) });
-    bookingModelAny.countDocuments = jest.fn().mockResolvedValue(0);
+    (bookingModelMock as any).findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(oldDoc) });
+    (bookingModelMock as any).countDocuments = jest.fn().mockResolvedValue(0);
     blackoutModelMock.countDocuments = jest.fn().mockResolvedValue(0);
 
     await expect(
-      svc.reschedule({ userId: 'c1', role: 'client' }, '507f1f77bcf86cd799439011', { startAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() }),
+      svc.reschedule(
+        { userId: 'c1', role: 'client' },
+        '507f1f77bcf86cd799439011',
+        { startAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() },
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('complete sets status completed (provider)', async () => {
-    const bookingModelAny: any = bookingModelMock;
-
     const ended = new Date(Date.now() - 10 * 60 * 1000);
     const started = new Date(Date.now() - 70 * 60 * 1000);
 
@@ -221,16 +235,17 @@ describe('BookingsService (unit)', () => {
       endAt: ended,
     };
 
-    bookingModelAny.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(b) });
-    bookingModelAny.updateOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) });
+    (bookingModelMock as any).findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(b) });
+    (bookingModelMock as any).updateOne = jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+    });
 
     await svc.complete({ userId: 'p1', role: 'provider' }, '507f1f77bcf86cd799439011');
-
-    expect(bookingModelAny.updateOne).toHaveBeenCalled();
+    expect((bookingModelMock as any).updateOne).toHaveBeenCalled();
   });
 
-    it('cancel forbids if less than N hours before start', async () => {
-    const soon = new Date(Date.now() + 2 * 60 * 60 * 1000); 
+  it('cancel forbids if less than N hours before start', async () => {
+    const soon = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const b: any = {
       _id: 'b1',
       clientId: 'c1',
@@ -242,13 +257,13 @@ describe('BookingsService (unit)', () => {
 
     bookingModelMock.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(b) });
 
-    await expect(svc.cancelByClient('c1', '507f1f77bcf86cd799439011', 'x'))
-      .rejects
-      .toBeInstanceOf(BadRequestException);
+    await expect(svc.cancelByClient('c1', '507f1f77bcf86cd799439011', 'x')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('cancel allows provider to cancel own booking (atomic update)', async () => {
-    const later = new Date(Date.now() + 48 * 60 * 60 * 1000); 
+    const later = new Date(Date.now() + 48 * 60 * 60 * 1000);
     const b: any = {
       _id: 'b1',
       clientId: 'c1',
@@ -262,20 +277,61 @@ describe('BookingsService (unit)', () => {
     bookingModelMock.updateOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) });
 
     await svc.cancelByProvider('p1', '507f1f77bcf86cd799439011', 'No availability');
-
     expect(bookingModelMock.updateOne).toHaveBeenCalled();
   });
 
-    it('getHistory returns ordered chain root->latest', async () => {
+  it('getHistory returns ordered chain root->latest', async () => {
     const id1 = '507f1f77bcf86cd799439011';
     const id2 = '507f1f77bcf86cd799439012';
     const id3 = '507f1f77bcf86cd799439013';
 
-    const requestedLean: any = { _id: id2, requestId: 'r1', responseId: 'resp1', providerUserId: 'p1', clientId: 'c1' };
+    const requestedLean: any = {
+      _id: id2,
+      requestId: 'r1',
+      responseId: 'resp1',
+      providerUserId: 'p1',
+      clientId: 'c1',
+    };
 
-    const b1: any = { _id: id1, requestId: 'r1', responseId: 'resp1', providerUserId: 'p1', clientId: 'c1', rescheduledFromId: null, rescheduledToId: id2, startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'cancelled' };
-    const b2: any = { _id: id2, requestId: 'r1', responseId: 'resp1', providerUserId: 'p1', clientId: 'c1', rescheduledFromId: id1, rescheduledToId: id3, startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'cancelled' };
-    const b3: any = { _id: id3, requestId: 'r1', responseId: 'resp1', providerUserId: 'p1', clientId: 'c1', rescheduledFromId: id2, rescheduledToId: null, startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'confirmed' };
+    const b1: any = {
+      _id: id1,
+      requestId: 'r1',
+      responseId: 'resp1',
+      providerUserId: 'p1',
+      clientId: 'c1',
+      rescheduledFromId: null,
+      rescheduledToId: id2,
+      startAt: new Date(),
+      durationMin: 60,
+      endAt: new Date(),
+      status: 'cancelled',
+    };
+    const b2: any = {
+      _id: id2,
+      requestId: 'r1',
+      responseId: 'resp1',
+      providerUserId: 'p1',
+      clientId: 'c1',
+      rescheduledFromId: id1,
+      rescheduledToId: id3,
+      startAt: new Date(),
+      durationMin: 60,
+      endAt: new Date(),
+      status: 'cancelled',
+    };
+    const b3: any = {
+      _id: id3,
+      requestId: 'r1',
+      responseId: 'resp1',
+      providerUserId: 'p1',
+      clientId: 'c1',
+      rescheduledFromId: id2,
+      rescheduledToId: null,
+      startAt: new Date(),
+      durationMin: 60,
+      endAt: new Date(),
+      status: 'confirmed',
+    };
 
     bookingModelMock.findById.mockImplementation(() => ({
       select: jest.fn().mockReturnValue({
@@ -298,8 +354,7 @@ describe('BookingsService (unit)', () => {
     expect(res.rootId).toBe(id1);
     expect(res.latestId).toBe(id3);
     expect(res.currentIndex).toBe(1);
-    expect(res.items.map((x: any) => String((x as any)._id))).toEqual([id1, id2, id3]);
+    expect(res.items.map((x: any) => String(x._id))).toEqual([id1, id2, id3]);
   });
-
-
 });
+

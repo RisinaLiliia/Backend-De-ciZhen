@@ -50,21 +50,17 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
 
-    // ✅ services from the same container
     availability = app.get(AvailabilityService);
     bookings = app.get(BookingsService);
 
-    // ✅ models from the same container (same mongoose connection)
     bookingModel = app.get(getModelToken(Booking.name));
     providerAvailabilityModel = app.get(getModelToken(ProviderAvailability.name));
     providerProfileModel = app.get(getModelToken(ProviderProfile.name));
   });
 
   afterAll(async () => {
-    // ✅ close Nest first (it will close mongoose connection created by MongooseModule)
     if (app) await app.close();
 
-    // extra safety: ensure mongoose is fully disconnected
     await mongoose.disconnect();
 
     if (replSet) await replSet.stop();
