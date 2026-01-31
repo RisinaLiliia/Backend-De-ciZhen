@@ -14,7 +14,6 @@ import { BookingHistoryDto } from './dto/booking-history.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
 
-
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
 @ApiTags('bookings')

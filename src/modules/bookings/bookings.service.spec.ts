@@ -184,6 +184,13 @@ describe('BookingsService (unit)', () => {
       endSession: jest.fn().mockResolvedValue(undefined),
     });
 
+    availabilityMock.getSlots.mockResolvedValue([
+      {
+        startAt: '2026-02-10T10:00:00.000Z',
+        endAt: '2026-02-10T11:00:00.000Z',
+      },
+    ]);
+
     const created = await svc.reschedule(
       { userId: 'c1', role: 'client' },
       '507f1f77bcf86cd799439011',
@@ -357,4 +364,3 @@ describe('BookingsService (unit)', () => {
     expect(res.items.map((x: any) => String(x._id))).toEqual([id1, id2, id3]);
   });
 });
-

@@ -111,10 +111,6 @@ async createByClient(
         cancelledAt: null,
         cancelledBy: null,
         cancelReason: null,
-        rescheduledFromId: null,
-        rescheduledToId: null,
-        rescheduledAt: null,
-        rescheduleReason: null,
         metadata: input.note?.trim?.() ? { note: input.note.trim() } : {},
       });
 
@@ -355,7 +351,9 @@ async createByClient(
     }
 
     const newEndAt = new Date(newStartAt.getTime() + durationMin * 60 * 1000);
-
+    
+    await this.assertStartAtIsSlot(old.providerUserId, newStartAt, durationMin);
+ 
     await this.assertSlotFree(old.providerUserId, newStartAt, newEndAt, old._id);
 
     const session = await this.bookingModel.db.startSession();
