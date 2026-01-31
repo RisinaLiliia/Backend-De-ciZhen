@@ -38,7 +38,7 @@ export class BookingDto {
   @ApiPropertyOptional({ nullable: true })
   cancelReason: string | null;
 
-    @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true })
   rescheduledFromId: string | null;
 
   @ApiPropertyOptional({ nullable: true })
@@ -49,5 +49,4 @@ export class BookingDto {
 
   @ApiPropertyOptional({ nullable: true })
   rescheduleReason: string | null;
-
 }

@@ -1,5 +1,6 @@
 // src/modules/bookings/dto/bookings-query.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class BookingsQueryDto {
@@ -27,6 +28,7 @@ export class BookingsQueryDto {
 
   @ApiPropertyOptional({ example: 20, description: 'Page size (1..100). Default 20' })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
@@ -34,6 +36,7 @@ export class BookingsQueryDto {
 
   @ApiPropertyOptional({ example: 0, description: 'Offset for pagination. Default 0' })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   offset?: number;
