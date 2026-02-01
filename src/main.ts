@@ -42,20 +42,18 @@ async function bootstrap() {
 
   app.useGlobalFilters(new GlobalExceptionFilter(!isProd));
 
-  if (!isProd) {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle("De’ciZhen API")
-      .setDescription("Interactive API documentation")
-      .setVersion("1.0.0")
-      .addBearerAuth(
-        { type: "http", scheme: "bearer", bearerFormat: "JWT" },
-        "access-token",
-      )
-      .build();
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle("De’ciZhen API")
+    .setDescription("Interactive API documentation")
+    .setVersion("1.0.0")
+    .addBearerAuth({ type: "http", scheme: "bearer", bearerFormat: "JWT" }, "access-token")
+    .build();
 
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup("docs", app, document);
-  }
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup("docs", app, document, {
+    swaggerOptions: { persistAuthorization: true },
+  });
+
 
   const port = config.get<number>("app.port") ?? 3000;
   await app.listen(port);
@@ -66,4 +64,3 @@ bootstrap().catch((err) => {
   console.error("Fatal bootstrap error", err);
   process.exit(1);
 });
-
