@@ -24,4 +24,4 @@ COPY --from=builder /app/dist ./dist
 USER app
 
 EXPOSE 3000
-CMD ["node", "dist/main.ts"]
+CMD ["node", "dist/main.js"]
