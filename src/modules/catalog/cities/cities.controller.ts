@@ -11,11 +11,21 @@ export class CitiesController {
   constructor(private readonly citiesService: CitiesService) {}
 
   private toDto(doc: any): CityResponseDto {
+    const i18n = doc.i18n ?? {};
+    const name =
+      doc.name ??
+      i18n.en ??
+      Object.values(i18n)[0] ??
+      "";
+
     return {
-      id: doc._id.toString(),
-      name: doc.name,
+      _id: doc._id.toString(),
+      key: doc.key,
+      name,
+      i18n,
       countryCode: doc.countryCode,
       isActive: doc.isActive,
+      sortOrder: doc.sortOrder ?? 0,
     };
   }
 

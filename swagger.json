@@ -2873,13 +2873,24 @@
       "CityResponseDto": {
         "type": "object",
         "properties": {
-          "id": {
+          "_id": {
             "type": "string",
-            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+            "example": "6981de2e9677bda5634a385e"
+          },
+          "key": {
+            "type": "string",
+            "example": "city_berlin"
           },
           "name": {
             "type": "string",
             "example": "Berlin"
+          },
+          "i18n": {
+            "type": "object",
+            "example": {
+              "de": "Berlin",
+              "en": "Berlin"
+            }
           },
           "countryCode": {
             "type": "string",
@@ -2888,13 +2899,20 @@
           "isActive": {
             "type": "boolean",
             "example": true
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 1
           }
         },
         "required": [
-          "id",
+          "_id",
+          "key",
           "name",
+          "i18n",
           "countryCode",
-          "isActive"
+          "isActive",
+          "sortOrder"
         ]
       },
       "ServiceCategoryDto": {
