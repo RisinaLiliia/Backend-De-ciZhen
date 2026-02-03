@@ -8,6 +8,9 @@ export class ServiceDto {
   @ApiProperty({ example: 'Men haircut' })
   name: string;
 
+  @ApiProperty({ example: { en: "Men's haircut", de: 'Herrenhaarschnitt' } })
+  i18n: Record<string, string>;
+
   @ApiProperty({ example: 'beauty' })
   categoryKey: string;
 

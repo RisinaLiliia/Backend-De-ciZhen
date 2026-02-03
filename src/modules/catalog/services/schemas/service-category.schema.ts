@@ -9,8 +9,11 @@ export class ServiceCategory {
   @Prop({ required: true, trim: true, lowercase: true, maxlength: 50 })
   key: string;
 
-  @Prop({ required: true, trim: true, maxlength: 80 })
-  name: string;
+  @Prop({ trim: true, maxlength: 80 })
+  name?: string;
+
+  @Prop({ type: Object, default: {} })
+  i18n: Record<string, string>;
 
   @Prop({ default: 0 })
   sortOrder: number;

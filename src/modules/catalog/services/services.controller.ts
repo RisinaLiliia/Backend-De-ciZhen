@@ -19,7 +19,8 @@ export class CatalogServicesController {
     const cats = await this.catalog.listCategories();
     return cats.map((c) => ({
       key: c.key,
-      name: c.name,
+      name: c.name ?? c.i18n?.en ?? c.i18n?.de ?? '',
+      i18n: c.i18n ?? {},
       sortOrder: c.sortOrder,
       isActive: c.isActive,
     }));
@@ -33,7 +34,8 @@ export class CatalogServicesController {
     const items = await this.catalog.listServices(category);
     return items.map((s) => ({
       key: s.key,
-      name: s.name,
+      name: s.name ?? s.i18n?.en ?? s.i18n?.de ?? '',
+      i18n: s.i18n ?? {},
       categoryKey: s.categoryKey,
       sortOrder: s.sortOrder,
       isActive: s.isActive,

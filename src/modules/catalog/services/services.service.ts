@@ -20,7 +20,7 @@ export class CatalogServicesService {
   async listCategories(): Promise<ServiceCategoryDocument[]> {
     return this.categoryModel
       .find({ isActive: true })
-      .sort({ sortOrder: 1, name: 1 })
+      .sort({ sortOrder: 1, 'i18n.en': 1, name: 1 })
       .exec();
   }
 
@@ -34,7 +34,7 @@ export class CatalogServicesService {
 
     return this.serviceModel
       .find(filter)
-      .sort({ sortOrder: 1, name: 1 })
+      .sort({ sortOrder: 1, 'i18n.en': 1, name: 1 })
       .exec();
   }
 }
