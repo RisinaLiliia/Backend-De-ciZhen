@@ -8,6 +8,9 @@ export class ServiceCategoryDto {
   @ApiProperty({ example: 'Beauty' })
   name: string;
 
+  @ApiProperty({ example: { en: 'Beauty & Wellness', de: 'Beauty & Wellness' } })
+  i18n: Record<string, string>;
+
   @ApiProperty({ example: 10 })
   sortOrder: number;
 

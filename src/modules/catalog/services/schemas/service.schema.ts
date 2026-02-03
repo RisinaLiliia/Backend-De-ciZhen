@@ -9,8 +9,11 @@ export class Service {
   @Prop({ required: true, trim: true, lowercase: true, maxlength: 80 })
   key: string; 
 
-  @Prop({ required: true, trim: true, maxlength: 120 })
-  name: string;
+  @Prop({ trim: true, maxlength: 120 })
+  name?: string;
+
+  @Prop({ type: Object, default: {} })
+  i18n: Record<string, string>;
 
   @Prop({ required: true, trim: true, lowercase: true, maxlength: 50 })
   categoryKey: string; 

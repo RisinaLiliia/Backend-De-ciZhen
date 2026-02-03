@@ -1,6 +1,249 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "API root",
+        "security": []
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "AppController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Health check",
+        "security": []
+      }
+    },
+    "/catalog/cities": {
+      "get": {
+        "operationId": "CitiesController_list",
+        "summary": "List active cities (public dictionary)",
+        "description": "Returns only active cities. Optionally filter by countryCode (e.g. DE).",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CityResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "catalog"
+        ],
+        "security": []
+      }
+    },
+    "/catalog/service-categories": {
+      "get": {
+        "operationId": "CatalogServicesController_categories",
+        "summary": "List service categories (active)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceCategoryDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "catalog"
+        ],
+        "security": []
+      }
+    },
+    "/catalog/services": {
+      "get": {
+        "operationId": "CatalogServicesController_services",
+        "summary": "List services (active). Optional filter by category",
+        "parameters": [
+          {
+            "name": "category",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "catalog"
+        ],
+        "security": []
+      }
+    },
     "/users/me": {
       "get": {
         "operationId": "UsersController_me",
@@ -252,7 +495,8 @@
         },
         "tags": [
           "auth"
-        ]
+        ],
+        "security": []
       }
     },
     "/auth/login": {
@@ -334,7 +578,8 @@
         },
         "tags": [
           "auth"
-        ]
+        ],
+        "security": []
       }
     },
     "/auth/refresh": {
@@ -406,7 +651,8 @@
         },
         "tags": [
           "auth"
-        ]
+        ],
+        "security": []
       }
     },
     "/auth/logout": {
@@ -448,6 +694,2097 @@
         },
         "tags": [
           "auth"
+        ],
+        "security": []
+      }
+    },
+    "/providers/me/profile": {
+      "get": {
+        "operationId": "ProvidersController_myProfile",
+        "summary": "Get or create my provider profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderProfileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "ProvidersController_updateMyProfile",
+        "summary": "Update my provider profile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMyProviderProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderProfileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers": {
+      "get": {
+        "operationId": "ProvidersController_listPublic",
+        "summary": "Public providers listing (catalog)",
+        "description": "Active + not blocked providers. Filters: cityId, serviceKey.",
+        "parameters": [
+          {
+            "name": "cityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "home_cleaning",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderPublicDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "providers"
+        ],
+        "security": []
+      }
+    },
+    "/requests": {
+      "post": {
+        "operationId": "RequestsController_create",
+        "summary": "Create public request (no auth)",
+        "description": "Creates a request and publishes it immediately (MVP).",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": []
+      }
+    },
+    "/requests/public": {
+      "get": {
+        "operationId": "RequestsController_listPublic",
+        "summary": "List published requests (for providers)",
+        "description": "Returns published requests. Optional filters: cityId, serviceKey.",
+        "parameters": [
+          {
+            "name": "cityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "home_cleaning",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequestResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": []
+      }
+    },
+    "/responses": {
+      "post": {
+        "operationId": "ResponsesController_create",
+        "summary": "Provider: respond to a request",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/responses/my": {
+      "get": {
+        "operationId": "ResponsesController_my",
+        "summary": "Provider: list my responses",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Optional status filter",
+            "schema": {
+              "example": "pending",
+              "enum": [
+                "pending",
+                "accepted",
+                "rejected"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/availability/me": {
+      "patch": {
+        "operationId": "AvailabilityController_updateMy",
+        "summary": "Provider: update my availability settings + weekly schedule",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAvailabilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/availability/providers/{providerUserId}/slots": {
+      "get": {
+        "operationId": "AvailabilityController_listSlots",
+        "summary": "Public: list provider slots for UI (DST-safe)",
+        "description": "Generates slots in provider TZ with DST support. Considers blackouts and matched/closed requests. Max range 14 days.",
+        "parameters": [
+          {
+            "name": "providerUserId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD (local date in tz)",
+            "schema": {
+              "example": "2026-01-29",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD (local date in tz)",
+            "schema": {
+              "example": "2026-02-05",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz",
+            "required": false,
+            "in": "query",
+            "description": "IANA time zone override for UI",
+            "schema": {
+              "example": "Europe/Berlin",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SlotDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": []
+      }
+    },
+    "/availability/me/blackouts": {
+      "get": {
+        "operationId": "AvailabilityController_myBlackouts",
+        "summary": "Provider: list my blackouts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlackoutDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "AvailabilityController_addBlackout",
+        "summary": "Provider: create blackout (UTC)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBlackoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlackoutDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/availability/me/blackouts/{id}": {
+      "delete": {
+        "operationId": "AvailabilityController_removeBlackout",
+        "summary": "Provider: remove blackout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "ok": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/bookings/my": {
+      "get": {
+        "operationId": "BookingsController_my",
+        "summary": "Client/Provider: list my bookings (UI-ready)",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "confirmed",
+                "cancelled",
+                "completed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ISO8601 UTC (inclusive). Filter by startAt >= from",
+            "schema": {
+              "example": "2026-01-01T00:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ISO8601 UTC (exclusive). Filter by startAt < to",
+            "schema": {
+              "example": "2026-02-01T00:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size (1..100). Default 20",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Offset for pagination. Default 0",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BookingDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/bookings/{id}/history": {
+      "get": {
+        "operationId": "BookingsController_history",
+        "summary": "Client/Provider/Admin: booking history (reschedule chain)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingHistoryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/bookings/{id}/cancel": {
+      "patch": {
+        "operationId": "BookingsController_cancel",
+        "summary": "Cancel booking (client/provider/admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "ok": true,
+                    "bookingId": "507f1f77bcf86cd799439011",
+                    "status": "cancelled"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/bookings/{id}/reschedule": {
+      "patch": {
+        "operationId": "BookingsController_reschedule",
+        "summary": "Client/Provider: reschedule booking (creates new booking, cancels old)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescheduleBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/bookings/{id}/complete": {
+      "patch": {
+        "operationId": "BookingsController_complete",
+        "summary": "Provider/Admin: mark booking completed",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "ok": true,
+                    "bookingId": "507f1f77bcf86cd799439011",
+                    "status": "completed"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/bookings": {
+      "post": {
+        "operationId": "BookingsController_create",
+        "summary": "Client: create booking (must match availability slot)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/responses/by-request/{requestId}": {
+      "get": {
+        "operationId": "ResponsesController_listForRequest",
+        "summary": "Client: list responses for my request (UI)",
+        "description": "Optional filter: ?status=pending",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Optional status filter",
+            "schema": {
+              "example": "pending",
+              "enum": [
+                "pending",
+                "accepted",
+                "rejected"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/responses/id/{id}/accept": {
+      "patch": {
+        "operationId": "ResponsesController_accept",
+        "summary": "Client: accept provider response (match)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptResponseResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/responses/id/{id}/reject": {
+      "patch": {
+        "operationId": "ResponsesController_reject",
+        "summary": "Client: reject provider response",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RejectResponseResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
         ]
       }
     }
@@ -465,7 +2802,7 @@
   "tags": [],
   "servers": [
     {
-      "url": "http://localhost:3000",
+      "url": "https://api.decizhen.dev",
       "description": "Development"
     }
   ],
@@ -533,6 +2870,108 @@
           "path"
         ]
       },
+      "CityResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          },
+          "name": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "countryCode": {
+            "type": "string",
+            "example": "DE"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "countryCode",
+          "isActive"
+        ]
+      },
+      "ServiceCategoryDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "beauty"
+          },
+          "name": {
+            "type": "string",
+            "example": "Beauty"
+          },
+          "i18n": {
+            "type": "object",
+            "example": {
+              "en": "Beauty & Wellness",
+              "de": "Beauty & Wellness"
+            }
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 10
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "i18n",
+          "sortOrder",
+          "isActive"
+        ]
+      },
+      "ServiceDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "haircut_men"
+          },
+          "name": {
+            "type": "string",
+            "example": "Men haircut"
+          },
+          "i18n": {
+            "type": "object",
+            "example": {
+              "en": "Men's haircut",
+              "de": "Herrenhaarschnitt"
+            }
+          },
+          "categoryKey": {
+            "type": "string",
+            "example": "beauty"
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 10
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "i18n",
+          "categoryKey",
+          "sortOrder",
+          "isActive"
+        ]
+      },
       "AvatarDto": {
         "type": "object",
         "properties": {
@@ -594,16 +3033,20 @@
             "example": true
           },
           "acceptedPrivacyPolicyAt": {
-            "type": "object",
-            "example": "2025-01-01T12:00:00.000Z"
+            "type": "string",
+            "example": "2025-01-01T12:00:00.000Z",
+            "format": "date-time",
+            "nullable": true
           },
           "isBlocked": {
             "type": "boolean",
             "example": false
           },
           "blockedAt": {
-            "type": "object",
-            "example": null
+            "type": "string",
+            "example": null,
+            "format": "date-time",
+            "nullable": true
           },
           "createdAt": {
             "format": "date-time",
@@ -811,7 +3254,794 @@
         "required": [
           "ok"
         ]
+      },
+      "ProviderProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          },
+          "userId": {
+            "type": "string",
+            "example": "userId1"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Anna Cleaner",
+            "nullable": true
+          },
+          "bio": {
+            "type": "string",
+            "example": "I do cleaning in Berlin...",
+            "nullable": true
+          },
+          "companyName": {
+            "type": "string",
+            "example": "Sparkle GmbH",
+            "nullable": true
+          },
+          "vatId": {
+            "type": "string",
+            "example": "DE123456789",
+            "nullable": true
+          },
+          "cityId": {
+            "type": "string",
+            "example": "cityId_berlin",
+            "nullable": true
+          },
+          "serviceKeys": {
+            "example": [
+              "home_cleaning"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "basePrice": {
+            "type": "number",
+            "example": 40,
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "suspended"
+            ],
+            "example": "draft"
+          },
+          "isBlocked": {
+            "type": "boolean",
+            "example": false
+          },
+          "blockedAt": {
+            "type": "string",
+            "example": null,
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-27T10:20:30.123Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-27T10:20:30.123Z"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "serviceKeys",
+          "status",
+          "isBlocked",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateMyProviderProfileDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "example": "Anna Cleaner"
+          },
+          "bio": {
+            "type": "string",
+            "example": "I do cleaning in Berlin..."
+          },
+          "companyName": {
+            "type": "string",
+            "example": "Sparkle GmbH"
+          },
+          "vatId": {
+            "type": "string",
+            "example": "DE123456789"
+          },
+          "cityId": {
+            "type": "string",
+            "example": "cityId_berlin"
+          },
+          "serviceKeys": {
+            "example": [
+              "home_cleaning"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "basePrice": {
+            "type": "number",
+            "example": 40
+          }
+        }
+      },
+      "ProviderPublicDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Anna K.",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "string",
+            "example": "https://cdn.example.com/avatars/a.png",
+            "nullable": true
+          },
+          "ratingAvg": {
+            "type": "number",
+            "example": 4.8,
+            "description": "Average rating (0..5)"
+          },
+          "ratingCount": {
+            "type": "number",
+            "example": 37,
+            "description": "Total ratings count"
+          },
+          "completedJobs": {
+            "type": "number",
+            "example": 120,
+            "description": "Completed jobs count"
+          },
+          "basePrice": {
+            "type": "number",
+            "example": 35,
+            "nullable": true,
+            "description": "Base price (optional)"
+          }
+        },
+        "required": [
+          "id",
+          "ratingAvg",
+          "ratingCount",
+          "completedJobs"
+        ]
+      },
+      "CreateRequestDto": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": "string",
+            "example": "home_cleaning"
+          },
+          "cityId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+            "description": "City id from /catalog/cities"
+          },
+          "propertyType": {
+            "type": "string",
+            "example": "apartment",
+            "enum": [
+              "apartment",
+              "house"
+            ]
+          },
+          "area": {
+            "type": "number",
+            "example": 55,
+            "description": "Area in m²"
+          },
+          "preferredDate": {
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          },
+          "isRecurring": {
+            "type": "boolean",
+            "example": false
+          },
+          "comment": {
+            "type": "string",
+            "example": "Need eco products, please",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "serviceKey",
+          "cityId",
+          "propertyType",
+          "area",
+          "preferredDate",
+          "isRecurring"
+        ]
+      },
+      "RequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "serviceKey": {
+            "type": "string",
+            "example": "home_cleaning"
+          },
+          "cityId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          },
+          "propertyType": {
+            "type": "string",
+            "example": "apartment",
+            "enum": [
+              "apartment",
+              "house"
+            ]
+          },
+          "area": {
+            "type": "number",
+            "example": 55
+          },
+          "preferredDate": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          },
+          "isRecurring": {
+            "type": "boolean",
+            "example": false
+          },
+          "comment": {
+            "type": "string",
+            "example": "Need eco products, please",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "example": "published",
+            "enum": [
+              "draft",
+              "published",
+              "closed",
+              "cancelled"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-28T10:20:30.123Z"
+          }
+        },
+        "required": [
+          "id",
+          "serviceKey",
+          "cityId",
+          "propertyType",
+          "area",
+          "preferredDate",
+          "isRecurring",
+          "status",
+          "createdAt"
+        ]
+      },
+      "CreateResponseDto": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          }
+        },
+        "required": [
+          "requestId"
+        ]
+      },
+      "ResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ff"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "providerUserId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c9"
+          },
+          "clientUserId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9a1"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected"
+            ],
+            "example": "pending"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-28T10:20:30.123Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-28T10:20:30.123Z"
+          },
+          "providerDisplayName": {
+            "type": "string",
+            "example": "Anna Cleaner",
+            "nullable": true
+          },
+          "providerAvatarUrl": {
+            "type": "string",
+            "example": "https://cdn.example.com/a.png",
+            "nullable": true
+          },
+          "providerRatingAvg": {
+            "type": "number",
+            "example": 4.8
+          },
+          "providerRatingCount": {
+            "type": "number",
+            "example": 12
+          },
+          "providerCompletedJobs": {
+            "type": "number",
+            "example": 40
+          },
+          "providerBasePrice": {
+            "type": "number",
+            "example": 35,
+            "nullable": true
+          },
+          "requestServiceKey": {
+            "type": "string",
+            "example": "home_cleaning",
+            "nullable": true
+          },
+          "requestCityId": {
+            "type": "string",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "requestPreferredDate": {
+            "type": "string",
+            "example": "2026-01-29T10:20:30.123Z",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "requestStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "matched",
+              "closed",
+              "cancelled"
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "requestId",
+          "providerUserId",
+          "clientUserId",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AcceptResponseResultDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          },
+          "acceptedResponseId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ff"
+          }
+        },
+        "required": [
+          "ok",
+          "acceptedResponseId"
+        ]
+      },
+      "RejectResponseResultDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          },
+          "rejectedResponseId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ff"
+          }
+        },
+        "required": [
+          "ok",
+          "rejectedResponseId"
+        ]
+      },
+      "TimeRangeDto": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "example": "09:00"
+          },
+          "end": {
+            "type": "string",
+            "example": "13:00"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ]
+      },
+      "WeeklyDayDto": {
+        "type": "object",
+        "properties": {
+          "dayOfWeek": {
+            "type": "number",
+            "example": 1,
+            "description": "0=Sun ... 6=Sat"
+          },
+          "ranges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeRangeDto"
+            }
+          }
+        },
+        "required": [
+          "dayOfWeek",
+          "ranges"
+        ]
+      },
+      "UpdateAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "example": "Europe/Berlin"
+          },
+          "slotDurationMin": {
+            "type": "number",
+            "example": 60,
+            "description": "Slot duration in minutes"
+          },
+          "bufferMin": {
+            "type": "number",
+            "example": 0,
+            "description": "Buffer between slots in minutes"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "weekly": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeeklyDayDto"
+            }
+          }
+        }
+      },
+      "SlotDto": {
+        "type": "object",
+        "properties": {
+          "startAt": {
+            "type": "string",
+            "example": "2026-01-29T09:00:00.000Z"
+          },
+          "endAt": {
+            "type": "string",
+            "example": "2026-01-29T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "startAt",
+          "endAt"
+        ]
+      },
+      "BlackoutDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ff"
+          },
+          "startAt": {
+            "type": "string",
+            "example": "2026-03-28T10:00:00.000Z"
+          },
+          "endAt": {
+            "type": "string",
+            "example": "2026-03-28T16:00:00.000Z"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Vacation",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "id",
+          "startAt",
+          "endAt",
+          "isActive"
+        ]
+      },
+      "CreateBlackoutDto": {
+        "type": "object",
+        "properties": {
+          "startAt": {
+            "type": "string",
+            "example": "2026-03-28T10:00:00.000Z",
+            "description": "UTC ISO string"
+          },
+          "endAt": {
+            "type": "string",
+            "example": "2026-03-28T16:00:00.000Z",
+            "description": "UTC ISO string"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Vacation",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "startAt",
+          "endAt"
+        ]
+      },
+      "BookingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ff"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "responseId": {
+            "type": "string"
+          },
+          "providerUserId": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string",
+            "example": "2026-01-29T10:00:00.000Z"
+          },
+          "durationMin": {
+            "type": "number",
+            "example": 60
+          },
+          "endAt": {
+            "type": "string",
+            "example": "2026-01-29T11:00:00.000Z"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "cancelled",
+              "completed"
+            ],
+            "example": "confirmed"
+          },
+          "cancelledAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancelledBy": {
+            "type": "string",
+            "enum": [
+              "client",
+              "provider",
+              "admin"
+            ],
+            "nullable": true
+          },
+          "cancelReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "rescheduledFromId": {
+            "type": "object",
+            "nullable": true
+          },
+          "rescheduledToId": {
+            "type": "object",
+            "nullable": true
+          },
+          "rescheduledAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "rescheduleReason": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "requestId",
+          "responseId",
+          "providerUserId",
+          "clientId",
+          "startAt",
+          "durationMin",
+          "endAt",
+          "status"
+        ]
+      },
+      "BookingHistoryDto": {
+        "type": "object",
+        "properties": {
+          "rootId": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011",
+            "description": "Root booking id (first in chain)"
+          },
+          "requestedId": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439012",
+            "description": "Requested booking id (the one you asked history for)"
+          },
+          "latestId": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439013",
+            "description": "Latest booking id (last in chain)"
+          },
+          "currentIndex": {
+            "type": "number",
+            "example": 1,
+            "description": "Index of requestedId in items (0..n-1). -1 if not found"
+          },
+          "items": {
+            "description": "Ordered from oldest -> newest",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingDto"
+            }
+          }
+        },
+        "required": [
+          "rootId",
+          "requestedId",
+          "latestId",
+          "currentIndex",
+          "items"
+        ]
+      },
+      "CancelBookingDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Client changed plans",
+            "nullable": true
+          }
+        }
+      },
+      "RescheduleBookingDto": {
+        "type": "object",
+        "properties": {
+          "startAt": {
+            "type": "string",
+            "example": "2026-02-10T10:00:00.000Z",
+            "description": "New booking startAt (UTC ISO)"
+          },
+          "durationMin": {
+            "type": "number",
+            "example": 60,
+            "description": "Optional. If omitted, keep previous durationMin"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Need another time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "startAt"
+        ]
+      },
+      "CreateBookingDto": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "example": "r1",
+            "description": "Request id (string, from Requests module)"
+          },
+          "responseId": {
+            "type": "string",
+            "example": "resp1",
+            "description": "Response id (string, from Responses module)"
+          },
+          "providerUserId": {
+            "type": "string",
+            "example": "p1",
+            "description": "Provider userId (string)"
+          },
+          "startAt": {
+            "type": "string",
+            "example": "2026-02-10T10:00:00.000Z",
+            "description": "Start datetime in UTC (must match a returned availability slot)"
+          },
+          "durationMin": {
+            "type": "number",
+            "example": 60,
+            "description": "Optional. Defaults to 60. Must match slot duration."
+          },
+          "note": {
+            "type": "string",
+            "example": "Please be on time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "requestId",
+          "responseId",
+          "providerUserId",
+          "startAt"
+        ]
       }
     }
-  }
+  },
+  "security": [
+    {
+      "access-token": []
+    }
+  ]
 }
