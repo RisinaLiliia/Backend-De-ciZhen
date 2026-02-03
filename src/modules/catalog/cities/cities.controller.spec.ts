@@ -23,13 +23,31 @@ describe("CitiesController (unit)", () => {
 
   it("returns mapped dto list", async () => {
     citiesServiceMock.listActive.mockResolvedValue([
-      { _id: { toString: () => "c1" }, name: "Berlin", countryCode: "DE", isActive: true },
+      {
+        _id: { toString: () => "c1" },
+        key: "city_berlin",
+        name: "Berlin",
+        i18n: { de: "Berlin", en: "Berlin" },
+        countryCode: "DE",
+        isActive: true,
+        sortOrder: 1,
+      },
     ]);
 
     const res = await controller.list(undefined);
 
     expect(citiesServiceMock.listActive).toHaveBeenCalledWith(undefined);
-    expect(res).toEqual([{ id: "c1", name: "Berlin", countryCode: "DE", isActive: true }]);
+    expect(res).toEqual([
+      {
+        _id: "c1",
+        key: "city_berlin",
+        name: "Berlin",
+        i18n: { de: "Berlin", en: "Berlin" },
+        countryCode: "DE",
+        isActive: true,
+        sortOrder: 1,
+      },
+    ]);
   });
 
   it("passes countryCode to service", async () => {

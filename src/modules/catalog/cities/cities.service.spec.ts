@@ -38,7 +38,7 @@ describe("CitiesService", () => {
     await service.listActive();
 
     expect(modelMock.find).toHaveBeenCalledWith({ isActive: true });
-    expect(chain.sort).toHaveBeenCalledWith({ sortOrder: 1, name: 1 });
+    expect(chain.sort).toHaveBeenCalledWith({ sortOrder: 1, "i18n.en": 1, name: 1 });
   });
 
   it("listActive normalizes countryCode to uppercase", async () => {

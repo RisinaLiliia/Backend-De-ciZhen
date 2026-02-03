@@ -2,15 +2,29 @@
 import { ApiProperty } from "@nestjs/swagger";
 
 export class CityResponseDto {
-  @ApiProperty({ example: "64f0c1a2b3c4d5e6f7a8b9c0" })
-  id: string;
+  @ApiProperty({ example: "6981de2e9677bda5634a385e" })
+  _id: string;
+
+  @ApiProperty({ example: "city_berlin" })
+  key: string;
 
   @ApiProperty({ example: "Berlin" })
   name: string;
+
+  @ApiProperty({
+    example: {
+      de: "Berlin",
+      en: "Berlin",
+    },
+  })
+  i18n: Record<string, string>;
 
   @ApiProperty({ example: "DE" })
   countryCode: string;
 
   @ApiProperty({ example: true })
   isActive: boolean;
+
+  @ApiProperty({ example: 1 })
+  sortOrder: number;
 }

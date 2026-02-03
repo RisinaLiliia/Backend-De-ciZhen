@@ -17,7 +17,7 @@ export class CitiesService {
 
     return this.cityModel
       .find(filter)
-      .sort({ sortOrder: 1, name: 1 })
+      .sort({ sortOrder: 1, "i18n.en": 1, name: 1 })
       .exec();
   }
 }
