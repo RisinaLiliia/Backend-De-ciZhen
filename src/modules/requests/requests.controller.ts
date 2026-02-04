@@ -1,11 +1,24 @@
 // src/modules/requests/requests.controller.ts
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
+import { Body, Controller, ForbiddenException, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AppRole } from '../users/schemas/user.schema';
 import { RequestsService } from './requests.service';
 import { CreateRequestDto } from './dto/create-request.dto';
 import { RequestResponseDto } from './dto/request-response.dto';
 import { RequestsPublicQueryDto } from './dto/requests-public-query.dto';
+import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
+
+type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
 @ApiTags('requests')
 @Controller('requests')
@@ -27,6 +40,7 @@ export class RequestsController {
     };
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Post()
   @ApiOperation({
     summary: 'Create public request (no auth)',
@@ -34,8 +48,12 @@ export class RequestsController {
   })
   @ApiCreatedResponse({ type: RequestResponseDto })
   @ApiPublicErrors()
-  async create(@Body() dto: CreateRequestDto): Promise<RequestResponseDto> {
-    const created = await this.requests.createPublic(dto);
+  async create(
+    @Body() dto: CreateRequestDto,
+    @CurrentUser() user?: CurrentUserPayload | null,
+  ): Promise<RequestResponseDto> {
+    const clientId = user?.role === 'client' ? user.userId : null;
+    const created = await this.requests.createPublic(dto, clientId);
     return this.toDto(created);
   }
 
@@ -48,6 +66,25 @@ export class RequestsController {
   @ApiPublicErrors()
   async listPublic(@Query() q: RequestsPublicQueryDto): Promise<RequestResponseDto[]> {
     const items = await this.requests.listPublic({ cityId: q.cityId, serviceKey: q.serviceKey });
+    return items.map((x) => this.toDto(x));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Client: list my requests' })
+  @ApiOkResponse({ type: RequestResponseDto, isArray: true })
+  @ApiErrors({ conflict: false, notFound: false })
+  async my(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query() q: RequestsMyQueryDto,
+  ): Promise<RequestResponseDto[]> {
+    if (user.role !== 'client') {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const filters = this.requests.normalizeFilters(q);
+    const items = await this.requests.listMyClient(user.userId, filters);
     return items.map((x) => this.toDto(x));
   }
 }

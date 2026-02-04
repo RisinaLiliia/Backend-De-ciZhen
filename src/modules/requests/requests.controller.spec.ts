@@ -9,6 +9,8 @@ describe('RequestsController (unit)', () => {
   const svcMock = {
     createPublic: jest.fn(),
     listPublic: jest.fn(),
+    listMyClient: jest.fn(),
+    normalizeFilters: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -36,15 +38,19 @@ describe('RequestsController (unit)', () => {
       createdAt: new Date('2026-01-28T10:00:00.000Z'),
     });
 
-    const res = await controller.create({
-      serviceKey: 'home_cleaning',
-      cityId: 'c1',
-      propertyType: 'apartment',
-      area: 55,
-      preferredDate: '2026-02-01T10:00:00.000Z',
-      isRecurring: false,
-    } as any);
+    const res = await controller.create(
+      {
+        serviceKey: 'home_cleaning',
+        cityId: 'c1',
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+      } as any,
+      null,
+    );
 
+    expect(svcMock.createPublic).toHaveBeenCalledWith(expect.anything(), null);
     expect(res).toEqual(
       expect.objectContaining({
         id: 'r1',
@@ -53,6 +59,35 @@ describe('RequestsController (unit)', () => {
         status: 'published',
       }),
     );
+  });
+
+  it('create passes clientId for authenticated client', async () => {
+    svcMock.createPublic.mockResolvedValue({
+      _id: { toString: () => 'r1' },
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      propertyType: 'apartment',
+      area: 55,
+      preferredDate: new Date('2026-02-01T10:00:00.000Z'),
+      isRecurring: false,
+      comment: null,
+      status: 'published',
+      createdAt: new Date('2026-01-28T10:00:00.000Z'),
+    });
+
+    await controller.create(
+      {
+        serviceKey: 'home_cleaning',
+        cityId: 'c1',
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+      } as any,
+      { userId: 'u1', role: 'client' } as any,
+    );
+
+    expect(svcMock.createPublic).toHaveBeenCalledWith(expect.anything(), 'u1');
   });
 
   it('listPublic passes filters and maps list', async () => {
@@ -75,5 +110,29 @@ describe('RequestsController (unit)', () => {
 
     expect(svcMock.listPublic).toHaveBeenCalledWith({ cityId: 'c1', serviceKey: 'home_cleaning' });
     expect(res[0]).toEqual(expect.objectContaining({ id: 'r1', cityId: 'c1', serviceKey: 'home_cleaning' }));
+  });
+
+  it('my passes filters and maps list', async () => {
+    svcMock.normalizeFilters.mockReturnValue({ status: 'published' });
+    svcMock.listMyClient.mockResolvedValue([
+      {
+        _id: { toString: () => 'r1' },
+        serviceKey: 'home_cleaning',
+        cityId: 'c1',
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: new Date('2026-02-01T10:00:00.000Z'),
+        isRecurring: false,
+        comment: null,
+        status: 'published',
+        createdAt: new Date('2026-01-28T10:00:00.000Z'),
+      },
+    ]);
+
+    const res = await controller.my({ userId: 'u1', role: 'client' } as any, { status: 'published' } as any);
+
+    expect(svcMock.normalizeFilters).toHaveBeenCalledWith({ status: 'published' });
+    expect(svcMock.listMyClient).toHaveBeenCalledWith('u1', { status: 'published' });
+    expect(res[0]).toEqual(expect.objectContaining({ id: 'r1', cityId: 'c1', status: 'published' }));
   });
 });

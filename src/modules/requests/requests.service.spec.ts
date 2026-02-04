@@ -40,6 +40,7 @@ describe('RequestsService', () => {
 
     expect(modelMock.create).toHaveBeenCalledWith(
       expect.objectContaining({
+        clientId: null,
         serviceKey: 'home_cleaning',
         cityId: 'c1',
         status: 'published',
@@ -47,6 +48,24 @@ describe('RequestsService', () => {
       }),
     );
     expect(res.status).toBe('published');
+  });
+
+  it('createPublic sets clientId when provided', async () => {
+    modelMock.create.mockResolvedValue({ _id: 'r2', clientId: 'u1', status: 'published' });
+
+    await service.createPublic(
+      {
+        serviceKey: 'home_cleaning',
+        cityId: 'c1',
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+      } as any,
+      'u1',
+    );
+
+    expect(modelMock.create).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'u1' }));
   });
 
   it('listPublic always filters by status=published', async () => {
@@ -71,5 +90,27 @@ describe('RequestsService', () => {
       cityId: 'c1',
       serviceKey: 'home_cleaning',
     });
+  });
+
+  it('listMyClient filters by clientId, status, and createdAt range', async () => {
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
+    modelMock.find.mockReturnValue({ sort });
+
+    const from = new Date('2026-01-01T00:00:00.000Z');
+    const to = new Date('2026-02-01T00:00:00.000Z');
+
+    await service.listMyClient('u1', { status: 'published', from, to, limit: 10, offset: 5 });
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      clientId: 'u1',
+      status: 'published',
+      createdAt: { $gte: from, $lt: to },
+    });
+    expect(sort).toHaveBeenCalledWith({ createdAt: -1 });
+    expect(skip).toHaveBeenCalledWith(5);
+    expect(limit).toHaveBeenCalledWith(10);
   });
 });
