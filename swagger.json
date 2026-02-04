@@ -1040,6 +1040,142 @@
         "security": []
       }
     },
+    "/requests/my": {
+      "get": {
+        "operationId": "RequestsController_my",
+        "summary": "Client: list my requests",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "draft",
+                "published",
+                "matched",
+                "closed",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ISO8601 UTC (inclusive). Filter by createdAt >= from",
+            "schema": {
+              "example": "2026-01-01T00:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ISO8601 UTC (exclusive). Filter by createdAt < to",
+            "schema": {
+              "example": "2026-02-01T00:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size (1..100). Default 20",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Offset for pagination. Default 0",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequestResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/requests/public": {
       "get": {
         "operationId": "RequestsController_listPublic",
@@ -1237,6 +1373,102 @@
       "get": {
         "operationId": "ResponsesController_my",
         "summary": "Provider: list my responses",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Optional status filter",
+            "schema": {
+              "example": "pending",
+              "enum": [
+                "pending",
+                "accepted",
+                "rejected"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/responses/my-client": {
+      "get": {
+        "operationId": "ResponsesController_myClient",
+        "summary": "Client: list my responses (all requests)",
         "parameters": [
           {
             "name": "status",

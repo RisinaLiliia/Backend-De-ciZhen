@@ -90,6 +90,24 @@ export class ResponsesController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('my-client')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Client: list my responses (all requests)' })
+  @ApiOkResponse({ type: ResponseDto, isArray: true })
+  @ApiErrors({ conflict: false, notFound: false })
+  async myClient(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query() q: ResponsesQueryDto,
+  ): Promise<ResponseDto[]> {
+    if (user.role !== 'client') {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const items = await this.responses.listMyClient(user.userId, { status: q.status });
+    return items.map((x) => this.toDto(x));
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('request/:requestId')
   @ApiBearerAuth('access-token')
   @ApiOperation({

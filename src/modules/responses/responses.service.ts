@@ -202,6 +202,69 @@ export class ResponsesService {
       .exec();
   }
 
+  async listMyClient(
+    clientUserId: string,
+    filters?: { status?: 'pending' | 'accepted' | 'rejected' },
+  ): Promise<any[]> {
+    const match: Record<string, any> = { clientUserId };
+    if (filters?.status) match.status = filters.status;
+
+    return this.responseModel
+      .aggregate([
+        { $match: match },
+        { $sort: { createdAt: -1 } },
+        {
+          $addFields: {
+            requestObjId: {
+              $cond: [
+                { $and: [{ $ne: ['$requestId', null] }, { $ne: ['$requestId', ''] }] },
+                { $toObjectId: '$requestId' },
+                null,
+              ],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'requests',
+            localField: 'requestObjId',
+            foreignField: '_id',
+            as: 'req',
+          },
+        },
+        { $unwind: { path: '$req', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            requestServiceKey: '$req.serviceKey',
+            requestCityId: '$req.cityId',
+            requestPreferredDate: '$req.preferredDate',
+            requestStatus: '$req.status',
+          },
+        },
+        {
+          $lookup: {
+            from: 'provider_profiles',
+            localField: 'providerUserId',
+            foreignField: 'userId',
+            as: 'prov',
+          },
+        },
+        { $unwind: { path: '$prov', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            providerDisplayName: '$prov.displayName',
+            providerAvatarUrl: '$prov.avatarUrl',
+            providerRatingAvg: { $ifNull: ['$prov.ratingAvg', 0] },
+            providerRatingCount: { $ifNull: ['$prov.ratingCount', 0] },
+            providerCompletedJobs: { $ifNull: ['$prov.completedJobs', 0] },
+            providerBasePrice: '$prov.basePrice',
+          },
+        },
+        { $project: { req: 0, prov: 0, requestObjId: 0 } },
+      ])
+      .exec();
+  }
+
   async acceptForClient(clientUserId: string, responseId: string): Promise<void> {
     const id = this.normalizeId(responseId);
     if (!id) throw new BadRequestException('responseId is required');
