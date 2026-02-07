@@ -1,7 +1,8 @@
 // src/modules/requests/requests.service.ts
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
+import { Types } from 'mongoose';
 import { Request, RequestDocument, RequestStatus } from './schemas/request.schema';
 import type { CreateRequestDto } from './dto/create-request.dto';
 
@@ -14,6 +15,12 @@ export class RequestsService {
     @InjectModel(Request.name)
     private readonly model: Model<RequestDocument>,
   ) {}
+
+  private ensureObjectId(id: string, field: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(`${field} must be a valid ObjectId`);
+    }
+  }
 
   private parseDateOrThrow(value: string, field: string): Date {
     const d = new Date(value);
@@ -62,6 +69,46 @@ export class RequestsService {
     });
 
     return doc;
+  }
+
+  async createForClient(dto: CreateRequestDto, clientId: string): Promise<RequestDocument> {
+    const serviceKey = String(dto.serviceKey).trim().toLowerCase();
+    const cityId = String(dto.cityId).trim();
+
+    const doc = await this.model.create({
+      clientId,
+      serviceKey,
+      cityId,
+      propertyType: dto.propertyType,
+      area: dto.area,
+      preferredDate: new Date(dto.preferredDate),
+      isRecurring: dto.isRecurring,
+      comment: dto.comment ? String(dto.comment).trim() : null,
+      status: 'draft',
+    });
+
+    return doc;
+  }
+
+  async publishForClient(clientId: string, requestId: string): Promise<RequestDocument> {
+    const rid = String(requestId ?? '').trim();
+    if (!rid) throw new BadRequestException('requestId is required');
+    this.ensureObjectId(rid, 'requestId');
+
+    const existing = await this.model.findById(rid).exec();
+    if (!existing || String(existing.clientId) !== clientId) {
+      throw new NotFoundException('Request not found');
+    }
+    if (existing.status !== 'draft') {
+      throw new ConflictException('Only draft requests can be published');
+    }
+
+    const updated = await this.model
+      .findOneAndUpdate({ _id: rid, clientId }, { $set: { status: 'published' } }, { new: true })
+      .exec();
+
+    if (!updated) throw new NotFoundException('Request not found');
+    return updated;
   }
 
   async listPublic(filters: { cityId?: string; serviceKey?: string }): Promise<RequestDocument[]> {

@@ -11,8 +11,8 @@
       }
     ]
   },
+  "setupFiles": ["<rootDir>/jest.e2e-setup.js"],
   "clearMocks": true,
     "forceExit": true,
   "detectOpenHandles": true
 }
-

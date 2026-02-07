@@ -1,41 +1,22 @@
 // test/app.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
-
-import { AppModule } from '../src/app.module';
+import { setupTestApp, teardownTestApp, type E2EContext } from './helpers/e2e';
 
 jest.setTimeout(30000);
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
-  let replSet: MongoMemoryReplSet;
-  let moduleRef: TestingModule;
+  let ctx: E2EContext;
 
   beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-    const uri = replSet.getUri();
-
-    process.env.NODE_ENV = 'test';
-    process.env.MONGO_URI = uri;
-    process.env.MONGODB_URI = uri;
-    process.env.DATABASE_URI = uri;
-    process.env.DATABASE_URL = uri;
-
-    moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleRef.createNestApplication();
-    await app.init();
+    ctx = await setupTestApp();
+    app = ctx.app;
   });
 
   afterAll(async () => {
-    if (app) await app.close();
-    await mongoose.disconnect();
-    if (replSet) await replSet.stop();
+    await teardownTestApp(ctx, mongoose);
   });
 
   it('/health (GET)', async () => {
