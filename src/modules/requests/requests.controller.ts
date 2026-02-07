@@ -1,10 +1,11 @@
 // src/modules/requests/requests.controller.ts
-import { Body, Controller, ForbiddenException, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
@@ -86,5 +87,46 @@ export class RequestsController {
     const filters = this.requests.normalizeFilters(q);
     const items = await this.requests.listMyClient(user.userId, filters);
     return items.map((x) => this.toDto(x));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Client: create my request (draft)',
+    description: 'Creates a request for an authenticated client. Default status: draft.',
+  })
+  @ApiCreatedResponse({ type: RequestResponseDto })
+  @ApiErrors()
+  async createMy(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: CreateRequestDto,
+  ): Promise<RequestResponseDto> {
+    if (user.role !== 'client') {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const created = await this.requests.createForClient(dto, user.userId);
+    return this.toDto(created);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my/:requestId/publish')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Client: publish my draft request' })
+  @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @ApiOkResponse({ type: RequestResponseDto })
+  @ApiErrors()
+  @HttpCode(200)
+  async publishMy(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('requestId') requestId: string,
+  ): Promise<RequestResponseDto> {
+    if (user.role !== 'client') {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const updated = await this.requests.publishForClient(user.userId, requestId);
+    return this.toDto(updated);
   }
 }

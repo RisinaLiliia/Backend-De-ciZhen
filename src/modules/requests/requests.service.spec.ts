@@ -10,6 +10,8 @@ describe('RequestsService', () => {
   const modelMock = {
     create: jest.fn(),
     find: jest.fn(),
+    findById: jest.fn(),
+    findOneAndUpdate: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -68,6 +70,30 @@ describe('RequestsService', () => {
     expect(modelMock.create).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'u1' }));
   });
 
+  it('createForClient creates draft request for client', async () => {
+    modelMock.create.mockResolvedValue({ _id: 'r3', clientId: 'u1', status: 'draft' });
+
+    await service.createForClient({
+      serviceKey: 'home_cleaning',
+      cityId: ' c1 ',
+      propertyType: 'apartment',
+      area: 55,
+      preferredDate: '2026-02-01T10:00:00.000Z',
+      isRecurring: false,
+      comment: '  hi  ',
+    } as any, 'u1');
+
+    expect(modelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: 'u1',
+        cityId: 'c1',
+        serviceKey: 'home_cleaning',
+        status: 'draft',
+        comment: 'hi',
+      }),
+    );
+  });
+
   it('listPublic always filters by status=published', async () => {
     modelMock.find.mockReturnValue({
       sort: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
@@ -112,5 +138,44 @@ describe('RequestsService', () => {
     expect(sort).toHaveBeenCalledWith({ createdAt: -1 });
     expect(skip).toHaveBeenCalledWith(5);
     expect(limit).toHaveBeenCalledWith(10);
+  });
+
+  it('publishForClient publishes draft request for client', async () => {
+    const execFind = jest.fn().mockResolvedValue({ _id: 'r1', clientId: 'u1', status: 'draft' });
+    modelMock.findById.mockReturnValue({ exec: execFind });
+
+    const execUpdate = jest.fn().mockResolvedValue({ _id: 'r1', clientId: 'u1', status: 'published' });
+    modelMock.findOneAndUpdate.mockReturnValue({ exec: execUpdate });
+
+    const res: any = await service.publishForClient('u1', 'r1');
+
+    expect(modelMock.findById).toHaveBeenCalledWith('r1');
+    expect(modelMock.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: 'r1', clientId: 'u1' },
+      { $set: { status: 'published' } },
+      { new: true },
+    );
+    expect(res.status).toBe('published');
+  });
+
+  it('publishForClient throws when request is not draft', async () => {
+    const execFind = jest.fn().mockResolvedValue({ _id: 'r1', clientId: 'u1', status: 'published' });
+    modelMock.findById.mockReturnValue({ exec: execFind });
+
+    await expect(service.publishForClient('u1', 'r1')).rejects.toThrow('Only draft requests can be published');
+    expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('publishForClient throws when request not found or not owned', async () => {
+    const execFind = jest.fn().mockResolvedValue(null);
+    modelMock.findById.mockReturnValue({ exec: execFind });
+
+    await expect(service.publishForClient('u1', 'r1')).rejects.toThrow('Request not found');
+    expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('publishForClient throws on invalid requestId', async () => {
+    await expect(service.publishForClient('u1', 'not-an-objectid')).rejects.toThrow('requestId must be a valid ObjectId');
+    expect(modelMock.findById).not.toHaveBeenCalled();
   });
 });

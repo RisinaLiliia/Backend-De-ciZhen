@@ -1,13 +1,11 @@
 // test/bookings-my.e2e-spec.ts
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { getModelToken } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 
-import { AppModule } from '../src/app.module';
+import { setupTestApp, teardownTestApp, registerAndGetToken, type E2EContext } from './helpers/e2e';
 
 import { AvailabilityService } from '../src/modules/availability/availability.service';
 import { Booking, BookingDocument } from '../src/modules/bookings/schemas/booking.schema';
@@ -16,12 +14,9 @@ import { ProviderProfile } from '../src/modules/providers/schemas/provider-profi
 
 jest.setTimeout(30000);
 
-type TokenRes = { accessToken: string; userId?: string };
-
 describe('v6.2 bookings /my (e2e)', () => {
-  let replSet: MongoMemoryReplSet;
   let app: INestApplication;
-  let moduleRef: TestingModule;
+  let ctx: E2EContext;
 
   let availability: AvailabilityService;
 
@@ -30,34 +25,6 @@ describe('v6.2 bookings /my (e2e)', () => {
   let providerProfileModel: Model<any>;
 
   const providerUserId = 'p1';
-
-  async function registerAndGetToken(
-    appRef: INestApplication,
-    role: 'client' | 'provider',
-    email: string,
-    name?: string,
-  ): Promise<TokenRes> {
-    const password = 'Passw0rd!123';
-
-    const res = await request(appRef.getHttpServer())
-      .post('/auth/register')
-      .set('Content-Type', 'application/json')
-      .send({
-        name: name ?? `${role} Test`,
-        email,
-        password,
-        role,
-        acceptPrivacyPolicy: true,
-      })
-      .expect(201);
-
-    expect(res.body?.accessToken).toBeTruthy();
-
-    return {
-      accessToken: res.body.accessToken as string,
-      userId: res.body?.user?.id ?? res.body?.user?._id,
-    };
-  }
 
   async function createBookingAsClient(
     token: string,
@@ -92,30 +59,8 @@ describe('v6.2 bookings /my (e2e)', () => {
   }
 
   beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-    const uri = replSet.getUri();
-
-    process.env.NODE_ENV = 'test';
-    process.env.MONGO_URI = uri;
-    process.env.MONGODB_URI = uri;
-    process.env.DATABASE_URI = uri;
-    process.env.DATABASE_URL = uri;
-
-    moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleRef.createNestApplication();
-
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        transform: true,
-        transformOptions: { enableImplicitConversion: true },
-      }),
-    );
-
-    await app.init();
+    ctx = await setupTestApp({ useValidationPipe: true });
+    app = ctx.app;
 
     availability = app.get(AvailabilityService);
 
@@ -125,9 +70,7 @@ describe('v6.2 bookings /my (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (app) await app.close();
-    await mongoose.disconnect();
-    if (replSet) await replSet.stop();
+    await teardownTestApp(ctx, mongoose);
   });
 
   beforeEach(async () => {
@@ -148,7 +91,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-my-1',
       responseId: 'resp-my-1',
       providerUserId,
-      startAt: '2026-02-05T09:00:00.000Z', 
+      startAt: '2026-03-05T09:00:00.000Z', 
       durationMin: 60,
       note: 'A',
     });
@@ -157,7 +100,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-my-2',
       responseId: 'resp-my-2',
       providerUserId,
-      startAt: '2026-02-05T10:00:00.000Z', 
+      startAt: '2026-03-05T10:00:00.000Z', 
       durationMin: 60,
       note: 'B',
     });
@@ -175,8 +118,8 @@ describe('v6.2 bookings /my (e2e)', () => {
       responseId: 'resp-my-2',
       providerUserId,
       status: 'confirmed',
-      startAt: '2026-02-05T10:00:00.000Z',
-      endAt: '2026-02-05T11:00:00.000Z',
+      startAt: '2026-03-05T10:00:00.000Z',
+      endAt: '2026-03-05T11:00:00.000Z',
     });
 
     expect(myClient.body[1]).toMatchObject({
@@ -184,8 +127,8 @@ describe('v6.2 bookings /my (e2e)', () => {
       responseId: 'resp-my-1',
       providerUserId,
       status: 'confirmed',
-      startAt: '2026-02-05T09:00:00.000Z',
-      endAt: '2026-02-05T10:00:00.000Z',
+      startAt: '2026-03-05T09:00:00.000Z',
+      endAt: '2026-03-05T10:00:00.000Z',
     });
 
     const myProvider0 = await request(app.getHttpServer())
@@ -231,7 +174,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-f-1',
       responseId: 'resp-f-1',
       providerUserId,
-      startAt: '2026-02-05T09:00:00.000Z',
+      startAt: '2026-03-05T09:00:00.000Z',
       durationMin: 60,
     });
 
@@ -239,7 +182,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-f-2',
       responseId: 'resp-f-2',
       providerUserId,
-      startAt: '2026-02-05T10:00:00.000Z',
+      startAt: '2026-03-05T10:00:00.000Z',
       durationMin: 60,
     });
 
@@ -247,21 +190,21 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-f-3',
       responseId: 'resp-f-3',
       providerUserId,
-      startAt: '2026-03-05T09:00:00.000Z',
+      startAt: '2026-03-12T09:00:00.000Z',
       durationMin: 60,
     });
 
-    const febOnly = await request(app.getHttpServer())
+    const marchWeek1Only = await request(app.getHttpServer())
       .get('/bookings/my')
       .query({
-        from: '2026-02-01T00:00:00.000Z',
-        to: '2026-03-01T00:00:00.000Z',
+        from: '2026-03-01T00:00:00.000Z',
+        to: '2026-03-08T00:00:00.000Z',
       })
       .set('Authorization', `Bearer ${client.accessToken}`)
       .expect(200);
 
-    expect(febOnly.body.length).toBe(2);
-    expect(febOnly.body.map((x: any) => x.requestId).sort()).toEqual(['req-f-1', 'req-f-2']);
+    expect(marchWeek1Only.body.length).toBe(2);
+    expect(marchWeek1Only.body.map((x: any) => x.requestId).sort()).toEqual(['req-f-1', 'req-f-2']);
 
     const paged = await request(app.getHttpServer())
       .get('/bookings/my')

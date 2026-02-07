@@ -1,13 +1,11 @@
 // test/availability-bookings.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { getModelToken } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 
-import { AppModule } from '../src/app.module';
+import { setupTestApp, teardownTestApp, registerAndGetToken, type E2EContext } from './helpers/e2e';
 
 import { AvailabilityService } from '../src/modules/availability/availability.service';
 import { BookingsService } from '../src/modules/bookings/bookings.service';
@@ -19,9 +17,8 @@ import { ProviderProfile } from '../src/modules/providers/schemas/provider-profi
 jest.setTimeout(30000);
 
 describe('v6.1 availability + bookings (e2e + services in one app)', () => {
-  let replSet: MongoMemoryReplSet;
   let app: INestApplication;
-  let moduleRef: TestingModule;
+  let ctx: E2EContext;
 
   let availability: AvailabilityService;
   let bookings: BookingsService;
@@ -34,48 +31,9 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
 
   const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-async function registerAndGetToken(
-  app: INestApplication,
-  role: 'client' | 'provider',
-  email: string,
-): Promise<{ accessToken: string; userId: string }> {
-  const password = 'Passw0rd!123';
-
-  const res = await request(app.getHttpServer())
-    .post('/auth/register')
-    .set('Content-Type', 'application/json')
-    .send({
-      name: `${role} Test`,
-      email,
-      password,
-      role,
-      acceptPrivacyPolicy: true,
-    })
-    .expect(201);
-
-  expect(res.body?.accessToken).toBeTruthy();
-  expect(res.body?.user?.id).toBeTruthy();
-
-  return { accessToken: res.body.accessToken as string, userId: res.body.user.id as string };
-}
-
-
   beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-    const uri = replSet.getUri();
-
-    process.env.NODE_ENV = 'test';
-    process.env.MONGO_URI = uri;
-    process.env.MONGODB_URI = uri;
-    process.env.DATABASE_URI = uri;
-    process.env.DATABASE_URL = uri;
-
-    moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleRef.createNestApplication();
-    await app.init();
+    ctx = await setupTestApp();
+    app = ctx.app;
 
     availability = app.get(AvailabilityService);
     bookings = app.get(BookingsService);
@@ -86,9 +44,7 @@ async function registerAndGetToken(
   });
 
   afterAll(async () => {
-    if (app) await app.close();
-    await mongoose.disconnect();
-    if (replSet) await replSet.stop();
+    await teardownTestApp(ctx, mongoose);
   });
 
   beforeEach(async () => {
@@ -115,12 +71,12 @@ async function registerAndGetToken(
 
   it('create booking → slot disappears; cancel → returns; reschedule → moves; history chain ok (services)', async () => {
     const clientId = 'c1';
-    const day = '2026-02-05';
+    const day = '2026-03-05';
 
     const before = await availability.getSlots(providerUserId, day, day, 'UTC');
     expect(before.map((s: { startAt: string }) => s.startAt)).toEqual([
-      '2026-02-05T09:00:00.000Z',
-      '2026-02-05T10:00:00.000Z',
+      '2026-03-05T09:00:00.000Z',
+      '2026-03-05T10:00:00.000Z',
     ]);
 
     const b1 = await bookingModel.create({
@@ -128,9 +84,9 @@ async function registerAndGetToken(
       responseId: 'resp1',
       providerUserId,
       clientId,
-      startAt: new Date('2026-02-05T10:00:00.000Z'),
+      startAt: new Date('2026-03-05T10:00:00.000Z'),
       durationMin: 60,
-      endAt: new Date('2026-02-05T11:00:00.000Z'),
+      endAt: new Date('2026-03-05T11:00:00.000Z'),
       status: 'confirmed',
       cancelledAt: null,
       cancelledBy: null,
@@ -139,14 +95,14 @@ async function registerAndGetToken(
     });
 
     const afterCreate = await availability.getSlots(providerUserId, day, day, 'UTC');
-    expect(afterCreate.map((s: { startAt: string }) => s.startAt)).toEqual(['2026-02-05T09:00:00.000Z']);
+    expect(afterCreate.map((s: { startAt: string }) => s.startAt)).toEqual(['2026-03-05T09:00:00.000Z']);
 
     await bookings.cancelByProvider(providerUserId, String(b1._id), 'x');
 
     const afterCancel = await availability.getSlots(providerUserId, day, day, 'UTC');
     expect(afterCancel.map((s: { startAt: string }) => s.startAt)).toEqual([
-      '2026-02-05T09:00:00.000Z',
-      '2026-02-05T10:00:00.000Z',
+      '2026-03-05T09:00:00.000Z',
+      '2026-03-05T10:00:00.000Z',
     ]);
 
     const b2 = await bookingModel.create({
@@ -154,9 +110,9 @@ async function registerAndGetToken(
       responseId: 'resp2',
       providerUserId,
       clientId,
-      startAt: new Date('2026-02-05T09:00:00.000Z'),
+      startAt: new Date('2026-03-05T09:00:00.000Z'),
       durationMin: 60,
-      endAt: new Date('2026-02-05T10:00:00.000Z'),
+      endAt: new Date('2026-03-05T10:00:00.000Z'),
       status: 'confirmed',
       cancelledAt: null,
       cancelledBy: null,
@@ -165,9 +121,9 @@ async function registerAndGetToken(
     });
 
     const slotsBeforeReschedule = await availability.getSlots(providerUserId, day, day, 'UTC');
-    expect(slotsBeforeReschedule.map((s: { startAt: string }) => s.startAt)).toEqual(['2026-02-05T10:00:00.000Z']);
+    expect(slotsBeforeReschedule.map((s: { startAt: string }) => s.startAt)).toEqual(['2026-03-05T10:00:00.000Z']);
 
-    const day2 = '2026-03-05';
+    const day2 = '2026-03-12';
 
     const day2Before = await availability.getSlots(providerUserId, day2, day2, 'UTC');
     expect(day2Before.length).toBe(2);
@@ -175,17 +131,17 @@ async function registerAndGetToken(
     const created = await bookings.reschedule(
       { userId: clientId, role: 'client' },
       String(b2._id),
-      { startAt: '2026-03-05T10:00:00.000Z', durationMin: 60, reason: 'move' },
+      { startAt: '2026-03-12T10:00:00.000Z', durationMin: 60, reason: 'move' },
     );
 
     const day1AfterReschedule = await availability.getSlots(providerUserId, day, day, 'UTC');
     expect(day1AfterReschedule.map((s: { startAt: string }) => s.startAt)).toEqual([
-      '2026-02-05T09:00:00.000Z',
-      '2026-02-05T10:00:00.000Z',
+      '2026-03-05T09:00:00.000Z',
+      '2026-03-05T10:00:00.000Z',
     ]);
 
     const day2AfterReschedule = await availability.getSlots(providerUserId, day2, day2, 'UTC');
-    expect(day2AfterReschedule.map((s: { startAt: string }) => s.startAt)).toEqual(['2026-03-05T09:00:00.000Z']);
+    expect(day2AfterReschedule.map((s: { startAt: string }) => s.startAt)).toEqual(['2026-03-12T09:00:00.000Z']);
 
     const hist = await bookings.getHistory({ userId: clientId, role: 'client' }, String(created._id));
     expect(hist.items.length).toBe(2);
@@ -197,11 +153,11 @@ async function registerAndGetToken(
     const email = `${uid('c1')}@test.local`;
     const { accessToken } = await registerAndGetToken(app, 'client', email);
 
-    const day = '2026-02-05';
+    const day = '2026-03-05';
     const slotsBefore = await availability.getSlots(providerUserId, day, day, 'UTC');
     expect(slotsBefore.map((s: any) => s.startAt)).toEqual([
-      '2026-02-05T09:00:00.000Z',
-      '2026-02-05T10:00:00.000Z',
+      '2026-03-05T09:00:00.000Z',
+      '2026-03-05T10:00:00.000Z',
     ]);
 
     const created = await request(app.getHttpServer())
@@ -211,7 +167,7 @@ async function registerAndGetToken(
         requestId: uid('req-e2e'),
         responseId: uid('resp-e2e'),
         providerUserId,
-        startAt: '2026-02-05T10:00:00.000Z',
+        startAt: '2026-03-05T10:00:00.000Z',
         durationMin: 60,
         note: 'hello',
       })
@@ -219,13 +175,13 @@ async function registerAndGetToken(
 
     expect(created.body).toMatchObject({
       providerUserId,
-      startAt: '2026-02-05T10:00:00.000Z',
-      endAt: '2026-02-05T11:00:00.000Z',
+      startAt: '2026-03-05T10:00:00.000Z',
+      endAt: '2026-03-05T11:00:00.000Z',
       status: 'confirmed',
     });
 
     const slotsAfter = await availability.getSlots(providerUserId, day, day, 'UTC');
-    expect(slotsAfter.map((s: any) => s.startAt)).toEqual(['2026-02-05T09:00:00.000Z']);
+    expect(slotsAfter.map((s: any) => s.startAt)).toEqual(['2026-03-05T09:00:00.000Z']);
   });
 
   it('HTTP: create booking fails if startAt not in availability slots (409)', async () => {
@@ -239,7 +195,7 @@ async function registerAndGetToken(
         requestId: uid('req-e2e-badslot'),
         responseId: uid('resp-e2e-badslot'),
         providerUserId,
-        startAt: '2026-02-05T09:30:00.000Z',
+        startAt: '2026-03-05T09:30:00.000Z',
         durationMin: 60,
       })
       .expect(409);
@@ -251,7 +207,7 @@ async function registerAndGetToken(
 
     const payload = {
       providerUserId,
-      startAt: '2026-02-05T10:00:00.000Z',
+      startAt: '2026-03-05T10:00:00.000Z',
       durationMin: 60,
     };
 
@@ -272,8 +228,15 @@ async function registerAndGetToken(
   const providerEmail = `${uid('prov')}@test.local`;
   const clientEmail = `${uid('client')}@test.local`;
 
-  const { accessToken: providerToken, userId: providerId } = await registerAndGetToken(app, 'provider', providerEmail);
-  const { accessToken: clientToken, userId: clientId } = await registerAndGetToken(app, 'client', clientEmail);
+  const providerReg = await registerAndGetToken(app, 'provider', providerEmail);
+  const clientReg = await registerAndGetToken(app, 'client', clientEmail);
+  expect(providerReg.userId).toBeTruthy();
+  expect(clientReg.userId).toBeTruthy();
+
+  const providerToken = providerReg.accessToken;
+  const clientToken = clientReg.accessToken;
+  const providerId = String(providerReg.userId);
+  const clientId = String(clientReg.userId);
 
   await providerProfileModel.create({ userId: providerId, displayName: 'HTTP Provider' });
 
@@ -285,13 +248,13 @@ async function registerAndGetToken(
     weekly: [{ dayOfWeek: 4, ranges: [{ start: '09:00', end: '11:00' }] }], 
   } as any);
 
-  const day1 = '2026-02-05'; 
-  const day2 = '2026-03-05'; 
+  const day1 = '2026-03-05'; 
+  const day2 = '2026-03-12'; 
 
   const slots0 = await availability.getSlots(providerId, day1, day1, 'UTC');
   expect(slots0.map((s: any) => s.startAt)).toEqual([
-    '2026-02-05T09:00:00.000Z',
-    '2026-02-05T10:00:00.000Z',
+    '2026-03-05T09:00:00.000Z',
+    '2026-03-05T10:00:00.000Z',
   ]);
 
   const reqA = uid('reqA');
@@ -304,7 +267,7 @@ async function registerAndGetToken(
       requestId: reqA,
       responseId: respA,
       providerUserId: providerId,
-      startAt: '2026-02-05T10:00:00.000Z',
+      startAt: '2026-03-05T10:00:00.000Z',
       durationMin: 60,
       note: 'hello',
     })
@@ -315,8 +278,8 @@ async function registerAndGetToken(
     responseId: respA,
     providerUserId: providerId,
     clientId: clientId,
-    startAt: '2026-02-05T10:00:00.000Z',
-    endAt: '2026-02-05T11:00:00.000Z',
+    startAt: '2026-03-05T10:00:00.000Z',
+    endAt: '2026-03-05T11:00:00.000Z',
     status: 'confirmed',
   });
 
@@ -324,7 +287,7 @@ async function registerAndGetToken(
   expect(bookingId1).toBeTruthy();
 
   const slots1 = await availability.getSlots(providerId, day1, day1, 'UTC');
-  expect(slots1.map((s: any) => s.startAt)).toEqual(['2026-02-05T09:00:00.000Z']);
+  expect(slots1.map((s: any) => s.startAt)).toEqual(['2026-03-05T09:00:00.000Z']);
 
   await request(app.getHttpServer())
     .patch(`/bookings/${bookingId1}/cancel`)
@@ -334,8 +297,8 @@ async function registerAndGetToken(
 
   const slots2 = await availability.getSlots(providerId, day1, day1, 'UTC');
   expect(slots2.map((s: any) => s.startAt)).toEqual([
-    '2026-02-05T09:00:00.000Z',
-    '2026-02-05T10:00:00.000Z',
+    '2026-03-05T09:00:00.000Z',
+    '2026-03-05T10:00:00.000Z',
   ]);
 
   const reqB = uid('reqB');
@@ -348,7 +311,7 @@ async function registerAndGetToken(
       requestId: reqB,
       responseId: respB,
       providerUserId: providerId,
-      startAt: '2026-02-05T09:00:00.000Z',
+      startAt: '2026-03-05T09:00:00.000Z',
       durationMin: 60,
     })
     .expect(201);
@@ -380,13 +343,13 @@ async function registerAndGetToken(
   expect(newBookingId).toBeTruthy();
 
   const day1After = await availability.getSlots(providerId, day1, day1, 'UTC');
-  expect(day1After.map((s: any) => s.startAt)).toEqual([
-    '2026-02-05T09:00:00.000Z',
-    '2026-02-05T10:00:00.000Z',
-  ]);
+  expect(day1After.map((s: any) => s.startAt)).toEqual(['2026-03-05T09:00:00.000Z']);
 
   const day2After = await availability.getSlots(providerId, day2, day2, 'UTC');
-  expect(day2After.map((s: any) => s.startAt)).toEqual(['2026-03-05T09:00:00.000Z']);
+  expect(day2After.map((s: any) => s.startAt)).toEqual([
+    '2026-03-12T09:00:00.000Z',
+    '2026-03-12T10:00:00.000Z',
+  ]);
 
   const hist = await request(app.getHttpServer())
     .get(`/bookings/${newBookingId}/history`)
