@@ -6,6 +6,7 @@ import { Types } from 'mongoose';
 import { Request, RequestDocument, RequestStatus } from './schemas/request.schema';
 import type { CreateRequestDto } from './dto/create-request.dto';
 import { CatalogServicesService } from '../catalog/services/services.service';
+import { CitiesService } from '../catalog/cities/cities.service';
 
 type ListFilters = { status?: RequestStatus; from?: Date; to?: Date };
 type ListPagination = { limit?: number; offset?: number };
@@ -16,6 +17,7 @@ export class RequestsService {
     @InjectModel(Request.name)
     private readonly model: Model<RequestDocument>,
     private readonly catalogServices: CatalogServicesService,
+    private readonly cities: CitiesService,
   ) {}
 
   private ensureObjectId(id: string, field: string) {
@@ -58,16 +60,61 @@ export class RequestsService {
     const serviceKey = String(dto.serviceKey).trim().toLowerCase();
     const cityId = String(dto.cityId).trim();
 
+    const [service, city] = await Promise.all([
+      this.catalogServices.getServiceByKey(serviceKey),
+      this.cities.getById(cityId),
+    ]);
+
+    if (!service) throw new BadRequestException('serviceKey not found');
+    if (!city) throw new BadRequestException('cityId not found');
+
+    const category = await this.catalogServices.getCategoryByKey(service.categoryKey);
+
+    const title = String(dto.title).trim();
+    const description = dto.description ? String(dto.description).trim() : null;
+    const photosInput: any = (dto as any).photos;
+    const tagsInput: any = (dto as any).tags;
+    const photos = Array.isArray(photosInput)
+      ? photosInput.map((x) => String(x).trim()).filter((x) => x.length > 0)
+      : typeof photosInput === 'string' && photosInput.trim().length > 0
+        ? photosInput.split(',').map((x) => x.trim()).filter((x) => x.length > 0)
+        : [];
+    const tags = Array.isArray(tagsInput)
+      ? tagsInput.map((x) => String(x).trim().toLowerCase()).filter((x) => x.length > 0)
+      : typeof tagsInput === 'string' && tagsInput.trim().length > 0
+        ? tagsInput.split(',').map((x) => x.trim().toLowerCase()).filter((x) => x.length > 0)
+        : [];
+
+    const cityName = city.name ?? (city.i18n as any)?.en ?? city.key ?? cityId;
+    const subcategoryName = service.name ?? (service.i18n as any)?.en ?? service.key;
+    const categoryName = category?.name ?? (category?.i18n as any)?.en ?? category?.key ?? null;
+
+    const imageUrl = photos[0] ?? null;
+    const searchText = [title, description, tags.join(' '), cityName, categoryName, subcategoryName]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
     const doc = await this.model.create({
+      title,
       clientId: clientId ?? null,
       serviceKey,
       cityId,
+      cityName,
+      categoryKey: service.categoryKey,
+      categoryName,
+      subcategoryName,
       propertyType: dto.propertyType,
       area: dto.area,
       price: typeof dto.price === 'number' ? dto.price : null,
       preferredDate: new Date(dto.preferredDate),
       isRecurring: dto.isRecurring,
       comment: dto.comment ? String(dto.comment).trim() : null,
+      description,
+      photos,
+      imageUrl,
+      tags,
+      searchText,
       status: 'published',
     });
 
@@ -78,16 +125,61 @@ export class RequestsService {
     const serviceKey = String(dto.serviceKey).trim().toLowerCase();
     const cityId = String(dto.cityId).trim();
 
+    const [service, city] = await Promise.all([
+      this.catalogServices.getServiceByKey(serviceKey),
+      this.cities.getById(cityId),
+    ]);
+
+    if (!service) throw new BadRequestException('serviceKey not found');
+    if (!city) throw new BadRequestException('cityId not found');
+
+    const category = await this.catalogServices.getCategoryByKey(service.categoryKey);
+
+    const title = String(dto.title).trim();
+    const description = dto.description ? String(dto.description).trim() : null;
+    const photosInput: any = (dto as any).photos;
+    const tagsInput: any = (dto as any).tags;
+    const photos = Array.isArray(photosInput)
+      ? photosInput.map((x) => String(x).trim()).filter((x) => x.length > 0)
+      : typeof photosInput === 'string' && photosInput.trim().length > 0
+        ? photosInput.split(',').map((x) => x.trim()).filter((x) => x.length > 0)
+        : [];
+    const tags = Array.isArray(tagsInput)
+      ? tagsInput.map((x) => String(x).trim().toLowerCase()).filter((x) => x.length > 0)
+      : typeof tagsInput === 'string' && tagsInput.trim().length > 0
+        ? tagsInput.split(',').map((x) => x.trim().toLowerCase()).filter((x) => x.length > 0)
+        : [];
+
+    const cityName = city.name ?? (city.i18n as any)?.en ?? city.key ?? cityId;
+    const subcategoryName = service.name ?? (service.i18n as any)?.en ?? service.key;
+    const categoryName = category?.name ?? (category?.i18n as any)?.en ?? category?.key ?? null;
+
+    const imageUrl = photos[0] ?? null;
+    const searchText = [title, description, tags.join(' '), cityName, categoryName, subcategoryName]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
     const doc = await this.model.create({
+      title,
       clientId,
       serviceKey,
       cityId,
+      cityName,
+      categoryKey: service.categoryKey,
+      categoryName,
+      subcategoryName,
       propertyType: dto.propertyType,
       area: dto.area,
       price: typeof dto.price === 'number' ? dto.price : null,
       preferredDate: new Date(dto.preferredDate),
       isRecurring: dto.isRecurring,
       comment: dto.comment ? String(dto.comment).trim() : null,
+      description,
+      photos,
+      imageUrl,
+      tags,
+      searchText,
       status: 'draft',
     });
 

@@ -2,6 +2,7 @@
 import { Test } from '@nestjs/testing';
 import { RequestsController } from './requests.controller';
 import { RequestsService } from './requests.service';
+import { UploadsService } from '../uploads/uploads.service';
 
 describe('RequestsController (unit)', () => {
   let controller: RequestsController;
@@ -16,12 +17,19 @@ describe('RequestsController (unit)', () => {
     normalizeFilters: jest.fn(),
   };
 
+  const uploadsMock = {
+    uploadImages: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const moduleRef = await Test.createTestingModule({
       controllers: [RequestsController],
-      providers: [{ provide: RequestsService, useValue: svcMock }],
+      providers: [
+        { provide: RequestsService, useValue: svcMock },
+        { provide: UploadsService, useValue: uploadsMock },
+      ],
     }).compile();
 
     controller = moduleRef.get(RequestsController);
@@ -30,20 +38,30 @@ describe('RequestsController (unit)', () => {
   it('create maps dto', async () => {
     svcMock.createPublic.mockResolvedValue({
       _id: { toString: () => 'r1' },
+      title: 'Test',
       serviceKey: 'home_cleaning',
       cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
       propertyType: 'apartment',
       area: 55,
       price: 120,
       preferredDate: new Date('2026-02-01T10:00:00.000Z'),
       isRecurring: false,
       comment: null,
+      description: 'details',
+      photos: ['https://x/y.jpg'],
+      imageUrl: 'https://x/y.jpg',
+      tags: ['tag1'],
       status: 'published',
       createdAt: new Date('2026-01-28T10:00:00.000Z'),
     });
 
     const res = await controller.create(
       {
+        title: 'Test',
         serviceKey: 'home_cleaning',
         cityId: 'c1',
         propertyType: 'apartment',
@@ -68,20 +86,30 @@ describe('RequestsController (unit)', () => {
   it('create passes clientId for authenticated client', async () => {
     svcMock.createPublic.mockResolvedValue({
       _id: { toString: () => 'r1' },
+      title: 'Test',
       serviceKey: 'home_cleaning',
       cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
       propertyType: 'apartment',
       area: 55,
       price: 120,
       preferredDate: new Date('2026-02-01T10:00:00.000Z'),
       isRecurring: false,
       comment: null,
+      description: 'details',
+      photos: ['https://x/y.jpg'],
+      imageUrl: 'https://x/y.jpg',
+      tags: ['tag1'],
       status: 'published',
       createdAt: new Date('2026-01-28T10:00:00.000Z'),
     });
 
     await controller.create(
       {
+        title: 'Test',
         serviceKey: 'home_cleaning',
         cityId: 'c1',
         propertyType: 'apartment',
@@ -99,14 +127,23 @@ describe('RequestsController (unit)', () => {
     svcMock.listPublic.mockResolvedValue([
       {
         _id: { toString: () => 'r1' },
+        title: 'Test',
         serviceKey: 'home_cleaning',
         cityId: 'c1',
+        cityName: 'Berlin',
+        categoryKey: 'cleaning',
+        categoryName: 'Cleaning',
+        subcategoryName: 'Home cleaning',
         propertyType: 'apartment',
         area: 55,
         price: 120,
         preferredDate: new Date('2026-02-01T10:00:00.000Z'),
         isRecurring: false,
         comment: 'x',
+        description: 'details',
+        photos: ['https://x/y.jpg'],
+        imageUrl: 'https://x/y.jpg',
+        tags: ['tag1'],
         status: 'published',
         createdAt: new Date(),
       },
@@ -167,14 +204,23 @@ describe('RequestsController (unit)', () => {
     svcMock.listMyClient.mockResolvedValue([
       {
         _id: { toString: () => 'r1' },
+        title: 'Test',
         serviceKey: 'home_cleaning',
         cityId: 'c1',
+        cityName: 'Berlin',
+        categoryKey: 'cleaning',
+        categoryName: 'Cleaning',
+        subcategoryName: 'Home cleaning',
         propertyType: 'apartment',
         area: 55,
         price: 120,
         preferredDate: new Date('2026-02-01T10:00:00.000Z'),
         isRecurring: false,
         comment: null,
+        description: 'details',
+        photos: ['https://x/y.jpg'],
+        imageUrl: 'https://x/y.jpg',
+        tags: ['tag1'],
         status: 'published',
         createdAt: new Date('2026-01-28T10:00:00.000Z'),
       },
@@ -190,14 +236,23 @@ describe('RequestsController (unit)', () => {
   it('createMy creates draft for client', async () => {
     svcMock.createForClient.mockResolvedValue({
       _id: { toString: () => 'r2' },
+      title: 'Test',
       serviceKey: 'home_cleaning',
       cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
       propertyType: 'apartment',
       area: 55,
       price: 120,
       preferredDate: new Date('2026-02-01T10:00:00.000Z'),
       isRecurring: false,
       comment: null,
+      description: 'details',
+      photos: ['https://x/y.jpg'],
+      imageUrl: 'https://x/y.jpg',
+      tags: ['tag1'],
       status: 'draft',
       createdAt: new Date('2026-01-28T10:00:00.000Z'),
     });
@@ -205,6 +260,7 @@ describe('RequestsController (unit)', () => {
     const res = await controller.createMy(
       { userId: 'u1', role: 'client' } as any,
       {
+        title: 'Test',
         serviceKey: 'home_cleaning',
         cityId: 'c1',
         propertyType: 'apartment',
@@ -216,6 +272,21 @@ describe('RequestsController (unit)', () => {
 
     expect(svcMock.createForClient).toHaveBeenCalledWith(expect.anything(), 'u1');
     expect(res).toEqual(expect.objectContaining({ id: 'r2', status: 'draft' }));
+  });
+
+  it('uploadMyPhotos returns urls for client', async () => {
+    uploadsMock.uploadImages.mockResolvedValue([
+      { url: 'https://cdn.example.com/req/1.jpg' },
+      { url: 'https://cdn.example.com/req/2.jpg' },
+    ]);
+
+    const res = await controller.uploadMyPhotos(
+      { userId: 'u1', role: 'client' } as any,
+      { photos: [{ buffer: Buffer.from('x') } as any] } as any,
+    );
+
+    expect(uploadsMock.uploadImages).toHaveBeenCalled();
+    expect(res).toEqual({ urls: ['https://cdn.example.com/req/1.jpg', 'https://cdn.example.com/req/2.jpg'] });
   });
 
   it('publishMy publishes client draft', async () => {

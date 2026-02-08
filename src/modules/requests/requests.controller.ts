@@ -1,7 +1,8 @@
 // src/modules/requests/requests.controller.ts
-import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiExtraModels,
   ApiOkResponse,
@@ -20,6 +21,10 @@ import { CreateRequestDto } from './dto/create-request.dto';
 import { RequestResponseDto } from './dto/request-response.dto';
 import { RequestsPublicQueryDto } from './dto/requests-public-query.dto';
 import { RequestsPublicResponseDto } from './dto/requests-public-response.dto';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { IMAGE_MULTER_OPTIONS } from '../uploads/multer.options';
+import { UploadsService } from '../uploads/uploads.service';
+import { RequestPhotosUploadResponseDto } from './dto/request-photos-upload-response.dto';
 import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
@@ -27,19 +32,31 @@ type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 @ApiTags('requests')
 @Controller('requests')
 export class RequestsController {
-  constructor(private readonly requests: RequestsService) {}
+  constructor(
+    private readonly requests: RequestsService,
+    private readonly uploads: UploadsService,
+  ) {}
 
   private toDto(doc: any): RequestResponseDto {
     return {
       id: doc._id.toString(),
+      title: doc.title,
       serviceKey: doc.serviceKey,
       cityId: doc.cityId,
+      cityName: doc.cityName,
+      categoryKey: doc.categoryKey ?? null,
+      categoryName: doc.categoryName ?? null,
+      subcategoryName: doc.subcategoryName ?? null,
       propertyType: doc.propertyType,
       area: doc.area,
       price: doc.price ?? null,
       preferredDate: doc.preferredDate,
       isRecurring: doc.isRecurring,
       comment: doc.comment ?? null,
+      description: doc.description ?? null,
+      photos: doc.photos ?? [],
+      imageUrl: doc.imageUrl ?? null,
+      tags: doc.tags ?? [],
       status: doc.status,
       createdAt: doc.createdAt,
     };
@@ -139,14 +156,23 @@ export class RequestsController {
         {
           example: {
             id: '65f0c1a2b3c4d5e6f7a8b9c1',
+            title: 'Zwei IKEA Pax Schränke aufbauen',
             serviceKey: 'home_cleaning',
             cityId: '64f0c1a2b3c4d5e6f7a8b9c0',
+            cityName: 'Frankfurt am Main',
+            categoryKey: 'furniture',
+            categoryName: 'Möbelaufbau',
+            subcategoryName: 'IKEA Aufbau',
             propertyType: 'apartment',
             area: 55,
             price: 120,
             preferredDate: '2026-02-01T10:00:00.000Z',
             isRecurring: false,
             comment: 'Need eco products, please',
+            description: 'Assemble two wardrobes, tools available',
+            photos: ['https://cdn.example.com/req/1.jpg'],
+            imageUrl: 'https://cdn.example.com/req/1.jpg',
+            tags: ['ikea', 'assembly'],
             status: 'draft',
             createdAt: '2026-01-28T10:20:30.123Z',
           },
@@ -168,6 +194,31 @@ export class RequestsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('my/photos')
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Client: upload request photos' })
+  @ApiOkResponse({ type: RequestPhotosUploadResponseDto })
+  @ApiErrors()
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'photos', maxCount: 8 }], IMAGE_MULTER_OPTIONS))
+  async uploadMyPhotos(
+    @CurrentUser() user: CurrentUserPayload,
+    @UploadedFiles() files?: { photos?: Express.Multer.File[] },
+  ): Promise<RequestPhotosUploadResponseDto> {
+    if (user.role !== 'client') throw new ForbiddenException('Access denied');
+    const photos = files?.photos ?? [];
+    if (photos.length === 0) return { urls: [] };
+
+    const uploaded = await this.uploads.uploadImages(photos, {
+      folder: `requests/${user.userId}`,
+      publicIdPrefix: 'req_photo',
+      tags: ['request'],
+    });
+
+    return { urls: uploaded.map((x) => x.url) };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('my/:requestId/publish')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Client: publish my draft request' })
@@ -180,14 +231,23 @@ export class RequestsController {
         {
           example: {
             id: '65f0c1a2b3c4d5e6f7a8b9c1',
+            title: 'Zwei IKEA Pax Schränke aufbauen',
             serviceKey: 'home_cleaning',
             cityId: '64f0c1a2b3c4d5e6f7a8b9c0',
+            cityName: 'Frankfurt am Main',
+            categoryKey: 'furniture',
+            categoryName: 'Möbelaufbau',
+            subcategoryName: 'IKEA Aufbau',
             propertyType: 'apartment',
             area: 55,
             price: 120,
             preferredDate: '2026-02-01T10:00:00.000Z',
             isRecurring: false,
             comment: 'Need eco products, please',
+            description: 'Assemble two wardrobes, tools available',
+            photos: ['https://cdn.example.com/req/1.jpg'],
+            imageUrl: 'https://cdn.example.com/req/1.jpg',
+            tags: ['ikea', 'assembly'],
             status: 'published',
             createdAt: '2026-01-28T10:20:30.123Z',
           },

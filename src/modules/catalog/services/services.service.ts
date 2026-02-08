@@ -37,4 +37,16 @@ export class CatalogServicesService {
       .sort({ sortOrder: 1, 'i18n.en': 1, name: 1 })
       .exec();
   }
+
+  async getServiceByKey(key: string): Promise<ServiceDocument | null> {
+    const normalized = (key ?? '').trim().toLowerCase();
+    if (!normalized) return null;
+    return this.serviceModel.findOne({ key: normalized, isActive: true }).exec();
+  }
+
+  async getCategoryByKey(key: string): Promise<ServiceCategoryDocument | null> {
+    const normalized = (key ?? '').trim().toLowerCase();
+    if (!normalized) return null;
+    return this.categoryModel.findOne({ key: normalized, isActive: true }).exec();
+  }
 }
