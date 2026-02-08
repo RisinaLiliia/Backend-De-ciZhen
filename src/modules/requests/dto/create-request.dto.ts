@@ -1,8 +1,26 @@
 // src/modules/requests/dto/create-request.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsDateString, IsIn, IsOptional, IsString, MaxLength, Min, IsNumber } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CreateRequestDto {
+  @ApiProperty({ example: 'Zwei IKEA Pax Schränke aufbauen' })
+  @IsString()
+  @MaxLength(120)
+  @MinLength(3)
+  title: string;
+
   @ApiProperty({ example: 'home_cleaning' })
   @IsString()
   @MaxLength(80)
@@ -41,4 +59,32 @@ export class CreateRequestDto {
   @IsString()
   @MaxLength(1000)
   comment?: string;
+
+  @ApiPropertyOptional({ example: 'Assemble two wardrobes, tools available', maxLength: 2000 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+
+  @ApiPropertyOptional({
+    example: ['https://cdn.example.com/req/1.jpg'],
+    description: 'Optional photos for the request card',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(500, { each: true })
+  photos?: string[];
+
+  @ApiPropertyOptional({
+    example: ['ikea', 'assembly'],
+    description: 'Optional tags for search',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  tags?: string[];
 }

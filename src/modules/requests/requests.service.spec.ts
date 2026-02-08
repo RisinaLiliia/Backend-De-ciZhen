@@ -4,6 +4,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { RequestsService } from './requests.service';
 import { Request } from './schemas/request.schema';
 import { CatalogServicesService } from '../catalog/services/services.service';
+import { CitiesService } from '../catalog/cities/cities.service';
 
 describe('RequestsService', () => {
   let service: RequestsService;
@@ -18,6 +19,12 @@ describe('RequestsService', () => {
 
   const catalogMock = {
     listServices: jest.fn(),
+    getServiceByKey: jest.fn(),
+    getCategoryByKey: jest.fn(),
+  };
+
+  const citiesMock = {
+    getById: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -28,6 +35,7 @@ describe('RequestsService', () => {
         RequestsService,
         { provide: getModelToken(Request.name), useValue: modelMock },
         { provide: CatalogServicesService, useValue: catalogMock },
+        { provide: CitiesService, useValue: citiesMock },
       ],
     }).compile();
 
@@ -36,8 +44,16 @@ describe('RequestsService', () => {
 
   it('createPublic normalizes serviceKey and creates published request', async () => {
     modelMock.create.mockResolvedValue({ _id: 'r1', serviceKey: 'home_cleaning', status: 'published' });
+    catalogMock.getServiceByKey.mockResolvedValue({
+      key: 'home_cleaning',
+      categoryKey: 'cleaning',
+      name: 'Home cleaning',
+    });
+    catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
+    citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
 
     const res: any = await service.createPublic({
+      title: 'Test',
       serviceKey: ' Home_Cleaning ',
       cityId: ' c1 ',
       propertyType: 'apartment',
@@ -46,15 +62,26 @@ describe('RequestsService', () => {
       preferredDate: '2026-02-01T10:00:00.000Z',
       isRecurring: false,
       comment: '  hi  ',
+      description: '  details  ',
+      photos: [' https://x/y.jpg '],
+      tags: [' Ikea ', 'assembly'],
     } as any);
 
     expect(modelMock.create).toHaveBeenCalledWith(
       expect.objectContaining({
         clientId: null,
+        title: 'Test',
         serviceKey: 'home_cleaning',
         cityId: 'c1',
+        cityName: 'Berlin',
+        categoryKey: 'cleaning',
+        categoryName: 'Cleaning',
+        subcategoryName: 'Home cleaning',
         status: 'published',
         comment: 'hi',
+        description: 'details',
+        imageUrl: 'https://x/y.jpg',
+        tags: ['ikea', 'assembly'],
       }),
     );
     expect(res.status).toBe('published');
@@ -62,16 +89,24 @@ describe('RequestsService', () => {
 
   it('createPublic sets clientId when provided', async () => {
     modelMock.create.mockResolvedValue({ _id: 'r2', clientId: 'u1', status: 'published' });
+    catalogMock.getServiceByKey.mockResolvedValue({
+      key: 'home_cleaning',
+      categoryKey: 'cleaning',
+      name: 'Home cleaning',
+    });
+    catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
+    citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
 
     await service.createPublic(
       {
+        title: 'Test',
         serviceKey: 'home_cleaning',
         cityId: 'c1',
-      propertyType: 'apartment',
-      area: 55,
-      price: 120,
-      preferredDate: '2026-02-01T10:00:00.000Z',
-      isRecurring: false,
+        propertyType: 'apartment',
+        area: 55,
+        price: 120,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
     } as any,
     'u1',
     );
@@ -81,8 +116,16 @@ describe('RequestsService', () => {
 
   it('createForClient creates draft request for client', async () => {
     modelMock.create.mockResolvedValue({ _id: 'r3', clientId: 'u1', status: 'draft' });
+    catalogMock.getServiceByKey.mockResolvedValue({
+      key: 'home_cleaning',
+      categoryKey: 'cleaning',
+      name: 'Home cleaning',
+    });
+    catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
+    citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
 
     await service.createForClient({
+      title: 'Test',
       serviceKey: 'home_cleaning',
       cityId: ' c1 ',
       propertyType: 'apartment',
@@ -91,15 +134,26 @@ describe('RequestsService', () => {
       preferredDate: '2026-02-01T10:00:00.000Z',
       isRecurring: false,
       comment: '  hi  ',
+      description: '  details  ',
+      photos: [' https://x/y.jpg '],
+      tags: [' Ikea ', 'assembly'],
     } as any, 'u1');
 
     expect(modelMock.create).toHaveBeenCalledWith(
       expect.objectContaining({
         clientId: 'u1',
+        title: 'Test',
         cityId: 'c1',
         serviceKey: 'home_cleaning',
+        cityName: 'Berlin',
+        categoryKey: 'cleaning',
+        categoryName: 'Cleaning',
+        subcategoryName: 'Home cleaning',
         status: 'draft',
         comment: 'hi',
+        description: 'details',
+        imageUrl: 'https://x/y.jpg',
+        tags: ['ikea', 'assembly'],
       }),
     );
   });

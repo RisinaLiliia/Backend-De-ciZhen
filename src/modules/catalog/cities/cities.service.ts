@@ -20,4 +20,10 @@ export class CitiesService {
       .sort({ sortOrder: 1, "i18n.en": 1, name: 1 })
       .exec();
   }
+
+  async getById(id: string): Promise<CityDocument | null> {
+    const normalized = (id ?? '').trim();
+    if (!normalized) return null;
+    return this.cityModel.findById(normalized).exec();
+  }
 }

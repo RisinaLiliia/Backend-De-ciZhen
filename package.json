@@ -20,7 +20,8 @@
     "seed:services": "ts-node -r tsconfig-paths/register src/database/seeds/seed-services.ts",
     "seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-marketplace.ts",
     "migrate:bookings-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-bookings-indexes.ts",
-    "migrate:availability-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-availability-indexes.ts"
+    "migrate:availability-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-availability-indexes.ts",
+    "migrate:requests-denorm": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-requests-denorm.ts"
   
   },
   "dependencies": {

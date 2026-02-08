@@ -9,6 +9,9 @@ export type PropertyType = 'apartment' | 'house';
 
 @Schema({ timestamps: true, collection: 'requests' })
 export class Request {
+  @Prop({ type: String, required: true, trim: true, maxlength: 120 })
+  title: string;
+
   @Prop({ type: String, required: true, index: true })
   clientId: string;
 
@@ -17,6 +20,9 @@ export class Request {
 
   @Prop({ type: String, required: true, trim: true, maxlength: 64, index: true })
   cityId: string;
+
+  @Prop({ type: String, required: true, trim: true, maxlength: 120 })
+  cityName: string;
 
   @Prop({ type: String, enum: ['apartment', 'house'], required: true })
   propertyType: PropertyType;
@@ -35,6 +41,30 @@ export class Request {
 
   @Prop({ type: String, trim: true, maxlength: 1000, default: null })
   comment: string | null;
+
+  @Prop({ type: String, trim: true, maxlength: 2000, default: null })
+  description: string | null;
+
+  @Prop({ type: [String], default: [] })
+  photos: string[];
+
+  @Prop({ type: String, trim: true, maxlength: 500, default: null })
+  imageUrl: string | null;
+
+  @Prop({ type: String, trim: true, lowercase: true, maxlength: 50 })
+  categoryKey: string;
+
+  @Prop({ type: String, trim: true, maxlength: 120, default: null })
+  categoryName: string | null;
+
+  @Prop({ type: String, trim: true, maxlength: 120, default: null })
+  subcategoryName: string | null;
+
+  @Prop({ type: [String], default: [] })
+  tags: string[];
+
+  @Prop({ type: String, default: null })
+  searchText: string | null;
 
   @Prop({
     type: String,
@@ -57,3 +87,4 @@ RequestSchema.index({ status: 1, cityId: 1, serviceKey: 1, preferredDate: 1 });
 RequestSchema.index({ createdAt: -1 });
 RequestSchema.index({ clientId: 1, status: 1, createdAt: -1 });
 RequestSchema.index({ matchedProviderUserId: 1, createdAt: -1 });
+RequestSchema.index({ searchText: 'text' });
