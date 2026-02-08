@@ -5,6 +5,7 @@ import type { Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { Request, RequestDocument, RequestStatus } from './schemas/request.schema';
 import type { CreateRequestDto } from './dto/create-request.dto';
+import { CatalogServicesService } from '../catalog/services/services.service';
 
 type ListFilters = { status?: RequestStatus; from?: Date; to?: Date };
 type ListPagination = { limit?: number; offset?: number };
@@ -14,6 +15,7 @@ export class RequestsService {
   constructor(
     @InjectModel(Request.name)
     private readonly model: Model<RequestDocument>,
+    private readonly catalogServices: CatalogServicesService,
   ) {}
 
   private ensureObjectId(id: string, field: string) {
@@ -116,37 +118,112 @@ export class RequestsService {
   async listPublic(filters: {
     cityId?: string;
     serviceKey?: string;
+    categoryKey?: string;
+    subcategoryKey?: string;
     sort?: 'date_desc' | 'date_asc' | 'price_asc' | 'price_desc';
+    page?: number;
     limit?: number;
     offset?: number;
+    priceMin?: number;
+    priceMax?: number;
   }): Promise<RequestDocument[]> {
     const q: Record<string, unknown> = { status: 'published' };
 
     const cityId = (filters.cityId ?? '').trim();
     if (cityId.length > 0) q.cityId = cityId;
 
-    const serviceKey = (filters.serviceKey ?? '').trim().toLowerCase();
-    if (serviceKey.length > 0) q.serviceKey = serviceKey;
+    const subKey = (filters.subcategoryKey ?? filters.serviceKey ?? '').trim().toLowerCase();
+    const categoryKey = (filters.categoryKey ?? '').trim().toLowerCase();
+
+    if (subKey.length > 0) {
+      q.serviceKey = subKey;
+
+      if (categoryKey.length > 0) {
+        const services = await this.catalogServices.listServices(categoryKey);
+        const allowed = new Set(services.map((s) => s.key));
+        if (!allowed.has(subKey)) return [];
+      }
+    } else if (categoryKey.length > 0) {
+      const services = await this.catalogServices.listServices(categoryKey);
+      if (services.length === 0) return [];
+      q.serviceKey = { $in: services.map((s) => s.key) };
+    }
+
+    if (typeof filters.priceMin === 'number' || typeof filters.priceMax === 'number') {
+      const min = typeof filters.priceMin === 'number' ? filters.priceMin : undefined;
+      const max = typeof filters.priceMax === 'number' ? filters.priceMax : undefined;
+      if (typeof min === 'number' && typeof max === 'number' && max < min) {
+        throw new BadRequestException('priceMax must be >= priceMin');
+      }
+      q.price = {};
+      if (typeof min === 'number') (q.price as any).$gte = min;
+      if (typeof max === 'number') (q.price as any).$lte = max;
+    }
 
     const sortKey = filters.sort ?? 'date_desc';
     const sort: Record<string, 1 | -1> =
       sortKey === 'date_asc'
-        ? { preferredDate: 1, createdAt: -1 }
+        ? { createdAt: 1 }
         : sortKey === 'price_asc'
           ? { price: 1, createdAt: -1 }
           : sortKey === 'price_desc'
             ? { price: -1, createdAt: -1 }
-            : { preferredDate: -1, createdAt: -1 };
+            : { createdAt: -1 };
 
     const limit = Math.min(Math.max(filters.limit ?? 20, 1), 100);
-    const offset = Math.max(filters.offset ?? 0, 0);
+    const offsetRaw =
+      typeof filters.offset === 'number'
+        ? filters.offset
+        : typeof filters.page === 'number'
+          ? (filters.page - 1) * limit
+          : 0;
+    const offset = Math.max(offsetRaw, 0);
 
-    return this.model
-      .find(q)
-      .sort(sort)
-      .skip(offset)
-      .limit(limit)
-      .exec();
+    return this.model.find(q).sort(sort).skip(offset).limit(limit).exec();
+  }
+
+  async countPublic(filters: {
+    cityId?: string;
+    serviceKey?: string;
+    categoryKey?: string;
+    subcategoryKey?: string;
+    priceMin?: number;
+    priceMax?: number;
+  }): Promise<number> {
+    const q: Record<string, unknown> = { status: 'published' };
+
+    const cityId = (filters.cityId ?? '').trim();
+    if (cityId.length > 0) q.cityId = cityId;
+
+    const subKey = (filters.subcategoryKey ?? filters.serviceKey ?? '').trim().toLowerCase();
+    const categoryKey = (filters.categoryKey ?? '').trim().toLowerCase();
+
+    if (subKey.length > 0) {
+      q.serviceKey = subKey;
+
+      if (categoryKey.length > 0) {
+        const services = await this.catalogServices.listServices(categoryKey);
+        const allowed = new Set(services.map((s) => s.key));
+        if (!allowed.has(subKey)) return 0;
+      }
+    } else if (categoryKey.length > 0) {
+      const services = await this.catalogServices.listServices(categoryKey);
+      if (services.length === 0) return 0;
+      q.serviceKey = { $in: services.map((s) => s.key) };
+    }
+
+    if (typeof filters.priceMin === 'number' || typeof filters.priceMax === 'number') {
+      const min = typeof filters.priceMin === 'number' ? filters.priceMin : undefined;
+      const max = typeof filters.priceMax === 'number' ? filters.priceMax : undefined;
+      if (typeof min === 'number' && typeof max === 'number' && max < min) {
+        throw new BadRequestException('priceMax must be >= priceMin');
+      }
+      q.price = {};
+      if (typeof min === 'number') (q.price as any).$gte = min;
+      if (typeof max === 'number') (q.price as any).$lte = max;
+    }
+
+    return this.model.countDocuments(q).exec();
   }
 
   async listMyClient(

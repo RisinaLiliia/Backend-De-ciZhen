@@ -19,6 +19,7 @@ import { RequestsService } from './requests.service';
 import { CreateRequestDto } from './dto/create-request.dto';
 import { RequestResponseDto } from './dto/request-response.dto';
 import { RequestsPublicQueryDto } from './dto/requests-public-query.dto';
+import { RequestsPublicResponseDto } from './dto/requests-public-response.dto';
 import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
@@ -64,19 +65,44 @@ export class RequestsController {
   @Get('public')
   @ApiOperation({
     summary: 'List published requests (for providers)',
-    description: 'Returns published requests. Optional filters: cityId, serviceKey.',
+    description: 'Returns published requests. Optional filters: cityId, categoryKey, subcategoryKey (preferred), serviceKey (deprecated).',
   })
-  @ApiOkResponse({ type: RequestResponseDto, isArray: true })
+  @ApiOkResponse({ type: RequestsPublicResponseDto })
   @ApiPublicErrors()
-  async listPublic(@Query() q: RequestsPublicQueryDto): Promise<RequestResponseDto[]> {
-    const items = await this.requests.listPublic({
+  async listPublic(@Query() q: RequestsPublicQueryDto): Promise<RequestsPublicResponseDto> {
+    const filters = {
       cityId: q.cityId,
       serviceKey: q.serviceKey,
+      categoryKey: q.categoryKey,
+      subcategoryKey: q.subcategoryKey,
       sort: q.sort,
+      page: q.page,
       limit: q.limit,
       offset: q.offset,
-    });
-    return items.map((x) => this.toDto(x));
+      priceMin: q.priceMin,
+      priceMax: q.priceMax,
+    };
+
+    const [items, total] = await Promise.all([
+      this.requests.listPublic(filters),
+      this.requests.countPublic(filters),
+    ]);
+
+    const limit = Math.min(Math.max(q.limit ?? 20, 1), 100);
+    const offset =
+      typeof q.offset === 'number'
+        ? Math.max(q.offset, 0)
+        : typeof q.page === 'number'
+          ? Math.max((q.page - 1) * limit, 0)
+          : 0;
+    const page = Math.floor(offset / limit) + 1;
+
+    return {
+      items: items.map((x) => this.toDto(x)),
+      total,
+      page,
+      limit,
+    };
   }
 
   @UseGuards(JwtAuthGuard)

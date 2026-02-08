@@ -11,6 +11,7 @@ describe('RequestsController (unit)', () => {
     createForClient: jest.fn(),
     publishForClient: jest.fn(),
     listPublic: jest.fn(),
+    countPublic: jest.fn(),
     listMyClient: jest.fn(),
     normalizeFilters: jest.fn(),
   };
@@ -110,23 +111,55 @@ describe('RequestsController (unit)', () => {
         createdAt: new Date(),
       },
     ]);
+    svcMock.countPublic.mockResolvedValue(1);
 
     const res = await controller.listPublic({
       cityId: 'c1',
       serviceKey: 'home_cleaning',
+      categoryKey: 'cleaning',
+      subcategoryKey: 'window_cleaning',
       sort: 'date_desc',
+      page: 2,
       limit: 10,
       offset: 5,
+      priceMin: 50,
+      priceMax: 200,
     } as any);
 
     expect(svcMock.listPublic).toHaveBeenCalledWith({
       cityId: 'c1',
       serviceKey: 'home_cleaning',
+      categoryKey: 'cleaning',
+      subcategoryKey: 'window_cleaning',
       sort: 'date_desc',
+      page: 2,
       limit: 10,
       offset: 5,
+      priceMin: 50,
+      priceMax: 200,
     });
-    expect(res[0]).toEqual(expect.objectContaining({ id: 'r1', cityId: 'c1', serviceKey: 'home_cleaning' }));
+    expect(svcMock.countPublic).toHaveBeenCalledWith({
+      cityId: 'c1',
+      serviceKey: 'home_cleaning',
+      categoryKey: 'cleaning',
+      subcategoryKey: 'window_cleaning',
+      sort: 'date_desc',
+      page: 2,
+      limit: 10,
+      offset: 5,
+      priceMin: 50,
+      priceMax: 200,
+    });
+    expect(res).toEqual(
+      expect.objectContaining({
+        total: 1,
+        page: 1,
+        limit: 10,
+      }),
+    );
+    expect(res.items[0]).toEqual(
+      expect.objectContaining({ id: 'r1', cityId: 'c1', serviceKey: 'home_cleaning' }),
+    );
   });
 
   it('my passes filters and maps list', async () => {
