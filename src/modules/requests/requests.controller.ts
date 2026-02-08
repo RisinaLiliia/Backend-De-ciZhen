@@ -3,10 +3,12 @@ import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -33,6 +35,7 @@ export class RequestsController {
       cityId: doc.cityId,
       propertyType: doc.propertyType,
       area: doc.area,
+      price: doc.price ?? null,
       preferredDate: doc.preferredDate,
       isRecurring: doc.isRecurring,
       comment: doc.comment ?? null,
@@ -66,7 +69,13 @@ export class RequestsController {
   @ApiOkResponse({ type: RequestResponseDto, isArray: true })
   @ApiPublicErrors()
   async listPublic(@Query() q: RequestsPublicQueryDto): Promise<RequestResponseDto[]> {
-    const items = await this.requests.listPublic({ cityId: q.cityId, serviceKey: q.serviceKey });
+    const items = await this.requests.listPublic({
+      cityId: q.cityId,
+      serviceKey: q.serviceKey,
+      sort: q.sort,
+      limit: q.limit,
+      offset: q.offset,
+    });
     return items.map((x) => this.toDto(x));
   }
 
@@ -96,7 +105,29 @@ export class RequestsController {
     summary: 'Client: create my request (draft)',
     description: 'Creates a request for an authenticated client. Default status: draft.',
   })
-  @ApiCreatedResponse({ type: RequestResponseDto })
+  @ApiExtraModels(RequestResponseDto)
+  @ApiCreatedResponse({
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(RequestResponseDto) },
+        {
+          example: {
+            id: '65f0c1a2b3c4d5e6f7a8b9c1',
+            serviceKey: 'home_cleaning',
+            cityId: '64f0c1a2b3c4d5e6f7a8b9c0',
+            propertyType: 'apartment',
+            area: 55,
+            price: 120,
+            preferredDate: '2026-02-01T10:00:00.000Z',
+            isRecurring: false,
+            comment: 'Need eco products, please',
+            status: 'draft',
+            createdAt: '2026-01-28T10:20:30.123Z',
+          },
+        },
+      ],
+    },
+  })
   @ApiErrors()
   async createMy(
     @CurrentUser() user: CurrentUserPayload,
@@ -115,7 +146,29 @@ export class RequestsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Client: publish my draft request' })
   @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
-  @ApiOkResponse({ type: RequestResponseDto })
+  @ApiExtraModels(RequestResponseDto)
+  @ApiOkResponse({
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(RequestResponseDto) },
+        {
+          example: {
+            id: '65f0c1a2b3c4d5e6f7a8b9c1',
+            serviceKey: 'home_cleaning',
+            cityId: '64f0c1a2b3c4d5e6f7a8b9c0',
+            propertyType: 'apartment',
+            area: 55,
+            price: 120,
+            preferredDate: '2026-02-01T10:00:00.000Z',
+            isRecurring: false,
+            comment: 'Need eco products, please',
+            status: 'published',
+            createdAt: '2026-01-28T10:20:30.123Z',
+          },
+        },
+      ],
+    },
+  })
   @ApiErrors()
   @HttpCode(200)
   async publishMy(

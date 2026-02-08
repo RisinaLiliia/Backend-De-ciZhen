@@ -62,6 +62,7 @@ export class RequestsService {
       cityId,
       propertyType: dto.propertyType,
       area: dto.area,
+      price: typeof dto.price === 'number' ? dto.price : null,
       preferredDate: new Date(dto.preferredDate),
       isRecurring: dto.isRecurring,
       comment: dto.comment ? String(dto.comment).trim() : null,
@@ -81,6 +82,7 @@ export class RequestsService {
       cityId,
       propertyType: dto.propertyType,
       area: dto.area,
+      price: typeof dto.price === 'number' ? dto.price : null,
       preferredDate: new Date(dto.preferredDate),
       isRecurring: dto.isRecurring,
       comment: dto.comment ? String(dto.comment).trim() : null,
@@ -111,7 +113,13 @@ export class RequestsService {
     return updated;
   }
 
-  async listPublic(filters: { cityId?: string; serviceKey?: string }): Promise<RequestDocument[]> {
+  async listPublic(filters: {
+    cityId?: string;
+    serviceKey?: string;
+    sort?: 'date_desc' | 'date_asc' | 'price_asc' | 'price_desc';
+    limit?: number;
+    offset?: number;
+  }): Promise<RequestDocument[]> {
     const q: Record<string, unknown> = { status: 'published' };
 
     const cityId = (filters.cityId ?? '').trim();
@@ -120,9 +128,24 @@ export class RequestsService {
     const serviceKey = (filters.serviceKey ?? '').trim().toLowerCase();
     if (serviceKey.length > 0) q.serviceKey = serviceKey;
 
+    const sortKey = filters.sort ?? 'date_desc';
+    const sort: Record<string, 1 | -1> =
+      sortKey === 'date_asc'
+        ? { preferredDate: 1, createdAt: -1 }
+        : sortKey === 'price_asc'
+          ? { price: 1, createdAt: -1 }
+          : sortKey === 'price_desc'
+            ? { price: -1, createdAt: -1 }
+            : { preferredDate: -1, createdAt: -1 };
+
+    const limit = Math.min(Math.max(filters.limit ?? 20, 1), 100);
+    const offset = Math.max(filters.offset ?? 0, 0);
+
     return this.model
       .find(q)
-      .sort({ preferredDate: 1, createdAt: -1 })
+      .sort(sort)
+      .skip(offset)
+      .limit(limit)
       .exec();
   }
 

@@ -57,7 +57,7 @@ describe('AvailabilityService v3 (bookings)', () => {
 
     blackoutModelMock.find.mockReturnValue(
       execWrap([
-        { startAt: new Date('2026-02-05T09:00:00.000Z'), endAt: new Date('2026-02-05T10:00:00.000Z') },
+        { startAt: new Date('2026-03-05T09:00:00.000Z'), endAt: new Date('2026-03-05T10:00:00.000Z') },
       ]),
     );
 
@@ -65,7 +65,7 @@ describe('AvailabilityService v3 (bookings)', () => {
       select: jest.fn().mockReturnValue(execWrap([])),
     });
 
-    const res = await svc.getSlots('p1', '2026-02-05', '2026-02-05', 'UTC');
+    const res = await svc.getSlots('p1', '2026-03-05', '2026-03-05', 'UTC');
     expect(res.length).toBe(1);
   });
 
@@ -85,12 +85,12 @@ describe('AvailabilityService v3 (bookings)', () => {
     bookingModelMock.find.mockReturnValue({
       select: jest.fn().mockReturnValue(
         execWrap([
-          { startAt: new Date('2026-02-05T10:00:00.000Z'), endAt: new Date('2026-02-05T11:00:00.000Z') },
+          { startAt: new Date('2026-03-05T10:00:00.000Z'), endAt: new Date('2026-03-05T11:00:00.000Z') },
         ]),
       ),
     });
 
-    const res = await svc.getSlots('p1', '2026-02-05', '2026-02-05', 'UTC');
+    const res = await svc.getSlots('p1', '2026-03-05', '2026-03-05', 'UTC');
     expect(res.length).toBe(1);
     expect(res[0].startAt).toContain('09:00:00.000Z');
   });

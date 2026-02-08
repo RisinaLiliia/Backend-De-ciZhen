@@ -35,6 +35,7 @@ describe('RequestsService', () => {
       cityId: ' c1 ',
       propertyType: 'apartment',
       area: 55,
+      price: 120,
       preferredDate: '2026-02-01T10:00:00.000Z',
       isRecurring: false,
       comment: '  hi  ',
@@ -59,12 +60,13 @@ describe('RequestsService', () => {
       {
         serviceKey: 'home_cleaning',
         cityId: 'c1',
-        propertyType: 'apartment',
-        area: 55,
-        preferredDate: '2026-02-01T10:00:00.000Z',
-        isRecurring: false,
-      } as any,
-      'u1',
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: '2026-02-01T10:00:00.000Z',
+      isRecurring: false,
+    } as any,
+    'u1',
     );
 
     expect(modelMock.create).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'u1' }));
@@ -78,6 +80,7 @@ describe('RequestsService', () => {
       cityId: ' c1 ',
       propertyType: 'apartment',
       area: 55,
+      price: 120,
       preferredDate: '2026-02-01T10:00:00.000Z',
       isRecurring: false,
       comment: '  hi  ',
@@ -95,16 +98,21 @@ describe('RequestsService', () => {
   });
 
   it('listPublic always filters by status=published', async () => {
-    modelMock.find.mockReturnValue({
-      sort: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
-    });
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
+    modelMock.find.mockReturnValue({ sort });
 
     await service.listPublic({});
     expect(modelMock.find).toHaveBeenCalledWith({ status: 'published' });
   });
 
   it('listPublic adds cityId and serviceKey only when non-empty', async () => {
-    const sort = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
     modelMock.find.mockReturnValue({ sort });
 
     await service.listPublic({ cityId: '  ', serviceKey: ' ' });
@@ -116,6 +124,20 @@ describe('RequestsService', () => {
       cityId: 'c1',
       serviceKey: 'home_cleaning',
     });
+  });
+
+  it('listPublic applies pagination and sort', async () => {
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
+    modelMock.find.mockReturnValue({ sort });
+
+    await service.listPublic({ sort: 'date_asc', limit: 10, offset: 5 });
+
+    expect(sort).toHaveBeenCalledWith({ preferredDate: 1, createdAt: -1 });
+    expect(skip).toHaveBeenCalledWith(5);
+    expect(limit).toHaveBeenCalledWith(10);
   });
 
   it('listMyClient filters by clientId, status, and createdAt range', async () => {
@@ -141,17 +163,18 @@ describe('RequestsService', () => {
   });
 
   it('publishForClient publishes draft request for client', async () => {
-    const execFind = jest.fn().mockResolvedValue({ _id: 'r1', clientId: 'u1', status: 'draft' });
+    const rid = '507f1f77bcf86cd799439011';
+    const execFind = jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'draft' });
     modelMock.findById.mockReturnValue({ exec: execFind });
 
-    const execUpdate = jest.fn().mockResolvedValue({ _id: 'r1', clientId: 'u1', status: 'published' });
+    const execUpdate = jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'published' });
     modelMock.findOneAndUpdate.mockReturnValue({ exec: execUpdate });
 
-    const res: any = await service.publishForClient('u1', 'r1');
+    const res: any = await service.publishForClient('u1', rid);
 
-    expect(modelMock.findById).toHaveBeenCalledWith('r1');
+    expect(modelMock.findById).toHaveBeenCalledWith(rid);
     expect(modelMock.findOneAndUpdate).toHaveBeenCalledWith(
-      { _id: 'r1', clientId: 'u1' },
+      { _id: rid, clientId: 'u1' },
       { $set: { status: 'published' } },
       { new: true },
     );
@@ -159,18 +182,20 @@ describe('RequestsService', () => {
   });
 
   it('publishForClient throws when request is not draft', async () => {
-    const execFind = jest.fn().mockResolvedValue({ _id: 'r1', clientId: 'u1', status: 'published' });
+    const rid = '507f1f77bcf86cd799439012';
+    const execFind = jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'published' });
     modelMock.findById.mockReturnValue({ exec: execFind });
 
-    await expect(service.publishForClient('u1', 'r1')).rejects.toThrow('Only draft requests can be published');
+    await expect(service.publishForClient('u1', rid)).rejects.toThrow('Only draft requests can be published');
     expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it('publishForClient throws when request not found or not owned', async () => {
+    const rid = '507f1f77bcf86cd799439013';
     const execFind = jest.fn().mockResolvedValue(null);
     modelMock.findById.mockReturnValue({ exec: execFind });
 
-    await expect(service.publishForClient('u1', 'r1')).rejects.toThrow('Request not found');
+    await expect(service.publishForClient('u1', rid)).rejects.toThrow('Request not found');
     expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
