@@ -1,6 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { UsersController } from "./users.controller";
 import { UsersService } from "./users.service";
+import { UploadsService } from "../uploads/uploads.service";
 
 describe("UsersController (unit)", () => {
   let controller: UsersController;
@@ -8,6 +9,10 @@ describe("UsersController (unit)", () => {
   const usersServiceMock = {
     findById: jest.fn(),
     updateMe: jest.fn(),
+  };
+
+  const uploadsMock = {
+    uploadImage: jest.fn(),
   };
 
   const makeUserDoc = (overrides: Partial<any> = {}) =>
@@ -37,7 +42,10 @@ describe("UsersController (unit)", () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [{ provide: UsersService, useValue: usersServiceMock }],
+      providers: [
+        { provide: UsersService, useValue: usersServiceMock },
+        { provide: UploadsService, useValue: uploadsMock },
+      ],
     }).compile();
 
     controller = moduleRef.get(UsersController);
@@ -117,6 +125,30 @@ describe("UsersController (unit)", () => {
           avatar: { url: "https://cdn.example.com/u/1.png", isDefault: false },
         }),
       );
+    });
+  });
+
+  describe("uploadAvatar", () => {
+    it("uploads avatar and updates user profile", async () => {
+      uploadsMock.uploadImage.mockResolvedValue({
+        url: "https://cdn.example.com/u/1.png",
+      });
+      usersServiceMock.updateMe.mockResolvedValue(
+        makeUserDoc({
+          avatar: { url: "https://cdn.example.com/u/1.png", isDefault: false },
+        }),
+      );
+
+      const res = await controller.uploadAvatar(
+        { userId: "userId1", role: "client" } as any,
+        { buffer: Buffer.from("x"), mimetype: "image/png" } as any,
+      );
+
+      expect(uploadsMock.uploadImage).toHaveBeenCalled();
+      expect(usersServiceMock.updateMe).toHaveBeenCalledWith("userId1", {
+        avatarUrl: "https://cdn.example.com/u/1.png",
+      });
+      expect(res.avatar?.url).toBe("https://cdn.example.com/u/1.png");
     });
   });
 });

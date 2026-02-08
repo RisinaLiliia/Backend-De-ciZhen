@@ -13,6 +13,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateRequestDto {
   @ApiProperty({ example: 'Zwei IKEA Pax Schränke aufbauen' })
@@ -36,12 +37,14 @@ export class CreateRequestDto {
   propertyType: 'apartment' | 'house';
 
   @ApiProperty({ example: 55, description: 'Area in m²' })
+  @Type(() => Number)
   @IsNumber()
   @Min(10)
   area: number;
 
   @ApiPropertyOptional({ example: 120, description: 'Optional price in EUR' })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price?: number;
@@ -51,6 +54,7 @@ export class CreateRequestDto {
   preferredDate: string;
 
   @ApiProperty({ example: false })
+  @Type(() => Boolean)
   @IsBoolean()
   isRecurring: boolean;
 

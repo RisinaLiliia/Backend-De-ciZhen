@@ -16,6 +16,10 @@ export default registerAs("app", () => ({
   redisPassword: process.env.REDIS_PASSWORD ?? "",
   redisDisabled: process.env.REDIS_DISABLED === "true",
 
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET,
+
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((s) => s.trim())

@@ -1,7 +1,8 @@
 // src/modules/requests/requests.controller.ts
-import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiExtraModels,
   ApiOkResponse,
@@ -20,6 +21,10 @@ import { CreateRequestDto } from './dto/create-request.dto';
 import { RequestResponseDto } from './dto/request-response.dto';
 import { RequestsPublicQueryDto } from './dto/requests-public-query.dto';
 import { RequestsPublicResponseDto } from './dto/requests-public-response.dto';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { IMAGE_MULTER_OPTIONS } from '../uploads/multer.options';
+import { UploadsService } from '../uploads/uploads.service';
+import { RequestPhotosUploadResponseDto } from './dto/request-photos-upload-response.dto';
 import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
@@ -27,7 +32,10 @@ type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 @ApiTags('requests')
 @Controller('requests')
 export class RequestsController {
-  constructor(private readonly requests: RequestsService) {}
+  constructor(
+    private readonly requests: RequestsService,
+    private readonly uploads: UploadsService,
+  ) {}
 
   private toDto(doc: any): RequestResponseDto {
     return {
@@ -183,6 +191,31 @@ export class RequestsController {
 
     const created = await this.requests.createForClient(dto, user.userId);
     return this.toDto(created);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my/photos')
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Client: upload request photos' })
+  @ApiOkResponse({ type: RequestPhotosUploadResponseDto })
+  @ApiErrors()
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'photos', maxCount: 8 }], IMAGE_MULTER_OPTIONS))
+  async uploadMyPhotos(
+    @CurrentUser() user: CurrentUserPayload,
+    @UploadedFiles() files?: { photos?: Express.Multer.File[] },
+  ): Promise<RequestPhotosUploadResponseDto> {
+    if (user.role !== 'client') throw new ForbiddenException('Access denied');
+    const photos = files?.photos ?? [];
+    if (photos.length === 0) return { urls: [] };
+
+    const uploaded = await this.uploads.uploadImages(photos, {
+      folder: `requests/${user.userId}`,
+      publicIdPrefix: 'req_photo',
+      tags: ['request'],
+    });
+
+    return { urls: uploaded.map((x) => x.url) };
   }
 
   @UseGuards(JwtAuthGuard)

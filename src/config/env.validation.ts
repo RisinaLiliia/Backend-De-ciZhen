@@ -27,7 +27,10 @@ REDIS_PORT: Joi.number().when(Joi.ref("REDIS_DISABLED"), {
 
   ALLOWED_ORIGINS: Joi.string().required(),
 
+  CLOUDINARY_CLOUD_NAME: Joi.string().optional(),
+  CLOUDINARY_API_KEY: Joi.string().optional(),
+  CLOUDINARY_API_SECRET: Joi.string().optional(),
+
   RATE_LIMIT_WINDOW_MS: Joi.number().default(60000),
   RATE_LIMIT_MAX: Joi.number().default(100),
 }).unknown(true);
-

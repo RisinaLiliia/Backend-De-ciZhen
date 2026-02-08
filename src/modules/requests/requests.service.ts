@@ -72,12 +72,18 @@ export class RequestsService {
 
     const title = String(dto.title).trim();
     const description = dto.description ? String(dto.description).trim() : null;
-    const photos = Array.isArray(dto.photos)
-      ? dto.photos.map((x) => String(x).trim()).filter((x) => x.length > 0)
-      : [];
-    const tags = Array.isArray(dto.tags)
-      ? dto.tags.map((x) => String(x).trim().toLowerCase()).filter((x) => x.length > 0)
-      : [];
+    const photosInput: any = (dto as any).photos;
+    const tagsInput: any = (dto as any).tags;
+    const photos = Array.isArray(photosInput)
+      ? photosInput.map((x) => String(x).trim()).filter((x) => x.length > 0)
+      : typeof photosInput === 'string' && photosInput.trim().length > 0
+        ? photosInput.split(',').map((x) => x.trim()).filter((x) => x.length > 0)
+        : [];
+    const tags = Array.isArray(tagsInput)
+      ? tagsInput.map((x) => String(x).trim().toLowerCase()).filter((x) => x.length > 0)
+      : typeof tagsInput === 'string' && tagsInput.trim().length > 0
+        ? tagsInput.split(',').map((x) => x.trim().toLowerCase()).filter((x) => x.length > 0)
+        : [];
 
     const cityName = city.name ?? (city.i18n as any)?.en ?? city.key ?? cityId;
     const subcategoryName = service.name ?? (service.i18n as any)?.en ?? service.key;
@@ -131,12 +137,18 @@ export class RequestsService {
 
     const title = String(dto.title).trim();
     const description = dto.description ? String(dto.description).trim() : null;
-    const photos = Array.isArray(dto.photos)
-      ? dto.photos.map((x) => String(x).trim()).filter((x) => x.length > 0)
-      : [];
-    const tags = Array.isArray(dto.tags)
-      ? dto.tags.map((x) => String(x).trim().toLowerCase()).filter((x) => x.length > 0)
-      : [];
+    const photosInput: any = (dto as any).photos;
+    const tagsInput: any = (dto as any).tags;
+    const photos = Array.isArray(photosInput)
+      ? photosInput.map((x) => String(x).trim()).filter((x) => x.length > 0)
+      : typeof photosInput === 'string' && photosInput.trim().length > 0
+        ? photosInput.split(',').map((x) => x.trim()).filter((x) => x.length > 0)
+        : [];
+    const tags = Array.isArray(tagsInput)
+      ? tagsInput.map((x) => String(x).trim().toLowerCase()).filter((x) => x.length > 0)
+      : typeof tagsInput === 'string' && tagsInput.trim().length > 0
+        ? tagsInput.split(',').map((x) => x.trim().toLowerCase()).filter((x) => x.length > 0)
+        : [];
 
     const cityName = city.name ?? (city.i18n as any)?.en ?? city.key ?? cityId;
     const subcategoryName = service.name ?? (service.i18n as any)?.en ?? service.key;

@@ -1,7 +1,8 @@
 // src/modules/users/users.controller.ts
-import { Body, Controller, Get, Patch, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Patch, Post, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import {
   ApiBearerAuth,
+  ApiConsumes,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -13,6 +14,9 @@ import { UpdateMeDto } from "./dto/update-me.dto";
 import type { AppRole } from "./schemas/user.schema";
 import { MeResponseDto } from "./dto/me-response.dto";
 import { ApiMeErrors } from "../../common/swagger/api-errors.decorator";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { UploadsService } from "../uploads/uploads.service";
+import { IMAGE_MULTER_OPTIONS } from "../uploads/multer.options";
 
 type CurrentUserPayload = {
   userId: string;
@@ -23,7 +27,10 @@ type CurrentUserPayload = {
 @ApiTags("users")
 @Controller("users")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly uploads: UploadsService,
+  ) {}
 
   private toMeResponse(u: any): MeResponseDto {
     return {
@@ -56,6 +63,32 @@ export class UsersController {
   async me(@CurrentUser() user: CurrentUserPayload): Promise<MeResponseDto> {
     const u = await this.usersService.findById(user.userId);
     return this.toMeResponse(u);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("me/avatar")
+  @ApiBearerAuth("access-token")
+  @ApiOperation({ summary: "Upload avatar for current user" })
+  @ApiConsumes("multipart/form-data")
+  @ApiOkResponse({ description: "Updated current user profile", type: MeResponseDto })
+  @ApiMeErrors()
+  @UseInterceptors(FileInterceptor("avatar", IMAGE_MULTER_OPTIONS))
+  async uploadAvatar(
+    @CurrentUser() user: CurrentUserPayload,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<MeResponseDto> {
+    if (!file) throw new BadRequestException("avatar file is required");
+
+    const uploaded = await this.uploads.uploadImage(file, {
+      folder: `avatars/${user.userId}`,
+      publicIdPrefix: "avatar",
+      tags: ["avatar"],
+    });
+
+    const updated = await this.usersService.updateMe(user.userId, {
+      avatarUrl: uploaded.url,
+    });
+    return this.toMeResponse(updated);
   }
 
   @UseGuards(JwtAuthGuard)

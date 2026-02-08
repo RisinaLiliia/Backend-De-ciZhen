@@ -2,6 +2,7 @@
 import { Test } from '@nestjs/testing';
 import { RequestsController } from './requests.controller';
 import { RequestsService } from './requests.service';
+import { UploadsService } from '../uploads/uploads.service';
 
 describe('RequestsController (unit)', () => {
   let controller: RequestsController;
@@ -16,12 +17,19 @@ describe('RequestsController (unit)', () => {
     normalizeFilters: jest.fn(),
   };
 
+  const uploadsMock = {
+    uploadImages: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const moduleRef = await Test.createTestingModule({
       controllers: [RequestsController],
-      providers: [{ provide: RequestsService, useValue: svcMock }],
+      providers: [
+        { provide: RequestsService, useValue: svcMock },
+        { provide: UploadsService, useValue: uploadsMock },
+      ],
     }).compile();
 
     controller = moduleRef.get(RequestsController);
@@ -264,6 +272,21 @@ describe('RequestsController (unit)', () => {
 
     expect(svcMock.createForClient).toHaveBeenCalledWith(expect.anything(), 'u1');
     expect(res).toEqual(expect.objectContaining({ id: 'r2', status: 'draft' }));
+  });
+
+  it('uploadMyPhotos returns urls for client', async () => {
+    uploadsMock.uploadImages.mockResolvedValue([
+      { url: 'https://cdn.example.com/req/1.jpg' },
+      { url: 'https://cdn.example.com/req/2.jpg' },
+    ]);
+
+    const res = await controller.uploadMyPhotos(
+      { userId: 'u1', role: 'client' } as any,
+      { photos: [{ buffer: Buffer.from('x') } as any] } as any,
+    );
+
+    expect(uploadsMock.uploadImages).toHaveBeenCalled();
+    expect(res).toEqual({ urls: ['https://cdn.example.com/req/1.jpg', 'https://cdn.example.com/req/2.jpg'] });
   });
 
   it('publishMy publishes client draft', async () => {
