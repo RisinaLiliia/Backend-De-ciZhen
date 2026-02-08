@@ -33,6 +33,7 @@ describe('RequestsController (unit)', () => {
       cityId: 'c1',
       propertyType: 'apartment',
       area: 55,
+      price: 120,
       preferredDate: new Date('2026-02-01T10:00:00.000Z'),
       isRecurring: false,
       comment: null,
@@ -70,6 +71,7 @@ describe('RequestsController (unit)', () => {
       cityId: 'c1',
       propertyType: 'apartment',
       area: 55,
+      price: 120,
       preferredDate: new Date('2026-02-01T10:00:00.000Z'),
       isRecurring: false,
       comment: null,
@@ -100,6 +102,7 @@ describe('RequestsController (unit)', () => {
         cityId: 'c1',
         propertyType: 'apartment',
         area: 55,
+        price: 120,
         preferredDate: new Date('2026-02-01T10:00:00.000Z'),
         isRecurring: false,
         comment: 'x',
@@ -108,9 +111,21 @@ describe('RequestsController (unit)', () => {
       },
     ]);
 
-    const res = await controller.listPublic({ cityId: 'c1', serviceKey: 'home_cleaning' } as any);
+    const res = await controller.listPublic({
+      cityId: 'c1',
+      serviceKey: 'home_cleaning',
+      sort: 'date_desc',
+      limit: 10,
+      offset: 5,
+    } as any);
 
-    expect(svcMock.listPublic).toHaveBeenCalledWith({ cityId: 'c1', serviceKey: 'home_cleaning' });
+    expect(svcMock.listPublic).toHaveBeenCalledWith({
+      cityId: 'c1',
+      serviceKey: 'home_cleaning',
+      sort: 'date_desc',
+      limit: 10,
+      offset: 5,
+    });
     expect(res[0]).toEqual(expect.objectContaining({ id: 'r1', cityId: 'c1', serviceKey: 'home_cleaning' }));
   });
 
@@ -123,6 +138,7 @@ describe('RequestsController (unit)', () => {
         cityId: 'c1',
         propertyType: 'apartment',
         area: 55,
+        price: 120,
         preferredDate: new Date('2026-02-01T10:00:00.000Z'),
         isRecurring: false,
         comment: null,
@@ -145,6 +161,7 @@ describe('RequestsController (unit)', () => {
       cityId: 'c1',
       propertyType: 'apartment',
       area: 55,
+      price: 120,
       preferredDate: new Date('2026-02-01T10:00:00.000Z'),
       isRecurring: false,
       comment: null,

@@ -24,6 +24,9 @@ export class Request {
   @Prop({ type: Number, required: true, min: 10 })
   area: number;
 
+  @Prop({ type: Number, min: 0, default: null })
+  price: number | null;
+
   @Prop({ type: Date, required: true })
   preferredDate: Date;
 

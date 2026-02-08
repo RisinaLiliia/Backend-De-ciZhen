@@ -22,6 +22,12 @@ export class CreateRequestDto {
   @Min(10)
   area: number;
 
+  @ApiPropertyOptional({ example: 120, description: 'Optional price in EUR' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  price?: number;
+
   @ApiProperty({ example: '2026-02-01T10:00:00.000Z' })
   @IsDateString()
   preferredDate: string;

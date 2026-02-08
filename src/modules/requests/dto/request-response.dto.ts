@@ -17,6 +17,9 @@ export class RequestResponseDto {
   @ApiProperty({ example: 55 })
   area: number;
 
+  @ApiPropertyOptional({ example: 120, nullable: true })
+  price: number | null;
+
   @ApiProperty({ example: '2026-02-01T10:00:00.000Z' })
   preferredDate: Date;
 
@@ -26,8 +29,8 @@ export class RequestResponseDto {
   @ApiPropertyOptional({ example: 'Need eco products, please', nullable: true })
   comment: string | null;
 
-  @ApiProperty({ example: 'published', enum: ['draft', 'published', 'closed', 'cancelled'] })
-  status: 'draft' | 'published' | 'closed' | 'cancelled';
+  @ApiProperty({ example: 'published', enum: ['draft', 'published', 'matched', 'closed', 'cancelled'] })
+  status: 'draft' | 'published' | 'matched' | 'closed' | 'cancelled';
 
   @ApiProperty({ example: '2026-01-28T10:20:30.123Z' })
   createdAt: Date;
