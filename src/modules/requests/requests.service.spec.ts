@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { RequestsService } from './requests.service';
 import { Request } from './schemas/request.schema';
+import { CatalogServicesService } from '../catalog/services/services.service';
 
 describe('RequestsService', () => {
   let service: RequestsService;
@@ -12,6 +13,11 @@ describe('RequestsService', () => {
     find: jest.fn(),
     findById: jest.fn(),
     findOneAndUpdate: jest.fn(),
+    countDocuments: jest.fn(),
+  };
+
+  const catalogMock = {
+    listServices: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -21,6 +27,7 @@ describe('RequestsService', () => {
       providers: [
         RequestsService,
         { provide: getModelToken(Request.name), useValue: modelMock },
+        { provide: CatalogServicesService, useValue: catalogMock },
       ],
     }).compile();
 
@@ -103,6 +110,7 @@ describe('RequestsService', () => {
     const skip = jest.fn().mockReturnValue({ limit });
     const sort = jest.fn().mockReturnValue({ skip });
     modelMock.find.mockReturnValue({ sort });
+    catalogMock.listServices.mockResolvedValue([]);
 
     await service.listPublic({});
     expect(modelMock.find).toHaveBeenCalledWith({ status: 'published' });
@@ -114,6 +122,7 @@ describe('RequestsService', () => {
     const skip = jest.fn().mockReturnValue({ limit });
     const sort = jest.fn().mockReturnValue({ skip });
     modelMock.find.mockReturnValue({ sort });
+    catalogMock.listServices.mockResolvedValue([]);
 
     await service.listPublic({ cityId: '  ', serviceKey: ' ' });
     expect(modelMock.find).toHaveBeenCalledWith({ status: 'published' });
@@ -132,12 +141,105 @@ describe('RequestsService', () => {
     const skip = jest.fn().mockReturnValue({ limit });
     const sort = jest.fn().mockReturnValue({ skip });
     modelMock.find.mockReturnValue({ sort });
+    catalogMock.listServices.mockResolvedValue([]);
 
     await service.listPublic({ sort: 'date_asc', limit: 10, offset: 5 });
 
-    expect(sort).toHaveBeenCalledWith({ preferredDate: 1, createdAt: -1 });
+    expect(sort).toHaveBeenCalledWith({ createdAt: 1 });
     expect(skip).toHaveBeenCalledWith(5);
     expect(limit).toHaveBeenCalledWith(10);
+  });
+
+  it('listPublic filters by categoryKey via services list', async () => {
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
+    modelMock.find.mockReturnValue({ sort });
+    catalogMock.listServices.mockResolvedValue([{ key: 'window_cleaning' }, { key: 'home_cleaning' }]);
+
+    await service.listPublic({ categoryKey: 'cleaning' });
+
+    expect(catalogMock.listServices).toHaveBeenCalledWith('cleaning');
+    expect(modelMock.find).toHaveBeenCalledWith({
+      status: 'published',
+      serviceKey: { $in: ['window_cleaning', 'home_cleaning'] },
+    });
+  });
+
+  it('listPublic returns empty when subcategory not in category', async () => {
+    catalogMock.listServices.mockResolvedValue([{ key: 'window_cleaning' }]);
+
+    const res = await service.listPublic({ categoryKey: 'cleaning', subcategoryKey: 'home_cleaning' });
+
+    expect(res).toEqual([]);
+  });
+
+  it('listPublic filters by subcategoryKey (serviceKey) directly', async () => {
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
+    modelMock.find.mockReturnValue({ sort });
+    catalogMock.listServices.mockResolvedValue([]);
+
+    await service.listPublic({ subcategoryKey: 'window_cleaning' });
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      status: 'published',
+      serviceKey: 'window_cleaning',
+    });
+  });
+
+  it('listPublic supports price range', async () => {
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
+    modelMock.find.mockReturnValue({ sort });
+    catalogMock.listServices.mockResolvedValue([]);
+
+    await service.listPublic({ priceMin: 50, priceMax: 200 });
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      status: 'published',
+      price: { $gte: 50, $lte: 200 },
+    });
+  });
+
+  it('listPublic throws when priceMax < priceMin', async () => {
+    await expect(service.listPublic({ priceMin: 200, priceMax: 100 })).rejects.toThrow(
+      'priceMax must be >= priceMin',
+    );
+  });
+
+  it('countPublic applies category/subcategory filters and price range', async () => {
+    modelMock.countDocuments.mockReturnValue({ exec: jest.fn().mockResolvedValue(2) });
+    catalogMock.listServices.mockResolvedValue([{ key: 'window_cleaning' }]);
+
+    const total = await service.countPublic({
+      categoryKey: 'cleaning',
+      subcategoryKey: 'window_cleaning',
+      priceMin: 50,
+      priceMax: 200,
+    });
+
+    expect(catalogMock.listServices).toHaveBeenCalledWith('cleaning');
+    expect(modelMock.countDocuments).toHaveBeenCalledWith({
+      status: 'published',
+      serviceKey: 'window_cleaning',
+      price: { $gte: 50, $lte: 200 },
+    });
+    expect(total).toBe(2);
+  });
+
+  it('countPublic returns 0 for category mismatch', async () => {
+    catalogMock.listServices.mockResolvedValue([{ key: 'window_cleaning' }]);
+
+    const total = await service.countPublic({ categoryKey: 'cleaning', subcategoryKey: 'home_cleaning' });
+
+    expect(total).toBe(0);
+    expect(modelMock.countDocuments).not.toHaveBeenCalled();
   });
 
   it('listMyClient filters by clientId, status, and createdAt range', async () => {

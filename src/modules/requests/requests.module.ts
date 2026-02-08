@@ -4,9 +4,13 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { RequestsController } from './requests.controller';
 import { RequestsService } from './requests.service';
 import { Request, RequestSchema } from './schemas/request.schema';
+import { CatalogServicesModule } from '../catalog/services/services.module';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Request.name, schema: RequestSchema }])],
+  imports: [
+    MongooseModule.forFeature([{ name: Request.name, schema: RequestSchema }]),
+    CatalogServicesModule,
+  ],
   controllers: [RequestsController],
   providers: [RequestsService],
   exports: [RequestsService],

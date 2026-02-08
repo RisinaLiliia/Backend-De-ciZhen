@@ -62,7 +62,7 @@ describe('v6.2 requests /my publish flow (e2e)', () => {
       .query({ cityId: 'c1', serviceKey: 'home_cleaning' })
       .expect(200);
 
-    expect(publicBefore.body.find((x: any) => x.id === requestId)).toBeFalsy();
+    expect(publicBefore.body.items.find((x: any) => x.id === requestId)).toBeFalsy();
 
     const publishRes = await request(app.getHttpServer())
       .post(`/requests/my/${requestId}/publish`)
@@ -79,7 +79,7 @@ describe('v6.2 requests /my publish flow (e2e)', () => {
       .query({ cityId: 'c1', serviceKey: 'home_cleaning' })
       .expect(200);
 
-    expect(publicAfter.body.find((x: any) => x.id === requestId)).toBeTruthy();
+    expect(publicAfter.body.items.find((x: any) => x.id === requestId)).toBeTruthy();
 
     const myPublished = await request(app.getHttpServer())
       .get('/requests/my')
