@@ -66,7 +66,8 @@ export class ReviewsService {
 
     await this.clientProfiles.applyRating(booking.clientId, rating);
 
-    return review;
+    const saved = await this.reviewModel.findById(review._id).exec();
+    return saved ?? review;
   }
 
   async createForClient(
@@ -112,7 +113,8 @@ export class ReviewsService {
 
     await this.providers.applyRating(booking.providerUserId, rating);
 
-    return review;
+    const saved = await this.reviewModel.findById(review._id).exec();
+    return saved ?? review;
   }
 
   async listByTarget(
