@@ -26,6 +26,8 @@ import { IMAGE_MULTER_OPTIONS } from '../uploads/multer.options';
 import { UploadsService } from '../uploads/uploads.service';
 import { RequestPhotosUploadResponseDto } from './dto/request-photos-upload-response.dto';
 import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
+import { UsersService } from '../users/users.service';
+import { ClientProfilesService } from '../users/client-profiles.service';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
@@ -35,9 +37,21 @@ export class RequestsController {
   constructor(
     private readonly requests: RequestsService,
     private readonly uploads: UploadsService,
+    private readonly users: UsersService,
+    private readonly clientProfiles: ClientProfilesService,
   ) {}
 
-  private toDto(doc: any): RequestResponseDto {
+  private toDto(
+    doc: any,
+    client?: {
+      id: string;
+      name: string | null;
+      avatarUrl: string | null;
+      city: string | null;
+      ratingAvg: number | null;
+      ratingCount: number | null;
+    },
+  ): RequestResponseDto {
     return {
       id: doc._id.toString(),
       title: doc.title,
@@ -45,6 +59,12 @@ export class RequestsController {
       cityId: doc.cityId,
       cityName: doc.cityName,
       location: doc.location ?? null,
+      clientId: client?.id ?? (doc.clientId ?? null),
+      clientName: client?.name ?? null,
+      clientAvatarUrl: client?.avatarUrl ?? null,
+      clientCity: client?.city ?? null,
+      clientRatingAvg: client?.ratingAvg ?? null,
+      clientRatingCount: client?.ratingCount ?? null,
       categoryKey: doc.categoryKey ?? null,
       categoryName: doc.categoryName ?? null,
       subcategoryName: doc.subcategoryName ?? null,
@@ -110,6 +130,21 @@ export class RequestsController {
       this.requests.countPublic(filters),
     ]);
 
+    const clientIds = Array.from(
+      new Set(items.map((x) => String(x.clientId ?? '')).filter((x) => x.length > 0)),
+    );
+    const [users, profiles] = await Promise.all([
+      this.users.findPublicByIds(clientIds),
+      this.clientProfiles.getByUserIds(clientIds),
+    ]);
+
+    const usersById = new Map<string, any>(
+      users.map((u) => [String(u._id), u]),
+    );
+    const profilesById = new Map<string, any>(
+      profiles.map((p) => [String(p.userId), p]),
+    );
+
     const limit = Math.min(Math.max(q.limit ?? 20, 1), 100);
     const offset =
       typeof q.offset === 'number'
@@ -120,7 +155,24 @@ export class RequestsController {
     const page = Math.floor(offset / limit) + 1;
 
     return {
-      items: items.map((x) => this.toDto(x)),
+      items: items.map((x) => {
+        const cid = String(x.clientId ?? '');
+        const u = cid ? usersById.get(cid) : null;
+        const p = cid ? profilesById.get(cid) : null;
+        return this.toDto(
+          x,
+          cid
+            ? {
+                id: cid,
+                name: u?.name ?? null,
+                avatarUrl: u?.avatar?.url ?? null,
+                city: u?.city ?? null,
+                ratingAvg: p?.ratingAvg ?? 0,
+                ratingCount: p?.ratingCount ?? 0,
+              }
+            : undefined,
+        );
+      }),
       total,
       page,
       limit,

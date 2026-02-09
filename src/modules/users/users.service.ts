@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { User, UserDocument, AppRole } from "./schemas/user.schema";
 import { hashPassword } from "../../utils/password";
 
@@ -38,6 +38,23 @@ export class UsersService {
     const user = await this.userModel.findById(userId).exec();
     if (!user) throw new NotFoundException("User not found");
     return user;
+  }
+
+  async findPublicByIds(userIds: string[]): Promise<UserDocument[]> {
+    const ids = Array.isArray(userIds)
+      ? Array.from(
+          new Set(
+            userIds
+              .map((x) => String(x))
+              .filter((x) => Types.ObjectId.isValid(x)),
+          ),
+        )
+      : [];
+    if (ids.length === 0) return [];
+    return this.userModel
+      .find({ _id: { $in: ids } })
+      .select("name avatar city")
+      .exec();
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {

@@ -7,6 +7,7 @@ import { Request, RequestSchema } from './schemas/request.schema';
 import { CatalogServicesModule } from '../catalog/services/services.module';
 import { CitiesModule } from '../catalog/cities/cities.module';
 import { UploadsModule } from '../uploads/uploads.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { UploadsModule } from '../uploads/uploads.module';
     CatalogServicesModule,
     CitiesModule,
     UploadsModule,
+    UsersModule,
   ],
   controllers: [RequestsController],
   providers: [RequestsService],
