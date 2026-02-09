@@ -33,4 +33,9 @@ REDIS_PORT: Joi.number().when(Joi.ref("REDIS_DISABLED"), {
 
   RATE_LIMIT_WINDOW_MS: Joi.number().default(60000),
   RATE_LIMIT_MAX: Joi.number().default(100),
+
+  GEOCODE_BASE_URL: Joi.string().uri().optional(),
+  GEOCODE_USER_AGENT: Joi.string().optional(),
+  GEOCODE_ACCEPT_LANGUAGE: Joi.string().optional(),
+  GEOCODE_CACHE_TTL_SECONDS: Joi.number().min(0).optional(),
 }).unknown(true);

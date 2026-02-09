@@ -9,9 +9,11 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -27,10 +29,33 @@ export class CreateRequestDto {
   @MaxLength(80)
   serviceKey: string;
 
-  @ApiProperty({ example: '64f0c1a2b3c4d5e6f7a8b9c0', description: 'City id from /catalog/cities' })
+  @ApiPropertyOptional({ example: '64f0c1a2b3c4d5e6f7a8b9c0', description: 'City id from /catalog/cities' })
+  @IsOptional()
   @IsString()
   @MaxLength(64)
-  cityId: string;
+  cityId?: string;
+
+  @ApiPropertyOptional({ example: 'Frankfurt am Main', description: 'City name (used when cityId is not provided)' })
+  @ValidateIf((o) => !o.cityId)
+  @IsString()
+  @MaxLength(120)
+  cityName?: string;
+
+  @ApiPropertyOptional({ example: 50.1109, description: 'Latitude (WGS84)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  lat?: number;
+
+  @ApiPropertyOptional({ example: 8.6821, description: 'Longitude (WGS84)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  lng?: number;
 
   @ApiProperty({ example: 'apartment', enum: ['apartment', 'house'] })
   @IsIn(['apartment', 'house'])

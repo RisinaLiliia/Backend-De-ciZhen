@@ -11,11 +11,17 @@ export class RequestResponseDto {
   @ApiProperty({ example: 'home_cleaning' })
   serviceKey: string;
 
-  @ApiProperty({ example: '64f0c1a2b3c4d5e6f7a8b9c0' })
-  cityId: string;
+  @ApiPropertyOptional({ example: '64f0c1a2b3c4d5e6f7a8b9c0', nullable: true })
+  cityId: string | null;
 
   @ApiProperty({ example: 'Frankfurt am Main' })
   cityName: string;
+
+  @ApiPropertyOptional({
+    example: { type: 'Point', coordinates: [8.6821, 50.1109] },
+    nullable: true,
+  })
+  location: { type: 'Point'; coordinates: [number, number] } | null;
 
   @ApiPropertyOptional({ example: 'furniture', nullable: true })
   categoryKey: string | null;

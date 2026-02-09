@@ -16,6 +16,7 @@ import { RequestsModule } from './modules/requests/requests.module';
 import { ResponsesModule } from './modules/responses/responses.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
+import { GeoModule } from './modules/geo/geo.module';
 
 @Module({
   imports: [
@@ -53,7 +54,8 @@ import { BookingsModule } from './modules/bookings/bookings.module';
     RequestsModule,
     ResponsesModule,
     AvailabilityModule,
-    BookingsModule
+    BookingsModule,
+    GeoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

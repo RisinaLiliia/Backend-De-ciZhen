@@ -27,4 +27,9 @@ export default registerAs("app", () => ({
 
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60000),
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX ?? 100),
+
+  geocodeBaseUrl: process.env.GEOCODE_BASE_URL,
+  geocodeUserAgent: process.env.GEOCODE_USER_AGENT,
+  geocodeAcceptLanguage: process.env.GEOCODE_ACCEPT_LANGUAGE,
+  geocodeCacheTtlSeconds: Number(process.env.GEOCODE_CACHE_TTL_SECONDS ?? 3600),
 }));

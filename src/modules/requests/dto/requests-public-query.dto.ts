@@ -10,6 +10,30 @@ export class RequestsPublicQueryDto {
   @MaxLength(64)
   cityId?: string;
 
+  @ApiPropertyOptional({ example: 50.1109, description: 'Latitude for nearby search (WGS84)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  lat?: number;
+
+  @ApiPropertyOptional({ example: 8.6821, description: 'Longitude for nearby search (WGS84)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  lng?: number;
+
+  @ApiPropertyOptional({ example: 10, description: 'Search radius in km. Default 10' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.5)
+  @Max(200)
+  radiusKm?: number;
+
   @ApiPropertyOptional({ example: 'cleaning' })
   @IsOptional()
   @IsString()
