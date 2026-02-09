@@ -8,6 +8,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { User, UserDocument, AppRole } from "./schemas/user.schema";
 import { hashPassword } from "../../utils/password";
+import { ClientProfilesService } from "./client-profiles.service";
 
 type CreateUserInput = {
   name: string;
@@ -28,7 +29,10 @@ type UpdateMeInput = Partial<
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly clientProfiles: ClientProfilesService,
+  ) {}
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
@@ -90,7 +94,11 @@ export class UsersService {
       metadata: {},
     });
 
-    return user.save();
+    const created = await user.save();
+    if (created.role === "client") {
+      await this.clientProfiles.getOrCreateByUserId(created._id.toString());
+    }
+    return created;
   }
 
   async updateMe(

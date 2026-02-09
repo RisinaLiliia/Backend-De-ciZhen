@@ -24,4 +24,15 @@ export class ClientProfilesService {
     if (ids.length === 0) return [];
     return this.model.find({ userId: { $in: ids } }).exec();
   }
+
+  async applyRating(userId: string, rating: number): Promise<ClientProfileDocument> {
+    const profile = await this.getOrCreateByUserId(userId);
+    const count = Number(profile.ratingCount ?? 0);
+    const avg = Number(profile.ratingAvg ?? 0);
+    const nextCount = count + 1;
+    const nextAvg = Math.round(((avg * count + rating) / nextCount) * 100) / 100;
+    profile.ratingCount = nextCount;
+    profile.ratingAvg = nextAvg;
+    return profile.save();
+  }
 }
