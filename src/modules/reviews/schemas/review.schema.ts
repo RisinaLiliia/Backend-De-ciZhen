@@ -2,7 +2,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import type { Document } from 'mongoose';
 
-export type ReviewDocument = Review & Document;
+export type ReviewDocument = Review & Document & { createdAt: Date; updatedAt: Date };
 export type ReviewTargetRole = 'client' | 'provider';
 
 @Schema({ timestamps: true, collection: 'reviews' })
