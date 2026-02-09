@@ -3,6 +3,8 @@ import { Test } from '@nestjs/testing';
 import { RequestsController } from './requests.controller';
 import { RequestsService } from './requests.service';
 import { UploadsService } from '../uploads/uploads.service';
+import { UsersService } from '../users/users.service';
+import { ClientProfilesService } from '../users/client-profiles.service';
 
 describe('RequestsController (unit)', () => {
   let controller: RequestsController;
@@ -21,6 +23,14 @@ describe('RequestsController (unit)', () => {
     uploadImages: jest.fn(),
   };
 
+  const usersMock = {
+    findPublicByIds: jest.fn(),
+  };
+
+  const clientProfilesMock = {
+    getByUserIds: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -29,6 +39,8 @@ describe('RequestsController (unit)', () => {
       providers: [
         { provide: RequestsService, useValue: svcMock },
         { provide: UploadsService, useValue: uploadsMock },
+        { provide: UsersService, useValue: usersMock },
+        { provide: ClientProfilesService, useValue: clientProfilesMock },
       ],
     }).compile();
 
@@ -149,6 +161,8 @@ describe('RequestsController (unit)', () => {
       },
     ]);
     svcMock.countPublic.mockResolvedValue(1);
+    usersMock.findPublicByIds.mockResolvedValue([]);
+    clientProfilesMock.getByUserIds.mockResolvedValue([]);
 
     const res = await controller.listPublic({
       cityId: 'c1',

@@ -51,6 +51,17 @@ export class ProvidersService {
     return profile.save();
   }
 
+  async applyRating(userId: string, rating: number): Promise<ProviderProfileDocument> {
+    const profile = await this.getOrCreateMyProfile(userId);
+    const count = Number(profile.ratingCount ?? 0);
+    const avg = Number(profile.ratingAvg ?? 0);
+    const nextCount = count + 1;
+    const nextAvg = Math.round(((avg * count + rating) / nextCount) * 100) / 100;
+    profile.ratingCount = nextCount;
+    profile.ratingAvg = nextAvg;
+    return profile.save();
+  }
+
   async blockProfile(userId: string): Promise<void> {
     const res = await this.model
       .findOneAndUpdate({ userId }, { isBlocked: true, blockedAt: new Date(), status: 'suspended' })

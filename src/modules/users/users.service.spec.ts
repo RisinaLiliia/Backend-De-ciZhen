@@ -4,6 +4,7 @@ import { getModelToken } from "@nestjs/mongoose";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { User } from "./schemas/user.schema";
+import { ClientProfilesService } from "./client-profiles.service";
 
 jest.mock("../../utils/password", () => ({
   hashPassword: jest.fn(async () => "HASHED_PASSWORD"),
@@ -29,6 +30,9 @@ describe("UsersService", () => {
     exec: jest.fn().mockResolvedValue(value),
   });
   const execReject = (err: any) => ({ exec: jest.fn().mockRejectedValue(err) });
+  const clientProfilesMock = {
+    getOrCreateByUserId: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -41,6 +45,7 @@ describe("UsersService", () => {
       providers: [
         UsersService,
         { provide: getModelToken(User.name), useValue: modelCtorMock },
+        { provide: ClientProfilesService, useValue: clientProfilesMock },
       ],
     }).compile();
 
@@ -70,6 +75,7 @@ describe("UsersService", () => {
 
   it("create saves new user with normalized email", async () => {
     modelMock.findOne.mockReturnValue(execWrap(null));
+    clientProfilesMock.getOrCreateByUserId.mockResolvedValue({ userId: "u1" });
 
     const res: any = await service.create({
       name: "A",
@@ -83,6 +89,7 @@ describe("UsersService", () => {
     });
 
     expect(res.email).toBe("a@b.com");
+    expect(clientProfilesMock.getOrCreateByUserId).toHaveBeenCalled();
   });
 
   it("updateMe updates allowed fields and maps avatarUrl", async () => {

@@ -23,6 +23,24 @@ export class RequestResponseDto {
   })
   location: { type: 'Point'; coordinates: [number, number] } | null;
 
+  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', nullable: true })
+  clientId: string | null;
+
+  @ApiPropertyOptional({ example: 'Anna Schmidt', nullable: true })
+  clientName: string | null;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/u/1.png', nullable: true })
+  clientAvatarUrl: string | null;
+
+  @ApiPropertyOptional({ example: 'Berlin', nullable: true })
+  clientCity: string | null;
+
+  @ApiPropertyOptional({ example: 4.8, nullable: true })
+  clientRatingAvg: number | null;
+
+  @ApiPropertyOptional({ example: 37, nullable: true })
+  clientRatingCount: number | null;
+
   @ApiPropertyOptional({ example: 'furniture', nullable: true })
   categoryKey: string | null;
 

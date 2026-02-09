@@ -51,13 +51,13 @@ describe('RequestsService', () => {
       name: 'Home cleaning',
     });
     catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
-    citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
+    citiesMock.getById.mockResolvedValue({ _id: '507f1f77bcf86cd799439011', name: 'Berlin' });
     citiesMock.createDynamic.mockResolvedValue({ _id: 'c99', name: 'Berlin' });
 
     const res: any = await service.createPublic({
       title: 'Test',
       serviceKey: ' Home_Cleaning ',
-      cityId: ' c1 ',
+      cityId: ' 507f1f77bcf86cd799439011 ',
       propertyType: 'apartment',
       area: 55,
       price: 120,
@@ -76,7 +76,7 @@ describe('RequestsService', () => {
         clientId: null,
         title: 'Test',
         serviceKey: 'home_cleaning',
-        cityId: 'c1',
+        cityId: '507f1f77bcf86cd799439011',
         cityName: 'Berlin',
         location: { type: 'Point', coordinates: [8.6821, 50.1109] },
         categoryKey: 'cleaning',
@@ -100,14 +100,14 @@ describe('RequestsService', () => {
       name: 'Home cleaning',
     });
     catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
-    citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
+    citiesMock.getById.mockResolvedValue({ _id: '507f1f77bcf86cd799439011', name: 'Berlin' });
     citiesMock.createDynamic.mockResolvedValue({ _id: 'c99', name: 'Berlin' });
 
     await service.createPublic(
       {
         title: 'Test',
         serviceKey: 'home_cleaning',
-        cityId: 'c1',
+        cityId: '507f1f77bcf86cd799439011',
         propertyType: 'apartment',
         area: 55,
         price: 120,
@@ -194,13 +194,13 @@ describe('RequestsService', () => {
       name: 'Home cleaning',
     });
     catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
-    citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
+    citiesMock.getById.mockResolvedValue({ _id: '507f1f77bcf86cd799439011', name: 'Berlin' });
     citiesMock.createDynamic.mockResolvedValue({ _id: 'c99', name: 'Berlin' });
 
     await service.createForClient({
       title: 'Test',
       serviceKey: 'home_cleaning',
-      cityId: ' c1 ',
+      cityId: ' 507f1f77bcf86cd799439011 ',
       propertyType: 'apartment',
       area: 55,
       price: 120,
@@ -216,7 +216,7 @@ describe('RequestsService', () => {
       expect.objectContaining({
         clientId: 'u1',
         title: 'Test',
-        cityId: 'c1',
+        cityId: '507f1f77bcf86cd799439011',
         serviceKey: 'home_cleaning',
         cityName: 'Berlin',
         categoryKey: 'cleaning',
