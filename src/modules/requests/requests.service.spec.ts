@@ -25,6 +25,7 @@ describe('RequestsService', () => {
 
   const citiesMock = {
     getById: jest.fn(),
+    createDynamic: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -51,6 +52,7 @@ describe('RequestsService', () => {
     });
     catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
     citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
+    citiesMock.createDynamic.mockResolvedValue({ _id: 'c99', name: 'Berlin' });
 
     const res: any = await service.createPublic({
       title: 'Test',
@@ -61,6 +63,8 @@ describe('RequestsService', () => {
       price: 120,
       preferredDate: '2026-02-01T10:00:00.000Z',
       isRecurring: false,
+      lat: 50.1109,
+      lng: 8.6821,
       comment: '  hi  ',
       description: '  details  ',
       photos: [' https://x/y.jpg '],
@@ -74,6 +78,7 @@ describe('RequestsService', () => {
         serviceKey: 'home_cleaning',
         cityId: 'c1',
         cityName: 'Berlin',
+        location: { type: 'Point', coordinates: [8.6821, 50.1109] },
         categoryKey: 'cleaning',
         categoryName: 'Cleaning',
         subcategoryName: 'Home cleaning',
@@ -96,6 +101,7 @@ describe('RequestsService', () => {
     });
     catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
     citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
+    citiesMock.createDynamic.mockResolvedValue({ _id: 'c99', name: 'Berlin' });
 
     await service.createPublic(
       {
@@ -114,6 +120,72 @@ describe('RequestsService', () => {
     expect(modelMock.create).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'u1' }));
   });
 
+  it('createPublic allows missing cityId when lat/lng and cityName provided', async () => {
+    modelMock.create.mockResolvedValue({ _id: 'r4', serviceKey: 'home_cleaning', status: 'published' });
+    catalogMock.getServiceByKey.mockResolvedValue({
+      key: 'home_cleaning',
+      categoryKey: 'cleaning',
+      name: 'Home cleaning',
+    });
+    catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
+    citiesMock.getById.mockResolvedValue(null);
+    citiesMock.createDynamic.mockResolvedValue({ _id: 'c99', name: 'Frankfurt am Main' });
+
+    await service.createPublic({
+      title: 'Test',
+      serviceKey: 'home_cleaning',
+      cityName: 'Frankfurt am Main',
+      lat: 50.1109,
+      lng: 8.6821,
+      propertyType: 'apartment',
+      area: 55,
+      preferredDate: '2026-02-01T10:00:00.000Z',
+      isRecurring: false,
+    } as any);
+
+    expect(modelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cityId: 'c99',
+        cityName: 'Frankfurt am Main',
+        location: { type: 'Point', coordinates: [8.6821, 50.1109] },
+      }),
+    );
+    expect(citiesMock.createDynamic).toHaveBeenCalledWith('Frankfurt am Main');
+  });
+
+  it('createPublic creates city when cityId is unknown and cityName provided', async () => {
+    modelMock.create.mockResolvedValue({ _id: 'r5', serviceKey: 'home_cleaning', status: 'published' });
+    catalogMock.getServiceByKey.mockResolvedValue({
+      key: 'home_cleaning',
+      categoryKey: 'cleaning',
+      name: 'Home cleaning',
+    });
+    catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
+    citiesMock.getById.mockResolvedValue(null);
+    citiesMock.createDynamic.mockResolvedValue({ _id: 'c77', name: 'Ulm' });
+
+    await service.createPublic({
+      title: 'Test',
+      serviceKey: 'home_cleaning',
+      cityId: 'unknown-id',
+      cityName: 'Ulm',
+      lat: 48.3984,
+      lng: 9.9916,
+      propertyType: 'apartment',
+      area: 55,
+      preferredDate: '2026-02-01T10:00:00.000Z',
+      isRecurring: false,
+    } as any);
+
+    expect(citiesMock.createDynamic).toHaveBeenCalledWith('Ulm');
+    expect(modelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cityId: 'c77',
+        cityName: 'Ulm',
+      }),
+    );
+  });
+
   it('createForClient creates draft request for client', async () => {
     modelMock.create.mockResolvedValue({ _id: 'r3', clientId: 'u1', status: 'draft' });
     catalogMock.getServiceByKey.mockResolvedValue({
@@ -123,6 +195,7 @@ describe('RequestsService', () => {
     });
     catalogMock.getCategoryByKey.mockResolvedValue({ key: 'cleaning', name: 'Cleaning' });
     citiesMock.getById.mockResolvedValue({ _id: 'c1', name: 'Berlin' });
+    citiesMock.createDynamic.mockResolvedValue({ _id: 'c99', name: 'Berlin' });
 
     await service.createForClient({
       title: 'Test',
@@ -187,6 +260,30 @@ describe('RequestsService', () => {
       cityId: 'c1',
       serviceKey: 'home_cleaning',
     });
+  });
+
+  it('listPublic applies geo filter when lat/lng provided', async () => {
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
+    modelMock.find.mockReturnValue({ sort });
+    catalogMock.listServices.mockResolvedValue([]);
+
+    await service.listPublic({ lat: 50.1109, lng: 8.6821, radiusKm: 5, cityId: 'c1' });
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      status: 'published',
+      location: {
+        $geoWithin: {
+          $centerSphere: [[8.6821, 50.1109], 5 / 6378.1],
+        },
+      },
+    });
+  });
+
+  it('listPublic throws when only one coordinate is provided', async () => {
+    await expect(service.listPublic({ lat: 50.1109 })).rejects.toThrow('lat and lng must be provided together');
   });
 
   it('listPublic applies pagination and sort', async () => {

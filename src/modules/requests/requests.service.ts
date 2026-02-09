@@ -32,6 +32,45 @@ export class RequestsService {
     return d;
   }
 
+  private buildLocation(input: { lat?: number; lng?: number } | undefined): { type: 'Point'; coordinates: [number, number] } | null {
+    if (!input) return null;
+    const lat = typeof input.lat === 'number' ? input.lat : undefined;
+    const lng = typeof input.lng === 'number' ? input.lng : undefined;
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      return { type: 'Point', coordinates: [lng, lat] };
+    }
+    if (typeof lat === 'number' || typeof lng === 'number') {
+      throw new BadRequestException('lat and lng must be provided together');
+    }
+    return null;
+  }
+
+  private applyGeoFilter(
+    q: Record<string, unknown>,
+    input: { lat?: number; lng?: number; radiusKm?: number } | undefined,
+  ) {
+    if (!input) return false;
+    const lat = typeof input.lat === 'number' ? input.lat : undefined;
+    const lng = typeof input.lng === 'number' ? input.lng : undefined;
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      const radiusKm = typeof input.radiusKm === 'number' ? input.radiusKm : 10;
+      if (!Number.isFinite(radiusKm) || radiusKm <= 0) {
+        throw new BadRequestException('radiusKm must be > 0');
+      }
+      const earthRadiusKm = 6378.1;
+      q.location = {
+        $geoWithin: {
+          $centerSphere: [[lng, lat], radiusKm / earthRadiusKm],
+        },
+      };
+      return true;
+    }
+    if (typeof lat === 'number' || typeof lng === 'number') {
+      throw new BadRequestException('lat and lng must be provided together');
+    }
+    return false;
+  }
+
   normalizeFilters(input?: {
     status?: RequestStatus;
     from?: string;
@@ -58,15 +97,22 @@ export class RequestsService {
 
   async createPublic(dto: CreateRequestDto, clientId?: string | null): Promise<RequestDocument> {
     const serviceKey = String(dto.serviceKey).trim().toLowerCase();
-    const cityId = String(dto.cityId).trim();
+    const cityId = typeof dto.cityId === 'string' ? dto.cityId.trim() : '';
 
-    const [service, city] = await Promise.all([
-      this.catalogServices.getServiceByKey(serviceKey),
-      this.cities.getById(cityId),
-    ]);
+    const servicePromise = this.catalogServices.getServiceByKey(serviceKey);
+    const cityIdIsValid = cityId.length > 0 && Types.ObjectId.isValid(cityId);
+    const cityPromise = cityIdIsValid ? this.cities.getById(cityId) : Promise.resolve(null);
+    let [service, city] = await Promise.all([servicePromise, cityPromise]);
 
     if (!service) throw new BadRequestException('serviceKey not found');
-    if (!city) throw new BadRequestException('cityId not found');
+    const cityNameInput = typeof dto.cityName === 'string' ? dto.cityName.trim() : '';
+    if (cityId.length > 0 && !cityIdIsValid && cityNameInput.length === 0) {
+      throw new BadRequestException('cityId must be a valid ObjectId');
+    }
+    if (cityId.length > 0 && !city && cityNameInput.length > 0) {
+      city = await this.cities.createDynamic(cityNameInput);
+    }
+    if (cityId.length > 0 && !city) throw new BadRequestException('cityId not found');
 
     const category = await this.catalogServices.getCategoryByKey(service.categoryKey);
 
@@ -85,7 +131,19 @@ export class RequestsService {
         ? tagsInput.split(',').map((x) => x.trim().toLowerCase()).filter((x) => x.length > 0)
         : [];
 
-    const cityName = city.name ?? (city.i18n as any)?.en ?? city.key ?? cityId;
+    const location = this.buildLocation({ lat: dto.lat, lng: dto.lng });
+    if (cityId.length === 0 && cityNameInput.length === 0) {
+      throw new BadRequestException('cityName is required when cityId is not provided');
+    }
+    if (cityId.length === 0 && !location) {
+      throw new BadRequestException('lat and lng are required when cityId is not provided');
+    }
+    if (cityId.length === 0 && cityNameInput.length > 0) {
+      city = await this.cities.createDynamic(cityNameInput);
+    }
+    const cityName = city
+      ? city.name ?? (city.i18n as any)?.en ?? city.key ?? cityId
+      : cityNameInput;
     const subcategoryName = service.name ?? (service.i18n as any)?.en ?? service.key;
     const categoryName = category?.name ?? (category?.i18n as any)?.en ?? category?.key ?? null;
 
@@ -99,8 +157,9 @@ export class RequestsService {
       title,
       clientId: clientId ?? null,
       serviceKey,
-      cityId,
+      cityId: city?._id?.toString?.() ?? (cityId.length > 0 ? cityId : null),
       cityName,
+      location,
       categoryKey: service.categoryKey,
       categoryName,
       subcategoryName,
@@ -123,15 +182,22 @@ export class RequestsService {
 
   async createForClient(dto: CreateRequestDto, clientId: string): Promise<RequestDocument> {
     const serviceKey = String(dto.serviceKey).trim().toLowerCase();
-    const cityId = String(dto.cityId).trim();
+    const cityId = typeof dto.cityId === 'string' ? dto.cityId.trim() : '';
 
-    const [service, city] = await Promise.all([
-      this.catalogServices.getServiceByKey(serviceKey),
-      this.cities.getById(cityId),
-    ]);
+    const servicePromise = this.catalogServices.getServiceByKey(serviceKey);
+    const cityIdIsValid = cityId.length > 0 && Types.ObjectId.isValid(cityId);
+    const cityPromise = cityIdIsValid ? this.cities.getById(cityId) : Promise.resolve(null);
+    let [service, city] = await Promise.all([servicePromise, cityPromise]);
 
     if (!service) throw new BadRequestException('serviceKey not found');
-    if (!city) throw new BadRequestException('cityId not found');
+    const cityNameInput = typeof dto.cityName === 'string' ? dto.cityName.trim() : '';
+    if (cityId.length > 0 && !cityIdIsValid && cityNameInput.length === 0) {
+      throw new BadRequestException('cityId must be a valid ObjectId');
+    }
+    if (cityId.length > 0 && !city && cityNameInput.length > 0) {
+      city = await this.cities.createDynamic(cityNameInput);
+    }
+    if (cityId.length > 0 && !city) throw new BadRequestException('cityId not found');
 
     const category = await this.catalogServices.getCategoryByKey(service.categoryKey);
 
@@ -150,7 +216,19 @@ export class RequestsService {
         ? tagsInput.split(',').map((x) => x.trim().toLowerCase()).filter((x) => x.length > 0)
         : [];
 
-    const cityName = city.name ?? (city.i18n as any)?.en ?? city.key ?? cityId;
+    const location = this.buildLocation({ lat: dto.lat, lng: dto.lng });
+    if (cityId.length === 0 && cityNameInput.length === 0) {
+      throw new BadRequestException('cityName is required when cityId is not provided');
+    }
+    if (cityId.length === 0 && !location) {
+      throw new BadRequestException('lat and lng are required when cityId is not provided');
+    }
+    if (cityId.length === 0 && cityNameInput.length > 0) {
+      city = await this.cities.createDynamic(cityNameInput);
+    }
+    const cityName = city
+      ? city.name ?? (city.i18n as any)?.en ?? city.key ?? cityId
+      : cityNameInput;
     const subcategoryName = service.name ?? (service.i18n as any)?.en ?? service.key;
     const categoryName = category?.name ?? (category?.i18n as any)?.en ?? category?.key ?? null;
 
@@ -164,8 +242,9 @@ export class RequestsService {
       title,
       clientId,
       serviceKey,
-      cityId,
+      cityId: city?._id?.toString?.() ?? (cityId.length > 0 ? cityId : null),
       cityName,
+      location,
       categoryKey: service.categoryKey,
       categoryName,
       subcategoryName,
@@ -209,6 +288,9 @@ export class RequestsService {
 
   async listPublic(filters: {
     cityId?: string;
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
     serviceKey?: string;
     categoryKey?: string;
     subcategoryKey?: string;
@@ -221,8 +303,16 @@ export class RequestsService {
   }): Promise<RequestDocument[]> {
     const q: Record<string, unknown> = { status: 'published' };
 
-    const cityId = (filters.cityId ?? '').trim();
-    if (cityId.length > 0) q.cityId = cityId;
+    const hasGeo = this.applyGeoFilter(q, {
+      lat: filters.lat,
+      lng: filters.lng,
+      radiusKm: filters.radiusKm,
+    });
+
+    if (!hasGeo) {
+      const cityId = (filters.cityId ?? '').trim();
+      if (cityId.length > 0) q.cityId = cityId;
+    }
 
     const subKey = (filters.subcategoryKey ?? filters.serviceKey ?? '').trim().toLowerCase();
     const categoryKey = (filters.categoryKey ?? '').trim().toLowerCase();
@@ -276,6 +366,9 @@ export class RequestsService {
 
   async countPublic(filters: {
     cityId?: string;
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
     serviceKey?: string;
     categoryKey?: string;
     subcategoryKey?: string;
@@ -284,8 +377,16 @@ export class RequestsService {
   }): Promise<number> {
     const q: Record<string, unknown> = { status: 'published' };
 
-    const cityId = (filters.cityId ?? '').trim();
-    if (cityId.length > 0) q.cityId = cityId;
+    const hasGeo = this.applyGeoFilter(q, {
+      lat: filters.lat,
+      lng: filters.lng,
+      radiusKm: filters.radiusKm,
+    });
+
+    if (!hasGeo) {
+      const cityId = (filters.cityId ?? '').trim();
+      if (cityId.length > 0) q.cityId = cityId;
+    }
 
     const subKey = (filters.subcategoryKey ?? filters.serviceKey ?? '').trim().toLowerCase();
     const categoryKey = (filters.categoryKey ?? '').trim().toLowerCase();

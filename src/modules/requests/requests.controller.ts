@@ -44,6 +44,7 @@ export class RequestsController {
       serviceKey: doc.serviceKey,
       cityId: doc.cityId,
       cityName: doc.cityName,
+      location: doc.location ?? null,
       categoryKey: doc.categoryKey ?? null,
       categoryName: doc.categoryName ?? null,
       subcategoryName: doc.subcategoryName ?? null,
@@ -82,13 +83,17 @@ export class RequestsController {
   @Get('public')
   @ApiOperation({
     summary: 'List published requests (for providers)',
-    description: 'Returns published requests. Optional filters: cityId, categoryKey, subcategoryKey (preferred), serviceKey (deprecated).',
+    description:
+      'Returns published requests. Optional filters: lat/lng/radiusKm (nearby), cityId (fallback), categoryKey, subcategoryKey (preferred), serviceKey (deprecated).',
   })
   @ApiOkResponse({ type: RequestsPublicResponseDto })
   @ApiPublicErrors()
   async listPublic(@Query() q: RequestsPublicQueryDto): Promise<RequestsPublicResponseDto> {
     const filters = {
       cityId: q.cityId,
+      lat: q.lat,
+      lng: q.lng,
+      radiusKm: q.radiusKm,
       serviceKey: q.serviceKey,
       categoryKey: q.categoryKey,
       subcategoryKey: q.subcategoryKey,
