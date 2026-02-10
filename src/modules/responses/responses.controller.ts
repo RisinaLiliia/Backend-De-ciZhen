@@ -28,12 +28,17 @@ type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 export class ResponsesController {
   constructor(private readonly responses: ResponsesService) {}
 
-  private toDto(r: any) {
+  private toDto(r: any, viewer?: CurrentUserPayload) {
+  const role = viewer?.role;
+  const isAdmin = role === 'admin';
+  const providerUserId = isAdmin || role === 'provider' ? r.providerUserId ?? null : null;
+  const clientUserId = isAdmin || role === 'client' ? r.clientUserId ?? null : null;
+
   return {
     id: r._id.toString(),
     requestId: r.requestId,
-    providerUserId: r.providerUserId,
-    clientUserId: r.clientUserId,
+    providerUserId,
+    clientUserId,
     status: r.status,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
@@ -68,7 +73,7 @@ export class ResponsesController {
     }
 
     const created = await this.responses.createForProvider(user.userId, dto.requestId);
-    return this.toDto(created);
+    return this.toDto(created, user);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -86,7 +91,7 @@ export class ResponsesController {
     }
 
     const items = await this.responses.listMy(user.userId, { status: q.status });
-    return items.map((x) => this.toDto(x));
+    return items.map((x) => this.toDto(x, user));
   }
 
   @UseGuards(JwtAuthGuard)
@@ -104,7 +109,7 @@ export class ResponsesController {
     }
 
     const items = await this.responses.listMyClient(user.userId, { status: q.status });
-    return items.map((x) => this.toDto(x));
+    return items.map((x) => this.toDto(x, user));
   }
 
   @UseGuards(JwtAuthGuard)
@@ -129,7 +134,7 @@ export class ResponsesController {
       status: q.status,
     });
 
-    return items.map((x) => this.toDto(x));
+    return items.map((x) => this.toDto(x, user));
   }
 
   @UseGuards(JwtAuthGuard)

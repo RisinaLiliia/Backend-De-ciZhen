@@ -21,13 +21,18 @@ type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 export class BookingsController {
   constructor(private readonly bookings: BookingsService) {}
 
-  private toDto(b: any): BookingDto {
+  private toDto(b: any, viewer?: CurrentUserPayload): BookingDto {
+    const role = viewer?.role;
+    const isAdmin = role === 'admin';
+    const providerUserId = isAdmin || role === 'provider' ? b.providerUserId ?? null : null;
+    const clientId = isAdmin || role === 'client' ? b.clientId ?? null : null;
+
     return {
       id: b._id.toString(),
       requestId: b.requestId,
       responseId: b.responseId,
-      providerUserId: b.providerUserId,
-      clientId: b.clientId,
+      providerUserId,
+      clientId,
       startAt: new Date(b.startAt).toISOString(),
       durationMin: Number(b.durationMin ?? 60),
       endAt: new Date(b.endAt).toISOString(),
@@ -69,7 +74,7 @@ export class BookingsController {
         ? await this.bookings.listMyClient(user.userId, filters)
         : await this.bookings.listMyProvider(user.userId, filters);
 
-    return items.map((x) => this.toDto(x));
+    return items.map((x) => this.toDto(x, user));
   }
   
   
@@ -94,7 +99,7 @@ export class BookingsController {
       requestedId: res.requestedId,
       latestId: res.latestId,
       currentIndex: res.currentIndex,
-      items: res.items.map((x) => this.toDto(x)),
+      items: res.items.map((x) => this.toDto(x, user)),
     };
   }
 
@@ -154,7 +159,7 @@ export class BookingsController {
       { startAt: dto.startAt, durationMin: dto.durationMin, reason: dto.reason },
     );
 
-    return this.toDto(created);
+    return this.toDto(created, user);
   }
 
     @UseGuards(JwtAuthGuard)
@@ -201,6 +206,6 @@ export class BookingsController {
       note: dto.note,
     });
 
-    return this.toDto(created);
+    return this.toDto(created, user);
   }
 }

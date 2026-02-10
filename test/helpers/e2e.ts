@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import request from 'supertest';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 
@@ -11,7 +12,10 @@ export type E2EContext = {
   replSet: MongoMemoryReplSet;
 };
 
-export async function setupTestApp(opts?: { useValidationPipe?: boolean }): Promise<E2EContext> {
+export async function setupTestApp(opts?: {
+  useValidationPipe?: boolean;
+  overrides?: Array<{ token: any; useValue: any }>;
+}): Promise<E2EContext> {
   process.env.MONGOMS_IP = '127.0.0.1';
 
   const replSet = await MongoMemoryReplSet.create({
@@ -26,11 +30,19 @@ export async function setupTestApp(opts?: { useValidationPipe?: boolean }): Prom
   process.env.DATABASE_URI = uri;
   process.env.DATABASE_URL = uri;
 
-  const moduleRef = await Test.createTestingModule({
+  const moduleBuilder = Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  });
+
+  for (const o of opts?.overrides ?? []) {
+    moduleBuilder.overrideProvider(o.token).useValue(o.useValue);
+  }
+
+  const moduleRef = await moduleBuilder.compile();
 
   const app = moduleRef.createNestApplication();
+
+  app.use(cookieParser());
 
   if (opts?.useValidationPipe) {
     app.useGlobalPipes(

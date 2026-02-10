@@ -165,12 +165,15 @@ describe('BookingsService (unit)', () => {
       };
     });
 
+    const newStartAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const newEndAt = new Date(newStartAt.getTime() + 60 * 60 * 1000);
+
     bookingModelMock.create.mockResolvedValue([
       {
         ...oldDoc,
         _id: 'b2',
-        startAt: new Date('2026-02-10T10:00:00.000Z'),
-        endAt: new Date('2026-02-10T11:00:00.000Z'),
+        startAt: newStartAt,
+        endAt: newEndAt,
         status: 'confirmed',
       },
     ]);
@@ -186,15 +189,15 @@ describe('BookingsService (unit)', () => {
 
     availabilityMock.getSlots.mockResolvedValue([
       {
-        startAt: '2026-02-10T10:00:00.000Z',
-        endAt: '2026-02-10T11:00:00.000Z',
+        startAt: newStartAt.toISOString(),
+        endAt: newEndAt.toISOString(),
       },
     ]);
 
     const created = await svc.reschedule(
       { userId: 'c1', role: 'client' },
       '507f1f77bcf86cd799439011',
-      { startAt: '2026-02-10T10:00:00.000Z', durationMin: 60, reason: 'x' },
+      { startAt: newStartAt.toISOString(), durationMin: 60, reason: 'x' },
     );
 
     expect(oldInTx.save).toHaveBeenCalled();

@@ -13,6 +13,7 @@ describe('ReviewsService', () => {
   const reviewModelMock = {
     findOne: jest.fn(),
     create: jest.fn(),
+    findById: jest.fn(),
     find: jest.fn(),
   };
 
@@ -65,6 +66,16 @@ describe('ReviewsService', () => {
       text: 'ok',
       createdAt: new Date(),
     });
+    reviewModelMock.findById.mockReturnValue(
+      execWrap({
+        _id: 'rev1',
+        bookingId: '507f1f77bcf86cd799439011',
+        targetRole: 'client',
+        rating: 5,
+        text: 'ok',
+        createdAt: new Date(),
+      }),
+    );
 
     const res: any = await service.createForProvider('p1', {
       bookingId: '507f1f77bcf86cd799439011',
@@ -103,6 +114,16 @@ describe('ReviewsService', () => {
       text: 'ok',
       createdAt: new Date(),
     });
+    reviewModelMock.findById.mockReturnValue(
+      execWrap({
+        _id: 'rev2',
+        bookingId: '507f1f77bcf86cd799439012',
+        targetRole: 'provider',
+        rating: 4,
+        text: 'ok',
+        createdAt: new Date(),
+      }),
+    );
 
     const res: any = await service.createForClient('c2', {
       bookingId: '507f1f77bcf86cd799439012',

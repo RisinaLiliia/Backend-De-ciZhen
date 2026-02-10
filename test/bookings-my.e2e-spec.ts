@@ -116,7 +116,6 @@ describe('v6.2 bookings /my (e2e)', () => {
     expect(myClient.body[0]).toMatchObject({
       requestId: 'req-my-2',
       responseId: 'resp-my-2',
-      providerUserId,
       status: 'confirmed',
       startAt: '2026-03-05T10:00:00.000Z',
       endAt: '2026-03-05T11:00:00.000Z',
@@ -125,7 +124,6 @@ describe('v6.2 bookings /my (e2e)', () => {
     expect(myClient.body[1]).toMatchObject({
       requestId: 'req-my-1',
       responseId: 'resp-my-1',
-      providerUserId,
       status: 'confirmed',
       startAt: '2026-03-05T09:00:00.000Z',
       endAt: '2026-03-05T10:00:00.000Z',

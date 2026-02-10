@@ -11,6 +11,7 @@ import {
 import type { Request, Response } from "express";
 import {
   ApiCreatedResponse,
+  ApiCookieAuth,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -86,6 +87,7 @@ export class AuthController {
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Refresh access token (uses refreshToken cookie)" })
+  @ApiCookieAuth("refreshToken")
   @ApiOkResponse({
     description:
       "Access token refreshed. New refresh token is rotated and set in cookie.",
@@ -110,6 +112,7 @@ export class AuthController {
   @Post("logout")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Logout (invalidate refresh session)" })
+  @ApiCookieAuth("refreshToken")
   @ApiOkResponse({
     description: "Refresh session invalidated. Cookie cleared.",
     type: LogoutResponseDto,

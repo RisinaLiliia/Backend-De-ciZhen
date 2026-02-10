@@ -47,6 +47,15 @@ async function bootstrap() {
     .setDescription("Interactive API documentation")
     .setVersion("1.0.0")
     .addBearerAuth({ type: "http", scheme: "bearer", bearerFormat: "JWT" }, "access-token")
+    .addCookieAuth(
+      "refreshToken",
+      {
+        type: "apiKey",
+        in: "cookie",
+        name: "refreshToken",
+      },
+      "refreshToken",
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

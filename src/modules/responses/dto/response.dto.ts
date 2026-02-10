@@ -8,11 +8,11 @@ export class ResponseDto {
   @ApiProperty({ example: '65f0c1a2b3c4d5e6f7a8b9c1' })
   requestId: string;
 
-  @ApiProperty({ example: '64f0c1a2b3c4d5e6f7a8b9c9' })
-  providerUserId: string;
+  @ApiPropertyOptional({ example: '64f0c1a2b3c4d5e6f7a8b9c9', nullable: true })
+  providerUserId?: string | null;
 
-  @ApiProperty({ example: '64f0c1a2b3c4d5e6f7a8b9a1' })
-  clientUserId: string;
+  @ApiPropertyOptional({ example: '64f0c1a2b3c4d5e6f7a8b9a1', nullable: true })
+  clientUserId?: string | null;
 
   @ApiProperty({ enum: ['pending', 'accepted', 'rejected'], example: 'pending' })
   status: 'pending' | 'accepted' | 'rejected';
