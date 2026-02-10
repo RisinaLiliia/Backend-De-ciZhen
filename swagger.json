@@ -5232,6 +5232,36 @@
             },
             "nullable": true
           },
+          "clientId": {
+            "type": "object",
+            "example": "507f1f77bcf86cd799439011",
+            "nullable": true
+          },
+          "clientName": {
+            "type": "object",
+            "example": "Anna Schmidt",
+            "nullable": true
+          },
+          "clientAvatarUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/u/1.png",
+            "nullable": true
+          },
+          "clientCity": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "clientRatingAvg": {
+            "type": "object",
+            "example": 4.8,
+            "nullable": true
+          },
+          "clientRatingCount": {
+            "type": "object",
+            "example": 37,
+            "nullable": true
+          },
           "categoryKey": {
             "type": "object",
             "example": "furniture",
