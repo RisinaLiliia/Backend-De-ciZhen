@@ -91,7 +91,24 @@ export class RequestsController {
     return Math.round(n * f) / f;
   }
 
-  private toPublicDto(doc: any): RequestPublicDto {
+  private normalizeId(value: unknown): string | null {
+    if (!value) return null;
+    if (typeof value === 'string') return value.length > 0 ? value : null;
+    const s = (value as any)?.toString?.();
+    return typeof s === 'string' && s.length > 0 ? s : null;
+  }
+
+  private toPublicDto(
+    doc: any,
+    client?: {
+      id: string;
+      name: string | null;
+      avatarUrl: string | null;
+      city: string | null;
+      ratingAvg: number | null;
+      ratingCount: number | null;
+    },
+  ): RequestPublicDto {
     const loc = doc.location?.coordinates;
     const location =
       Array.isArray(loc) && loc.length === 2
@@ -108,6 +125,12 @@ export class RequestsController {
       cityId: doc.cityId,
       cityName: doc.cityName,
       location,
+      clientId: client?.id ?? this.normalizeId(doc.clientId),
+      clientName: client?.name ?? null,
+      clientAvatarUrl: client?.avatarUrl ?? null,
+      clientCity: client?.city ?? null,
+      clientRatingAvg: client?.ratingAvg ?? null,
+      clientRatingCount: client?.ratingCount ?? null,
       categoryKey: doc.categoryKey ?? null,
       categoryName: doc.categoryName ?? null,
       subcategoryName: doc.subcategoryName ?? null,
@@ -175,6 +198,35 @@ export class RequestsController {
       this.requests.countPublic(filters),
     ]);
 
+    const clientIds = Array.from(
+      new Set(
+        items
+          .map((x) => this.normalizeId((x as any).clientId))
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    );
+
+    const [clients, clientProfiles] =
+      clientIds.length > 0
+        ? await Promise.all([
+            this.users.findPublicByIds(clientIds),
+            this.clientProfiles.getByUserIds(clientIds),
+          ])
+        : [[], []];
+
+    const clientById = new Map(
+      clients.map((u) => [
+        u._id.toString(),
+        {
+          id: u._id.toString(),
+          name: u.name ?? null,
+          avatarUrl: u.avatar?.url ?? null,
+          city: u.city ?? null,
+        },
+      ]),
+    );
+    const profileById = new Map(clientProfiles.map((p) => [p.userId, p]));
+
     const limit = Math.min(Math.max(q.limit ?? 20, 1), 100);
     const offset =
       typeof q.offset === 'number'
@@ -185,7 +237,21 @@ export class RequestsController {
     const page = Math.floor(offset / limit) + 1;
 
     return {
-      items: items.map((x) => this.toPublicDto(x)),
+      items: items.map((x) => {
+        const id = this.normalizeId((x as any).clientId);
+        if (!id) return this.toPublicDto(x);
+        const base = clientById.get(id);
+        if (!base) return this.toPublicDto(x);
+        const profile = profileById.get(id);
+        return this.toPublicDto(x, {
+          id,
+          name: base.name,
+          avatarUrl: base.avatarUrl,
+          city: base.city,
+          ratingAvg: profile?.ratingAvg ?? null,
+          ratingCount: profile?.ratingCount ?? null,
+        });
+      }),
       total,
       page,
       limit,
