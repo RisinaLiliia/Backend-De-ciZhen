@@ -18,6 +18,7 @@ import { AvailabilityModule } from './modules/availability/availability.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { GeoModule } from './modules/geo/geo.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { LegalModule } from './modules/legal/legal.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     BookingsModule,
     GeoModule,
     ReviewsModule,
+    LegalModule,
   ],
   controllers: [AppController],
   providers: [AppService],
