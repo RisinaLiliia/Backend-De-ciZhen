@@ -1,17 +1,17 @@
 // src/swagger.ts
 import { NestFactory } from "@nestjs/core";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
-import { AppModule } from "./app.module";
+import { SwaggerAppModule } from "./swagger/swagger.module";
 import { writeFileSync } from "fs";
 
 async function generateSwagger() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(SwaggerAppModule);
 
   const config = new DocumentBuilder()
     .setTitle("Decide API")
     .setDescription("API documentation")
     .setVersion("1.0.0")
-    .addServer("http://localhost:3000", "Development")
+    .addServer("https://backend-de-cizhen.onrender.com", "Production")
     .addBearerAuth(
       {
         type: "http",
@@ -29,6 +29,7 @@ async function generateSwagger() {
       },
       "refreshToken",
     )
+    .addSecurityRequirements("access-token")
     .setLicense("MIT", "https://opensource.org/licenses/MIT")
     .build();
 

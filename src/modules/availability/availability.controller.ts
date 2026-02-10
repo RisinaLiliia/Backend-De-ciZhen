@@ -1,6 +1,6 @@
 // src/modules/availability/availability.controller.ts
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
@@ -40,6 +40,7 @@ export class AvailabilityController {
     description:
       'Generates slots in provider TZ with DST support. Considers blackouts and matched/closed requests. Max range 14 days.',
   })
+  @ApiSecurity({} as any)
   @ApiOkResponse({ type: SlotDto, isArray: true })
   @ApiPublicErrors()
   async listSlots(

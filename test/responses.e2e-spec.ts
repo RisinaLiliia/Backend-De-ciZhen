@@ -93,7 +93,7 @@ describe('responses (e2e)', () => {
     expect(myRes.body[0]).toMatchObject({ id: responseId, requestId: req._id.toString() });
 
     const listRes = await request(app.getHttpServer())
-      .get(`/responses/request/${req._id.toString()}`)
+      .get(`/responses/by-request/${req._id.toString()}`)
       .set('Authorization', `Bearer ${client.accessToken}`)
       .query({ status: 'pending' })
       .expect(200);
@@ -150,7 +150,7 @@ describe('responses (e2e)', () => {
     const responseId = createRes.body.id as string;
 
     await request(app.getHttpServer())
-      .patch(`/responses/${responseId}/accept`)
+      .patch(`/responses/actions/${responseId}/accept`)
       .set('Authorization', `Bearer ${client.accessToken}`)
       .expect(200)
       .expect({ ok: true, acceptedResponseId: responseId });
@@ -205,7 +205,7 @@ describe('responses (e2e)', () => {
     const responseId = createRes.body.id as string;
 
     await request(app.getHttpServer())
-      .patch(`/responses/${responseId}/reject`)
+      .patch(`/responses/actions/${responseId}/reject`)
       .set('Authorization', `Bearer ${client.accessToken}`)
       .expect(200)
       .expect({ ok: true, rejectedResponseId: responseId });

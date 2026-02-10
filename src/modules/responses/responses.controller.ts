@@ -113,7 +113,7 @@ export class ResponsesController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('request/:requestId')
+  @Get('by-request/:requestId')
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Client: list responses for my request (UI)',
@@ -138,7 +138,7 @@ export class ResponsesController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch(':id/accept')
+  @Patch('actions/:id/accept')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Client: accept provider response (match)' })
   @ApiOkResponse({ type: AcceptResponseResultDto })
@@ -156,7 +156,7 @@ export class ResponsesController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch(':id/reject')
+  @Patch('actions/:id/reject')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Client: reject provider response' })
   @ApiOkResponse({ type: RejectResponseResultDto })

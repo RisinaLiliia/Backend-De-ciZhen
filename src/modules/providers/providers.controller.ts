@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Patch, Query, UseGuards, ForbiddenException } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
@@ -88,6 +88,7 @@ private toPublicDto(p: any): ProviderPublicDto {
     summary: 'Public providers listing (catalog)',
     description: 'Active + not blocked providers. Filters: cityId, serviceKey.',
   })
+  @ApiSecurity({} as any)
   @ApiOkResponse({ type: ProviderPublicDto, isArray: true })
   @ApiPublicErrors()
   async listPublic(@Query() q: ProvidersPublicQueryDto): Promise<ProviderPublicDto[]> {

@@ -1,6 +1,6 @@
 // src/modules/geo/geo.controller.ts
 import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { GeoService } from './geo.service';
 import { GeoAutocompleteQueryDto } from './dto/geo-autocomplete-query.dto';
 import { GeoAutocompleteResponseDto } from './dto/geo-autocomplete-response.dto';
@@ -13,6 +13,7 @@ export class GeoController {
 
   @Get('autocomplete')
   @ApiOperation({ summary: 'Autocomplete PLZ/address' })
+  @ApiSecurity({} as any)
   @ApiOkResponse({ type: GeoAutocompleteResponseDto })
   @ApiPublicErrors()
   async autocomplete(
