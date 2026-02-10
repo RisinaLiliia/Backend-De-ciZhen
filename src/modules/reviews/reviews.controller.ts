@@ -1,6 +1,6 @@
 // src/modules/reviews/reviews.controller.ts
 import { Body, Controller, ForbiddenException, Get, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiPropertyOptional, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
@@ -104,6 +104,7 @@ export class ReviewsController {
 
   @Get()
   @ApiOperation({ summary: 'List reviews by target user' })
+  @ApiSecurity({} as any)
   @ApiOkResponse({ type: ReviewPublicDto, isArray: true })
   @ApiPublicErrors()
   async listByTarget(@Query() q: ReviewsQueryDto): Promise<ReviewPublicDto[]> {

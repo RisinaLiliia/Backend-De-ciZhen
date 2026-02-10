@@ -8,6 +8,7 @@ import {
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
+  ApiSecurity,
   ApiParam,
   ApiTags,
   getSchemaPath,
@@ -131,6 +132,7 @@ export class RequestsController {
     summary: 'Create public request (no auth)',
     description: 'Creates a request and publishes it immediately (MVP).',
   })
+  @ApiSecurity({} as any)
   @ApiCreatedResponse({ type: RequestResponseDto })
   @ApiPublicErrors()
   async create(
@@ -148,6 +150,7 @@ export class RequestsController {
     description:
       'Returns published requests. Optional filters: lat/lng/radiusKm (nearby), cityId (fallback), categoryKey, subcategoryKey (preferred), serviceKey (deprecated).',
   })
+  @ApiSecurity({} as any)
   @ApiOkResponse({ type: RequestsPublicResponseDto })
   @ApiPublicErrors()
   async listPublic(@Query() q: RequestsPublicQueryDto): Promise<RequestsPublicResponseDto> {

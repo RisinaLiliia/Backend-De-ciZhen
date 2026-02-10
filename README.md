@@ -62,7 +62,7 @@ You can also generate a static spec:
 ```bash
 npm run swagger
 ```
-This writes `swagger.json` in the project root.
+This writes `swagger.json` in the project root. The generator uses a Swagger-only app that stubs Mongo/Redis, so no external services are required.
 
 ## Legal
 
@@ -100,9 +100,10 @@ src/
     availability/
     providers/
     catalog/
-    reviews/
-    geo/
+  reviews/
+  geo/
   swagger.ts
+  swagger/
 
 test/
   *.e2e-spec.ts
@@ -122,7 +123,7 @@ test/
 - `npm run build` — build
 - `npm test` — unit tests
 - `npm run test:e2e` — e2e tests
-- `npm run swagger` — generate OpenAPI spec
+- `npm run swagger` — generate OpenAPI spec (no Mongo/Redis needed)
 
 ## License
 

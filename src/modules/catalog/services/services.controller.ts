@@ -1,6 +1,6 @@
 // src/modules/catalog/services/services.controller.ts
 import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { CatalogServicesService } from './services.service';
 import { ServiceDto } from './dto/service.dto';
 import { ServiceCategoryDto } from './dto/service-category.dto';
@@ -13,6 +13,7 @@ export class CatalogServicesController {
 
   @Get('service-categories')
   @ApiOperation({ summary: 'List service categories (active)' })
+  @ApiSecurity({} as any)
   @ApiOkResponse({ type: ServiceCategoryDto, isArray: true })
   @ApiErrors({ unauthorized: false, forbidden: false, conflict: false, notFound: false })
   async categories(): Promise<ServiceCategoryDto[]> {
@@ -28,6 +29,7 @@ export class CatalogServicesController {
 
   @Get('services')
   @ApiOperation({ summary: 'List services (active). Optional filter by category' })
+  @ApiSecurity({} as any)
   @ApiOkResponse({ type: ServiceDto, isArray: true })
   @ApiErrors({ unauthorized: false, forbidden: false, conflict: false, notFound: false })
   async services(@Query('category') category?: string): Promise<ServiceDto[]> {

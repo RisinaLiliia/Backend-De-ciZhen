@@ -4,13 +4,52 @@
     "/": {
       "get": {
         "operationId": "AppController_getHello",
+        "summary": "Root endpoint",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "example": "Hello World!"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -20,20 +59,65 @@
             }
           }
         },
-        "summary": "API root",
-        "security": []
+        "tags": [
+          "system"
+        ],
+        "security": [
+          {}
+        ]
       }
     },
     "/health": {
       "get": {
         "operationId": "AppController_health",
+        "summary": "Health check",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true
+                  }
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -43,8 +127,12 @@
             }
           }
         },
-        "summary": "Health check",
-        "security": []
+        "tags": [
+          "system"
+        ],
+        "security": [
+          {}
+        ]
       }
     },
     "/catalog/cities": {
@@ -120,7 +208,9 @@
         "tags": [
           "catalog"
         ],
-        "security": []
+        "security": [
+          {}
+        ]
       }
     },
     "/catalog/service-categories": {
@@ -176,7 +266,9 @@
         "tags": [
           "catalog"
         ],
-        "security": []
+        "security": [
+          {}
+        ]
       }
     },
     "/catalog/services": {
@@ -241,7 +333,9 @@
         "tags": [
           "catalog"
         ],
-        "security": []
+        "security": [
+          {}
+        ]
       }
     },
     "/users/me": {
@@ -426,6 +520,113 @@
         ]
       }
     },
+    "/users/me/avatar": {
+      "post": {
+        "operationId": "UsersController_uploadAvatar",
+        "summary": "Upload avatar for current user",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "Avatar image upload",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "avatar"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated current user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/auth/register": {
       "post": {
         "operationId": "AuthController_register",
@@ -495,8 +696,7 @@
         },
         "tags": [
           "auth"
-        ],
-        "security": []
+        ]
       }
     },
     "/auth/login": {
@@ -578,8 +778,7 @@
         },
         "tags": [
           "auth"
-        ],
-        "security": []
+        ]
       }
     },
     "/auth/refresh": {
@@ -652,7 +851,11 @@
         "tags": [
           "auth"
         ],
-        "security": []
+        "security": [
+          {
+            "refreshToken": []
+          }
+        ]
       }
     },
     "/auth/logout": {
@@ -695,7 +898,11 @@
         "tags": [
           "auth"
         ],
-        "security": []
+        "security": [
+          {
+            "refreshToken": []
+          }
+        ]
       }
     },
     "/providers/me/profile": {
@@ -963,7 +1170,9 @@
         "tags": [
           "providers"
         ],
-        "security": []
+        "security": [
+          {}
+        ]
       }
     },
     "/requests": {
@@ -1037,7 +1246,209 @@
         "tags": [
           "requests"
         ],
-        "security": []
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/requests/public": {
+      "get": {
+        "operationId": "RequestsController_listPublic",
+        "summary": "List published requests (for providers)",
+        "description": "Returns published requests. Optional filters: lat/lng/radiusKm (nearby), cityId (fallback), categoryKey, subcategoryKey (preferred), serviceKey (deprecated).",
+        "parameters": [
+          {
+            "name": "cityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lat",
+            "required": false,
+            "in": "query",
+            "description": "Latitude for nearby search (WGS84)",
+            "schema": {
+              "example": 50.1109,
+              "type": "number"
+            }
+          },
+          {
+            "name": "lng",
+            "required": false,
+            "in": "query",
+            "description": "Longitude for nearby search (WGS84)",
+            "schema": {
+              "example": 8.6821,
+              "type": "number"
+            }
+          },
+          {
+            "name": "radiusKm",
+            "required": false,
+            "in": "query",
+            "description": "Search radius in km. Default 10",
+            "schema": {
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "categoryKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "cleaning",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subcategoryKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "window_cleaning",
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceKey",
+            "required": false,
+            "in": "query",
+            "deprecated": true,
+            "description": "Use subcategoryKey instead",
+            "schema": {
+              "example": "home_cleaning",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "date_desc",
+              "enum": [
+                "date_desc",
+                "date_asc",
+                "price_asc",
+                "price_desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "priceMin",
+            "required": false,
+            "in": "query",
+            "description": "Filter by price >= priceMin",
+            "schema": {
+              "example": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "priceMax",
+            "required": false,
+            "in": "query",
+            "description": "Filter by price <= priceMax",
+            "schema": {
+              "example": 200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (>=1). Default 1",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size (1..100). Default 20",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Offset for pagination. Default 0",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestsPublicResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {}
+        ]
       }
     },
     "/requests/my": {
@@ -1174,49 +1585,98 @@
             "access-token": []
           }
         ]
-      }
-    },
-    "/requests/public": {
-      "get": {
-        "operationId": "RequestsController_listPublic",
-        "summary": "List published requests (for providers)",
-        "description": "Returns published requests. Optional filters: cityId, serviceKey.",
-        "parameters": [
-          {
-            "name": "cityId",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "example": "64f0c1a2b3c4d5e6f7a8b9c0",
-              "type": "string"
-            }
-          },
-          {
-            "name": "serviceKey",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "example": "home_cleaning",
-              "type": "string"
+      },
+      "post": {
+        "operationId": "RequestsController_createMy",
+        "summary": "Client: create my request (draft)",
+        "description": "Creates a request for an authenticated client. Default status: draft.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequestDto"
+              }
             }
           }
-        ],
+        },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RequestResponseDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/RequestResponseDto"
+                    },
+                    {
+                      "example": {
+                        "id": "65f0c1a2b3c4d5e6f7a8b9c1",
+                        "title": "Zwei IKEA Pax Schränke aufbauen",
+                        "serviceKey": "home_cleaning",
+                        "cityId": "64f0c1a2b3c4d5e6f7a8b9c0",
+                        "cityName": "Frankfurt am Main",
+                        "categoryKey": "furniture",
+                        "categoryName": "Möbelaufbau",
+                        "subcategoryName": "IKEA Aufbau",
+                        "propertyType": "apartment",
+                        "area": 55,
+                        "price": 120,
+                        "preferredDate": "2026-02-01T10:00:00.000Z",
+                        "isRecurring": false,
+                        "comment": "Need eco products, please",
+                        "description": "Assemble two wardrobes, tools available",
+                        "photos": [
+                          "https://cdn.example.com/req/1.jpg"
+                        ],
+                        "imageUrl": "https://cdn.example.com/req/1.jpg",
+                        "tags": [
+                          "ikea",
+                          "assembly"
+                        ],
+                        "status": "draft",
+                        "createdAt": "2026-01-28T10:20:30.123Z"
+                      }
+                    }
+                  ]
                 }
               }
             }
           },
           "400": {
             "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1259,7 +1719,268 @@
         "tags": [
           "requests"
         ],
-        "security": []
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/requests/my/photos": {
+      "post": {
+        "operationId": "RequestsController_uploadMyPhotos",
+        "summary": "Client: upload request photos",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "Upload up to 8 photos",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photos": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestPhotosUploadResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/requests/my/{requestId}/publish": {
+      "post": {
+        "operationId": "RequestsController_publishMy",
+        "summary": "Client: publish my draft request",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/RequestResponseDto"
+                    },
+                    {
+                      "example": {
+                        "id": "65f0c1a2b3c4d5e6f7a8b9c1",
+                        "title": "Zwei IKEA Pax Schränke aufbauen",
+                        "serviceKey": "home_cleaning",
+                        "cityId": "64f0c1a2b3c4d5e6f7a8b9c0",
+                        "cityName": "Frankfurt am Main",
+                        "categoryKey": "furniture",
+                        "categoryName": "Möbelaufbau",
+                        "subcategoryName": "IKEA Aufbau",
+                        "propertyType": "apartment",
+                        "area": 55,
+                        "price": 120,
+                        "preferredDate": "2026-02-01T10:00:00.000Z",
+                        "isRecurring": false,
+                        "comment": "Need eco products, please",
+                        "description": "Assemble two wardrobes, tools available",
+                        "photos": [
+                          "https://cdn.example.com/req/1.jpg"
+                        ],
+                        "imageUrl": "https://cdn.example.com/req/1.jpg",
+                        "tags": [
+                          "ikea",
+                          "assembly"
+                        ],
+                        "status": "published",
+                        "createdAt": "2026-01-28T10:20:30.123Z"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
       }
     },
     "/responses": {
@@ -1561,6 +2282,313 @@
         ]
       }
     },
+    "/responses/by-request/{requestId}": {
+      "get": {
+        "operationId": "ResponsesController_listForRequest",
+        "summary": "Client: list responses for my request (UI)",
+        "description": "Optional filter: ?status=pending",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Optional status filter",
+            "schema": {
+              "example": "pending",
+              "enum": [
+                "pending",
+                "accepted",
+                "rejected"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/responses/actions/{id}/accept": {
+      "patch": {
+        "operationId": "ResponsesController_accept",
+        "summary": "Client: accept provider response (match)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptResponseResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/responses/actions/{id}/reject": {
+      "patch": {
+        "operationId": "ResponsesController_reject",
+        "summary": "Client: reject provider response",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RejectResponseResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "responses"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/availability/me": {
       "patch": {
         "operationId": "AvailabilityController_updateMy",
@@ -1754,7 +2782,9 @@
         "tags": [
           "availability"
         ],
-        "security": []
+        "security": [
+          {}
+        ]
       }
     },
     "/availability/me/blackouts": {
@@ -2713,33 +3743,342 @@
         ]
       }
     },
-    "/responses/by-request/{requestId}": {
+    "/geo/autocomplete": {
       "get": {
-        "operationId": "ResponsesController_listForRequest",
-        "summary": "Client: list responses for my request (UI)",
-        "description": "Optional filter: ?status=pending",
+        "operationId": "GeoController_autocomplete",
+        "summary": "Autocomplete PLZ/address",
         "parameters": [
           {
-            "name": "requestId",
+            "name": "query",
             "required": true,
-            "in": "path",
+            "in": "query",
+            "description": "PLZ or address query",
             "schema": {
+              "example": "60306 Frankfurt",
               "type": "string"
             }
           },
           {
-            "name": "status",
+            "name": "countryCode",
             "required": false,
             "in": "query",
-            "description": "Optional status filter",
+            "description": "Optional country code (ISO-2)",
             "schema": {
-              "example": "pending",
+              "example": "DE",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Max results (1..10). Default 5",
+            "schema": {
+              "example": 5,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoAutocompleteResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "geo"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/reviews/client": {
+      "post": {
+        "operationId": "ReviewsController_createClientReview",
+        "summary": "Provider: review a client for completed booking",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/reviews/provider": {
+      "post": {
+        "operationId": "ReviewsController_createProviderReview",
+        "summary": "Client: review a provider for completed booking",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/reviews": {
+      "get": {
+        "operationId": "ReviewsController_listByTarget",
+        "summary": "List reviews by target user",
+        "parameters": [
+          {
+            "name": "targetUserId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "507f1f77bcf86cd799439011",
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetRole",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "client",
               "enum": [
-                "pending",
-                "accepted",
-                "rejected"
+                "client",
+                "provider"
               ],
               "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "example": 0,
+              "type": "number"
             }
           }
         ],
@@ -2751,7 +4090,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ResponseDto"
+                    "$ref": "#/components/schemas/ReviewPublicDto"
                   }
                 }
               }
@@ -2767,28 +4106,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -2819,36 +4138,25 @@
           }
         },
         "tags": [
-          "responses"
+          "reviews"
         ],
         "security": [
-          {
-            "access-token": []
-          }
+          {}
         ]
       }
     },
-    "/responses/id/{id}/accept": {
-      "patch": {
-        "operationId": "ResponsesController_accept",
-        "summary": "Client: accept provider response (match)",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+    "/legal/privacy": {
+      "get": {
+        "operationId": "LegalController_getPrivacyPolicy",
+        "summary": "Privacy Policy (GDPR/DE)",
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AcceptResponseResultDto"
+                  "type": "string"
                 }
               }
             }
@@ -2863,28 +4171,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -2915,36 +4203,25 @@
           }
         },
         "tags": [
-          "responses"
+          "legal"
         ],
         "security": [
-          {
-            "access-token": []
-          }
+          {}
         ]
       }
     },
-    "/responses/id/{id}/reject": {
-      "patch": {
-        "operationId": "ResponsesController_reject",
-        "summary": "Client: reject provider response",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+    "/legal/cookies": {
+      "get": {
+        "operationId": "LegalController_getCookieNotice",
+        "summary": "Cookie Notice (strictly necessary cookies)",
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RejectResponseResultDto"
+                  "type": "string"
                 }
               }
             }
@@ -2959,28 +4236,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -3011,12 +4268,10 @@
           }
         },
         "tags": [
-          "responses"
+          "legal"
         ],
         "security": [
-          {
-            "access-token": []
-          }
+          {}
         ]
       }
     }
@@ -3034,8 +4289,8 @@
   "tags": [],
   "servers": [
     {
-      "url": "https://api.decizhen.dev",
-      "description": "Development"
+      "url": "https://backend-de-cizhen.onrender.com",
+      "description": "Production"
     }
   ],
   "components": {
@@ -3044,6 +4299,11 @@
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "type": "http"
+      },
+      "refreshToken": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "refreshToken"
       }
     },
     "schemas": {
@@ -3283,20 +4543,16 @@
             "example": true
           },
           "acceptedPrivacyPolicyAt": {
-            "type": "string",
-            "example": "2025-01-01T12:00:00.000Z",
-            "format": "date-time",
-            "nullable": true
+            "type": "object",
+            "example": "2025-01-01T12:00:00.000Z"
           },
           "isBlocked": {
             "type": "boolean",
             "example": false
           },
           "blockedAt": {
-            "type": "string",
-            "example": null,
-            "format": "date-time",
-            "nullable": true
+            "type": "object",
+            "example": null
           },
           "createdAt": {
             "format": "date-time",
@@ -3517,29 +4773,24 @@
             "example": "userId1"
           },
           "displayName": {
-            "type": "string",
-            "example": "Anna Cleaner",
-            "nullable": true
+            "type": "object",
+            "example": "Anna Cleaner"
           },
           "bio": {
-            "type": "string",
-            "example": "I do cleaning in Berlin...",
-            "nullable": true
+            "type": "object",
+            "example": "I do cleaning in Berlin..."
           },
           "companyName": {
-            "type": "string",
-            "example": "Sparkle GmbH",
-            "nullable": true
+            "type": "object",
+            "example": "Sparkle GmbH"
           },
           "vatId": {
-            "type": "string",
-            "example": "DE123456789",
-            "nullable": true
+            "type": "object",
+            "example": "DE123456789"
           },
           "cityId": {
-            "type": "string",
-            "example": "cityId_berlin",
-            "nullable": true
+            "type": "object",
+            "example": "cityId_berlin"
           },
           "serviceKeys": {
             "example": [
@@ -3551,9 +4802,8 @@
             }
           },
           "basePrice": {
-            "type": "number",
-            "example": 40,
-            "nullable": true
+            "type": "object",
+            "example": 40
           },
           "status": {
             "type": "string",
@@ -3569,10 +4819,8 @@
             "example": false
           },
           "blockedAt": {
-            "type": "string",
-            "example": null,
-            "format": "date-time",
-            "nullable": true
+            "type": "object",
+            "example": null
           },
           "createdAt": {
             "format": "date-time",
@@ -3641,12 +4889,12 @@
             "example": "65f0c1a2b3c4d5e6f7a8b9c1"
           },
           "displayName": {
-            "type": "string",
+            "type": "object",
             "example": "Anna K.",
             "nullable": true
           },
           "avatarUrl": {
-            "type": "string",
+            "type": "object",
             "example": "https://cdn.example.com/avatars/a.png",
             "nullable": true
           },
@@ -3666,7 +4914,7 @@
             "description": "Completed jobs count"
           },
           "basePrice": {
-            "type": "number",
+            "type": "object",
             "example": 35,
             "nullable": true,
             "description": "Base price (optional)"
@@ -3682,6 +4930,10 @@
       "CreateRequestDto": {
         "type": "object",
         "properties": {
+          "title": {
+            "type": "string",
+            "example": "Zwei IKEA Pax Schränke aufbauen"
+          },
           "serviceKey": {
             "type": "string",
             "example": "home_cleaning"
@@ -3690,6 +4942,21 @@
             "type": "string",
             "example": "64f0c1a2b3c4d5e6f7a8b9c0",
             "description": "City id from /catalog/cities"
+          },
+          "cityName": {
+            "type": "string",
+            "example": "Frankfurt am Main",
+            "description": "City name (used when cityId is not provided)"
+          },
+          "lat": {
+            "type": "number",
+            "example": 50.1109,
+            "description": "Latitude (WGS84)"
+          },
+          "lng": {
+            "type": "number",
+            "example": 8.6821,
+            "description": "Longitude (WGS84)"
           },
           "propertyType": {
             "type": "string",
@@ -3704,6 +4971,11 @@
             "example": 55,
             "description": "Area in m²"
           },
+          "price": {
+            "type": "number",
+            "example": 120,
+            "description": "Optional price in EUR"
+          },
           "preferredDate": {
             "type": "string",
             "example": "2026-02-01T10:00:00.000Z"
@@ -3716,11 +4988,37 @@
             "type": "string",
             "example": "Need eco products, please",
             "maxLength": 1000
+          },
+          "description": {
+            "type": "string",
+            "example": "Assemble two wardrobes, tools available",
+            "maxLength": 2000
+          },
+          "photos": {
+            "example": [
+              "https://cdn.example.com/req/1.jpg"
+            ],
+            "description": "Optional photos for the request card",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "example": [
+              "ikea",
+              "assembly"
+            ],
+            "description": "Optional tags for search",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
+          "title",
           "serviceKey",
-          "cityId",
           "propertyType",
           "area",
           "preferredDate",
@@ -3734,13 +5032,78 @@
             "type": "string",
             "example": "65f0c1a2b3c4d5e6f7a8b9c1"
           },
+          "title": {
+            "type": "string",
+            "example": "Zwei IKEA Pax Schränke aufbauen"
+          },
           "serviceKey": {
             "type": "string",
             "example": "home_cleaning"
           },
           "cityId": {
+            "type": "object",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+            "nullable": true
+          },
+          "cityName": {
             "type": "string",
-            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+            "example": "Frankfurt am Main"
+          },
+          "location": {
+            "type": "object",
+            "example": {
+              "type": "Point",
+              "coordinates": [
+                8.6821,
+                50.1109
+              ]
+            },
+            "nullable": true
+          },
+          "clientId": {
+            "type": "object",
+            "example": "507f1f77bcf86cd799439011",
+            "nullable": true
+          },
+          "clientName": {
+            "type": "object",
+            "example": "Anna Schmidt",
+            "nullable": true
+          },
+          "clientAvatarUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/u/1.png",
+            "nullable": true
+          },
+          "clientCity": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "clientRatingAvg": {
+            "type": "object",
+            "example": 4.8,
+            "nullable": true
+          },
+          "clientRatingCount": {
+            "type": "object",
+            "example": 37,
+            "nullable": true
+          },
+          "categoryKey": {
+            "type": "object",
+            "example": "furniture",
+            "nullable": true
+          },
+          "categoryName": {
+            "type": "object",
+            "example": "Möbelaufbau",
+            "nullable": true
+          },
+          "subcategoryName": {
+            "type": "object",
+            "example": "IKEA Aufbau",
+            "nullable": true
           },
           "propertyType": {
             "type": "string",
@@ -3754,6 +5117,11 @@
             "type": "number",
             "example": 55
           },
+          "price": {
+            "type": "object",
+            "example": 120,
+            "nullable": true
+          },
           "preferredDate": {
             "format": "date-time",
             "type": "string",
@@ -3764,9 +5132,40 @@
             "example": false
           },
           "comment": {
-            "type": "string",
+            "type": "object",
             "example": "Need eco products, please",
             "nullable": true
+          },
+          "description": {
+            "type": "object",
+            "example": "Assemble two wardrobes, tools available",
+            "nullable": true
+          },
+          "photos": {
+            "example": [
+              "https://cdn.example.com/req/1.jpg"
+            ],
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "imageUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/req/1.jpg",
+            "nullable": true
+          },
+          "tags": {
+            "example": [
+              "ikea",
+              "assembly"
+            ],
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           },
           "status": {
             "type": "string",
@@ -3774,6 +5173,7 @@
             "enum": [
               "draft",
               "published",
+              "matched",
               "closed",
               "cancelled"
             ]
@@ -3786,14 +5186,203 @@
         },
         "required": [
           "id",
+          "title",
           "serviceKey",
-          "cityId",
+          "cityName",
           "propertyType",
           "area",
           "preferredDate",
           "isRecurring",
           "status",
           "createdAt"
+        ]
+      },
+      "RequestPublicDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "title": {
+            "type": "string",
+            "example": "Zwei IKEA Pax Schränke aufbauen"
+          },
+          "serviceKey": {
+            "type": "string",
+            "example": "home_cleaning"
+          },
+          "cityId": {
+            "type": "object",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+            "nullable": true
+          },
+          "cityName": {
+            "type": "string",
+            "example": "Frankfurt am Main"
+          },
+          "location": {
+            "type": "object",
+            "example": {
+              "type": "Point",
+              "coordinates": [
+                8.68,
+                50.11
+              ]
+            },
+            "nullable": true
+          },
+          "categoryKey": {
+            "type": "object",
+            "example": "furniture",
+            "nullable": true
+          },
+          "categoryName": {
+            "type": "object",
+            "example": "Möbelaufbau",
+            "nullable": true
+          },
+          "subcategoryName": {
+            "type": "object",
+            "example": "IKEA Aufbau",
+            "nullable": true
+          },
+          "propertyType": {
+            "type": "string",
+            "example": "apartment",
+            "enum": [
+              "apartment",
+              "house"
+            ]
+          },
+          "area": {
+            "type": "number",
+            "example": 55
+          },
+          "price": {
+            "type": "object",
+            "example": 120,
+            "nullable": true
+          },
+          "preferredDate": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          },
+          "isRecurring": {
+            "type": "boolean",
+            "example": false
+          },
+          "comment": {
+            "type": "object",
+            "example": "Need eco products, please",
+            "nullable": true
+          },
+          "description": {
+            "type": "object",
+            "example": "Assemble two wardrobes, tools available",
+            "nullable": true
+          },
+          "photos": {
+            "example": [
+              "https://cdn.example.com/req/1.jpg"
+            ],
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "imageUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/req/1.jpg",
+            "nullable": true
+          },
+          "tags": {
+            "example": [
+              "ikea",
+              "assembly"
+            ],
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "status": {
+            "type": "string",
+            "example": "published",
+            "enum": [
+              "draft",
+              "published",
+              "matched",
+              "closed",
+              "cancelled"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-28T10:20:30.123Z"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "serviceKey",
+          "cityName",
+          "propertyType",
+          "area",
+          "preferredDate",
+          "isRecurring",
+          "status",
+          "createdAt"
+        ]
+      },
+      "RequestsPublicResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestPublicDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "example": 128
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 20
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit"
+        ]
+      },
+      "RequestPhotosUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "urls": {
+            "example": [
+              "https://cdn.example.com/req/1.jpg"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "urls"
         ]
       },
       "CreateResponseDto": {
@@ -3820,12 +5409,14 @@
             "example": "65f0c1a2b3c4d5e6f7a8b9c1"
           },
           "providerUserId": {
-            "type": "string",
-            "example": "64f0c1a2b3c4d5e6f7a8b9c9"
+            "type": "object",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c9",
+            "nullable": true
           },
           "clientUserId": {
-            "type": "string",
-            "example": "64f0c1a2b3c4d5e6f7a8b9a1"
+            "type": "object",
+            "example": "64f0c1a2b3c4d5e6f7a8b9a1",
+            "nullable": true
           },
           "status": {
             "type": "string",
@@ -3847,12 +5438,12 @@
             "example": "2026-01-28T10:20:30.123Z"
           },
           "providerDisplayName": {
-            "type": "string",
+            "type": "object",
             "example": "Anna Cleaner",
             "nullable": true
           },
           "providerAvatarUrl": {
-            "type": "string",
+            "type": "object",
             "example": "https://cdn.example.com/a.png",
             "nullable": true
           },
@@ -3869,25 +5460,24 @@
             "example": 40
           },
           "providerBasePrice": {
-            "type": "number",
+            "type": "object",
             "example": 35,
             "nullable": true
           },
           "requestServiceKey": {
-            "type": "string",
+            "type": "object",
             "example": "home_cleaning",
             "nullable": true
           },
           "requestCityId": {
-            "type": "string",
+            "type": "object",
             "example": "Berlin",
             "nullable": true
           },
           "requestPreferredDate": {
-            "type": "string",
+            "type": "object",
             "example": "2026-01-29T10:20:30.123Z",
-            "nullable": true,
-            "format": "date-time"
+            "nullable": true
           },
           "requestStatus": {
             "type": "string",
@@ -3904,8 +5494,6 @@
         "required": [
           "id",
           "requestId",
-          "providerUserId",
-          "clientUserId",
           "status",
           "createdAt",
           "updatedAt"
@@ -4044,7 +5632,7 @@
             "example": "2026-03-28T16:00:00.000Z"
           },
           "reason": {
-            "type": "string",
+            "type": "object",
             "example": "Vacation",
             "nullable": true
           },
@@ -4102,10 +5690,12 @@
             "type": "string"
           },
           "providerUserId": {
-            "type": "string"
+            "type": "object",
+            "nullable": true
           },
           "clientId": {
-            "type": "string"
+            "type": "object",
+            "nullable": true
           },
           "startAt": {
             "type": "string",
@@ -4166,8 +5756,6 @@
           "id",
           "requestId",
           "responseId",
-          "providerUserId",
-          "clientId",
           "startAt",
           "durationMin",
           "endAt",
@@ -4285,6 +5873,170 @@
           "responseId",
           "providerUserId",
           "startAt"
+        ]
+      },
+      "GeoAutocompleteItemDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "example": "Hauptbahnhof, 60329 Frankfurt am Main, Germany"
+          },
+          "lat": {
+            "type": "number",
+            "example": 50.1109
+          },
+          "lng": {
+            "type": "number",
+            "example": 8.6821
+          },
+          "city": {
+            "type": "object",
+            "example": "Frankfurt am Main",
+            "nullable": true
+          },
+          "postalCode": {
+            "type": "object",
+            "example": "60329",
+            "nullable": true
+          },
+          "countryCode": {
+            "type": "object",
+            "example": "DE",
+            "nullable": true
+          }
+        },
+        "required": [
+          "displayName",
+          "lat",
+          "lng"
+        ]
+      },
+      "GeoAutocompleteResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoAutocompleteItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CreateReviewDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011",
+            "description": "Booking id"
+          },
+          "rating": {
+            "type": "number",
+            "example": 5,
+            "description": "Rating 1..5"
+          },
+          "text": {
+            "type": "string",
+            "example": "Great client, on time",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "bookingId",
+          "rating"
+        ]
+      },
+      "ReviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "bookingId": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011"
+          },
+          "authorUserId": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011"
+          },
+          "targetUserId": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011"
+          },
+          "targetRole": {
+            "type": "string",
+            "example": "client",
+            "enum": [
+              "client",
+              "provider"
+            ]
+          },
+          "rating": {
+            "type": "number",
+            "example": 5
+          },
+          "text": {
+            "type": "object",
+            "example": "Great client, on time",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "bookingId",
+          "authorUserId",
+          "targetUserId",
+          "targetRole",
+          "rating",
+          "createdAt"
+        ]
+      },
+      "ReviewPublicDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "targetRole": {
+            "type": "string",
+            "example": "client",
+            "enum": [
+              "client",
+              "provider"
+            ]
+          },
+          "rating": {
+            "type": "number",
+            "example": 5
+          },
+          "text": {
+            "type": "object",
+            "example": "Great client, on time",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "targetRole",
+          "rating",
+          "createdAt"
         ]
       }
     }
