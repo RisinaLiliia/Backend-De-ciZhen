@@ -64,6 +64,14 @@ npm run swagger
 ```
 This writes `swagger.json` in the project root.
 
+## Legal
+
+Privacy Policy:
+- `https://backend-de-cizhen.onrender.com/legal/privacy`
+
+Cookie Notice:
+- `https://backend-de-cizhen.onrender.com/legal/cookies`
+
 ## Testing
 
 **Unit tests**
