@@ -1,10 +1,10 @@
 // src/modules/requests/dto/requests-public-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { RequestResponseDto } from './request-response.dto';
+import { RequestPublicDto } from './request-public.dto';
 
 export class RequestsPublicResponseDto {
-  @ApiProperty({ type: RequestResponseDto, isArray: true })
-  items: RequestResponseDto[];
+  @ApiProperty({ type: RequestPublicDto, isArray: true })
+  items: RequestPublicDto[];
 
   @ApiProperty({ example: 128 })
   total: number;

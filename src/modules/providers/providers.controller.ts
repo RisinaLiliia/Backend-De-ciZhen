@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -45,7 +45,7 @@ export class ProvidersController {
   @ApiErrors({ conflict: false })
   async myProfile(@CurrentUser() user: CurrentUserPayload): Promise<ProviderProfileDto> {
     if (user.role !== 'provider' && user.role !== 'admin') {
-      throw new Error('Forbidden');
+      throw new ForbiddenException('Access denied');
     }
 
     const profile = await this.providers.getOrCreateMyProfile(user.userId);
@@ -63,7 +63,7 @@ export class ProvidersController {
     @Body() dto: UpdateMyProviderProfileDto,
   ): Promise<ProviderProfileDto> {
     if (user.role !== 'provider' && user.role !== 'admin') {
-      throw new Error('Forbidden');
+      throw new ForbiddenException('Access denied');
     }
 
     const updated = await this.providers.updateMyProfile(user.userId, dto);

@@ -20,6 +20,15 @@ async function generateSwagger() {
       },
       "access-token",
     )
+    .addCookieAuth(
+      "refreshToken",
+      {
+        type: "apiKey",
+        in: "cookie",
+        name: "refreshToken",
+      },
+      "refreshToken",
+    )
     .setLicense("MIT", "https://opensource.org/licenses/MIT")
     .build();
 

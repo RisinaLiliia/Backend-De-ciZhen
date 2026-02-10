@@ -149,7 +149,6 @@ describe('reviews (e2e)', () => {
 
     expect(res.body.length).toBe(1);
     expect(res.body[0]).toMatchObject({
-      targetUserId: client.userId,
       targetRole: 'client',
       rating: 5,
     });

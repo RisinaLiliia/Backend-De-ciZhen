@@ -2,6 +2,7 @@
 import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
   ApiExtraModels,
@@ -28,6 +29,7 @@ import { RequestPhotosUploadResponseDto } from './dto/request-photos-upload-resp
 import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
 import { UsersService } from '../users/users.service';
 import { ClientProfilesService } from '../users/client-profiles.service';
+import { RequestPublicDto } from './dto/request-public.dto';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
@@ -65,6 +67,46 @@ export class RequestsController {
       clientCity: client?.city ?? null,
       clientRatingAvg: client?.ratingAvg ?? null,
       clientRatingCount: client?.ratingCount ?? null,
+      categoryKey: doc.categoryKey ?? null,
+      categoryName: doc.categoryName ?? null,
+      subcategoryName: doc.subcategoryName ?? null,
+      propertyType: doc.propertyType,
+      area: doc.area,
+      price: doc.price ?? null,
+      preferredDate: doc.preferredDate,
+      isRecurring: doc.isRecurring,
+      comment: doc.comment ?? null,
+      description: doc.description ?? null,
+      photos: doc.photos ?? [],
+      imageUrl: doc.imageUrl ?? null,
+      tags: doc.tags ?? [],
+      status: doc.status,
+      createdAt: doc.createdAt,
+    };
+  }
+
+  private roundCoord(n: number, decimals = 2): number {
+    const f = Math.pow(10, decimals);
+    return Math.round(n * f) / f;
+  }
+
+  private toPublicDto(doc: any): RequestPublicDto {
+    const loc = doc.location?.coordinates;
+    const location =
+      Array.isArray(loc) && loc.length === 2
+        ? ({
+            type: 'Point' as const,
+            coordinates: [this.roundCoord(loc[0]), this.roundCoord(loc[1])] as [number, number],
+          } as const)
+        : null;
+
+    return {
+      id: doc._id.toString(),
+      title: doc.title,
+      serviceKey: doc.serviceKey,
+      cityId: doc.cityId,
+      cityName: doc.cityName,
+      location,
       categoryKey: doc.categoryKey ?? null,
       categoryName: doc.categoryName ?? null,
       subcategoryName: doc.subcategoryName ?? null,
@@ -130,21 +172,6 @@ export class RequestsController {
       this.requests.countPublic(filters),
     ]);
 
-    const clientIds = Array.from(
-      new Set(items.map((x) => String(x.clientId ?? '')).filter((x) => x.length > 0)),
-    );
-    const [users, profiles] = await Promise.all([
-      this.users.findPublicByIds(clientIds),
-      this.clientProfiles.getByUserIds(clientIds),
-    ]);
-
-    const usersById = new Map<string, any>(
-      users.map((u) => [String(u._id), u]),
-    );
-    const profilesById = new Map<string, any>(
-      profiles.map((p) => [String(p.userId), p]),
-    );
-
     const limit = Math.min(Math.max(q.limit ?? 20, 1), 100);
     const offset =
       typeof q.offset === 'number'
@@ -155,24 +182,7 @@ export class RequestsController {
     const page = Math.floor(offset / limit) + 1;
 
     return {
-      items: items.map((x) => {
-        const cid = String(x.clientId ?? '');
-        const u = cid ? usersById.get(cid) : null;
-        const p = cid ? profilesById.get(cid) : null;
-        return this.toDto(
-          x,
-          cid
-            ? {
-                id: cid,
-                name: u?.name ?? null,
-                avatarUrl: u?.avatar?.url ?? null,
-                city: u?.city ?? null,
-                ratingAvg: p?.ratingAvg ?? 0,
-                ratingCount: p?.ratingCount ?? 0,
-              }
-            : undefined,
-        );
-      }),
+      items: items.map((x) => this.toPublicDto(x)),
       total,
       page,
       limit,
@@ -254,6 +264,18 @@ export class RequestsController {
   @Post('my/photos')
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Upload up to 8 photos',
+    schema: {
+      type: 'object',
+      properties: {
+        photos: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Client: upload request photos' })
   @ApiOkResponse({ type: RequestPhotosUploadResponseDto })
   @ApiErrors()

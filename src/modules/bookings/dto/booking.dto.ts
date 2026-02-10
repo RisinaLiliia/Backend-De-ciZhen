@@ -11,11 +11,11 @@ export class BookingDto {
   @ApiProperty()
   responseId: string;
 
-  @ApiProperty()
-  providerUserId: string;
+  @ApiPropertyOptional({ nullable: true })
+  providerUserId?: string | null;
 
-  @ApiProperty()
-  clientId: string;
+  @ApiPropertyOptional({ nullable: true })
+  clientId?: string | null;
 
   @ApiProperty({ example: '2026-01-29T10:00:00.000Z' })
   startAt: string;

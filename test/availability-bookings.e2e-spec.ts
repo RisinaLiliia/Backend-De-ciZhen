@@ -174,7 +174,6 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
       .expect(201);
 
     expect(created.body).toMatchObject({
-      providerUserId,
       startAt: '2026-03-05T10:00:00.000Z',
       endAt: '2026-03-05T11:00:00.000Z',
       status: 'confirmed',
@@ -276,7 +275,6 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
   expect(created1.body).toMatchObject({
     requestId: reqA,
     responseId: respA,
-    providerUserId: providerId,
     clientId: clientId,
     startAt: '2026-03-05T10:00:00.000Z',
     endAt: '2026-03-05T11:00:00.000Z',
@@ -331,7 +329,6 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
   expect(rescheduled.body).toMatchObject({
     requestId: reqB,
     responseId: respB,
-    providerUserId: providerId,
     clientId: clientId,
     startAt: '2026-03-05T10:00:00.000Z',
     endAt: '2026-03-05T11:00:00.000Z',

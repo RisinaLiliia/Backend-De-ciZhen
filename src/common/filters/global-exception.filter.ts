@@ -48,8 +48,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         error = response.error ?? exception.name;
       }
     } else if (exception instanceof Error) {
-      message = exception.message || message;
-      error = exception.name || error;
+      if (this.isDev) {
+        message = exception.message || message;
+        error = exception.name || error;
+      }
     }
 
     const body: Record<string, unknown> = {
@@ -68,4 +70,3 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     res.status(statusCode).json(body);
   }
 }
-

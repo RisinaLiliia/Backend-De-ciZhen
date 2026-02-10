@@ -2,6 +2,7 @@
 import { BadRequestException, Body, Controller, Get, Patch, Post, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiConsumes,
   ApiOkResponse,
   ApiOperation,
@@ -70,6 +71,16 @@ export class UsersController {
   @ApiBearerAuth("access-token")
   @ApiOperation({ summary: "Upload avatar for current user" })
   @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    description: "Avatar image upload",
+    schema: {
+      type: "object",
+      properties: {
+        avatar: { type: "string", format: "binary" },
+      },
+      required: ["avatar"],
+    },
+  })
   @ApiOkResponse({ description: "Updated current user profile", type: MeResponseDto })
   @ApiMeErrors()
   @UseInterceptors(FileInterceptor("avatar", IMAGE_MULTER_OPTIONS))
