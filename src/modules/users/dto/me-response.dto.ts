@@ -51,4 +51,7 @@ export class MeResponseDto {
 
   @ApiProperty({ example: '2025-01-02T12:00:00.000Z' })
   updatedAt: Date;
+
+  @ApiPropertyOptional({ example: '2026-02-11T10:00:00.000Z' })
+  lastSeenAt?: Date | null;
 }

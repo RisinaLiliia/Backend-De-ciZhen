@@ -905,6 +905,83 @@
         ]
       }
     },
+    "/presence/ping": {
+      "post": {
+        "operationId": "PresenceController_ping",
+        "summary": "Update presence (ping)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresencePingResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "presence"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/providers/me/profile": {
       "get": {
         "operationId": "ProvidersController_myProfile",
@@ -4639,6 +4716,10 @@
             "format": "date-time",
             "type": "string",
             "example": "2025-01-02T12:00:00.000Z"
+          },
+          "lastSeenAt": {
+            "type": "object",
+            "example": "2026-02-11T10:00:00.000Z"
           }
         },
         "required": [
@@ -4835,6 +4916,24 @@
         },
         "required": [
           "ok"
+        ]
+      },
+      "PresencePingResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          },
+          "lastSeenAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-11T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "ok",
+          "lastSeenAt"
         ]
       },
       "ProviderProfileDto": {
@@ -5336,6 +5435,16 @@
           "clientRatingCount": {
             "type": "object",
             "example": 37,
+            "nullable": true
+          },
+          "clientIsOnline": {
+            "type": "object",
+            "example": true,
+            "nullable": true
+          },
+          "clientLastSeenAt": {
+            "type": "object",
+            "example": "2026-02-11T10:00:00.000Z",
             "nullable": true
           },
           "categoryKey": {

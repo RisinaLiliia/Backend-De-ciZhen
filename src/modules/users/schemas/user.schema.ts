@@ -65,6 +65,9 @@ export class User {
   @Prop({ type: Date, default: null })
   blockedAt: Date | null;
 
+  @Prop({ type: Date, default: null })
+  lastSeenAt: Date | null;
+
   @Prop({ type: Object, default: {} })
   metadata: Record<string, unknown>;
 }

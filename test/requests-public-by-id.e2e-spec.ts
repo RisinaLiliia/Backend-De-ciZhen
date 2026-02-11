@@ -122,6 +122,8 @@ describe('requests public by id (e2e)', () => {
       clientRatingAvg: 0,
       clientRatingCount: 0,
     });
+    expect(typeof res.body.clientIsOnline).toBe('boolean');
+    expect(res.body.clientLastSeenAt).toBeTruthy();
   });
 
   it('GET /requests/public/:id returns 404 for non-published request', async () => {

@@ -5,6 +5,7 @@ import { RequestsService } from './requests.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { UsersService } from '../users/users.service';
 import { ClientProfilesService } from '../users/client-profiles.service';
+import { PresenceService } from '../presence/presence.service';
 
 describe('RequestsController (unit)', () => {
   let controller: RequestsController;
@@ -32,6 +33,11 @@ describe('RequestsController (unit)', () => {
     getByUserIds: jest.fn(),
   };
 
+  const presenceMock = {
+    isOnline: jest.fn(),
+    getOnlineMap: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -42,6 +48,7 @@ describe('RequestsController (unit)', () => {
         { provide: UploadsService, useValue: uploadsMock },
         { provide: UsersService, useValue: usersMock },
         { provide: ClientProfilesService, useValue: clientProfilesMock },
+        { provide: PresenceService, useValue: presenceMock },
       ],
     }).compile();
 
@@ -164,6 +171,7 @@ describe('RequestsController (unit)', () => {
     svcMock.countPublic.mockResolvedValue(1);
     usersMock.findPublicByIds.mockResolvedValue([]);
     clientProfilesMock.getByUserIds.mockResolvedValue([]);
+    presenceMock.getOnlineMap.mockResolvedValue(new Map());
 
     const res = await controller.listPublic({
       cityId: 'c1',
@@ -244,15 +252,18 @@ describe('RequestsController (unit)', () => {
         name: 'Anna',
         avatar: { url: '/avatars/a.png', isDefault: false },
         city: 'Berlin',
+        lastSeenAt: new Date('2026-02-11T10:00:00.000Z'),
       },
     ]);
     clientProfilesMock.getByUserIds.mockResolvedValue([{ userId: 'c1', ratingAvg: 4.8, ratingCount: 12 }]);
+    presenceMock.isOnline.mockResolvedValue(true);
 
     const res = await controller.getPublicById('r1');
 
     expect(svcMock.getPublicById).toHaveBeenCalledWith('r1');
     expect(usersMock.findPublicByIds).toHaveBeenCalledWith(['c1']);
     expect(clientProfilesMock.getByUserIds).toHaveBeenCalledWith(['c1']);
+    expect(presenceMock.isOnline).toHaveBeenCalledWith('c1');
     expect(res).toEqual(
       expect.objectContaining({
         id: 'r1',
@@ -262,6 +273,8 @@ describe('RequestsController (unit)', () => {
         clientCity: 'Berlin',
         clientRatingAvg: 4.8,
         clientRatingCount: 12,
+        clientIsOnline: true,
+        clientLastSeenAt: new Date('2026-02-11T10:00:00.000Z'),
       }),
     );
   });

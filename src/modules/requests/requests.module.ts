@@ -8,6 +8,7 @@ import { CatalogServicesModule } from '../catalog/services/services.module';
 import { CitiesModule } from '../catalog/cities/cities.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { UsersModule } from '../users/users.module';
+import { PresenceModule } from '../presence/presence.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { UsersModule } from '../users/users.module';
     CitiesModule,
     UploadsModule,
     UsersModule,
+    PresenceModule,
   ],
   controllers: [RequestsController],
   providers: [RequestsService],

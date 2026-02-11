@@ -17,6 +17,7 @@ import { BookingsModule } from "../modules/bookings/bookings.module";
 import { GeoModule } from "../modules/geo/geo.module";
 import { ReviewsModule } from "../modules/reviews/reviews.module";
 import { LegalModule } from "../modules/legal/legal.module";
+import { PresenceModule } from "../modules/presence/presence.module";
 import { MongooseStubModule } from "./mongoose-stub.module";
 import { RedisStubModule } from "./redis-stub.module";
 
@@ -58,6 +59,7 @@ import { RedisStubModule } from "./redis-stub.module";
     GeoModule,
     ReviewsModule,
     LegalModule,
+    PresenceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

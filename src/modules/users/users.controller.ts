@@ -52,6 +52,7 @@ export class UsersController {
 
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
+      lastSeenAt: u.lastSeenAt ?? null,
     };
   }
 

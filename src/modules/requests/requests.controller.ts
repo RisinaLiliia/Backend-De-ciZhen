@@ -31,6 +31,7 @@ import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
 import { UsersService } from '../users/users.service';
 import { ClientProfilesService } from '../users/client-profiles.service';
 import { RequestPublicDto } from './dto/request-public.dto';
+import { PresenceService } from '../presence/presence.service';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
@@ -42,6 +43,7 @@ export class RequestsController {
     private readonly uploads: UploadsService,
     private readonly users: UsersService,
     private readonly clientProfiles: ClientProfilesService,
+    private readonly presence: PresenceService,
   ) {}
 
   private toDto(
@@ -107,6 +109,8 @@ export class RequestsController {
       city: string | null;
       ratingAvg: number | null;
       ratingCount: number | null;
+      isOnline?: boolean | null;
+      lastSeenAt?: Date | null;
     },
   ): RequestPublicDto {
     const loc = doc.location?.coordinates;
@@ -131,6 +135,8 @@ export class RequestsController {
       clientCity: client?.city ?? null,
       clientRatingAvg: client?.ratingAvg ?? null,
       clientRatingCount: client?.ratingCount ?? null,
+      clientIsOnline: client?.isOnline ?? null,
+      clientLastSeenAt: client?.lastSeenAt ?? null,
       categoryKey: doc.categoryKey ?? null,
       categoryName: doc.categoryName ?? null,
       subcategoryName: doc.subcategoryName ?? null,
@@ -189,6 +195,7 @@ export class RequestsController {
     const user = clients[0];
     if (!user) return this.toPublicDto(doc);
     const profile = profiles[0];
+    const isOnline = await this.presence.isOnline(clientId);
 
     return this.toPublicDto(doc, {
       id: user._id.toString(),
@@ -197,6 +204,8 @@ export class RequestsController {
       city: user.city ?? null,
       ratingAvg: profile?.ratingAvg ?? null,
       ratingCount: profile?.ratingCount ?? null,
+      isOnline,
+      lastSeenAt: user.lastSeenAt ?? null,
     });
   }
 
@@ -255,10 +264,12 @@ export class RequestsController {
           name: u.name ?? null,
           avatarUrl: u.avatar?.url ?? null,
           city: u.city ?? null,
+          lastSeenAt: u.lastSeenAt ?? null,
         },
       ]),
     );
     const profileById = new Map(clientProfiles.map((p) => [p.userId, p]));
+    const onlineById = await this.presence.getOnlineMap(clientIds);
 
     const limit = Math.min(Math.max(q.limit ?? 20, 1), 100);
     const offset =
@@ -283,6 +294,8 @@ export class RequestsController {
           city: base.city,
           ratingAvg: profile?.ratingAvg ?? null,
           ratingCount: profile?.ratingCount ?? null,
+          isOnline: onlineById.get(id) ?? false,
+          lastSeenAt: base.lastSeenAt ?? null,
         });
       }),
       total,

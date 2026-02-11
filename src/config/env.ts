@@ -32,4 +32,6 @@ export default registerAs("app", () => ({
   geocodeUserAgent: process.env.GEOCODE_USER_AGENT,
   geocodeAcceptLanguage: process.env.GEOCODE_ACCEPT_LANGUAGE,
   geocodeCacheTtlSeconds: Number(process.env.GEOCODE_CACHE_TTL_SECONDS ?? 3600),
+
+  presenceTtlSeconds: Number(process.env.PRESENCE_TTL_SECONDS ?? 60),
 }));
