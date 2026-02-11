@@ -13,6 +13,7 @@ describe('RequestsService', () => {
     create: jest.fn(),
     find: jest.fn(),
     findById: jest.fn(),
+    findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
     countDocuments: jest.fn(),
   };
@@ -455,5 +456,30 @@ describe('RequestsService', () => {
   it('publishForClient throws on invalid requestId', async () => {
     await expect(service.publishForClient('u1', 'not-an-objectid')).rejects.toThrow('requestId must be a valid ObjectId');
     expect(modelMock.findById).not.toHaveBeenCalled();
+  });
+
+  it('getPublicById returns published request', async () => {
+    const rid = '507f1f77bcf86cd799439011';
+    const execFind = jest.fn().mockResolvedValue({ _id: rid, status: 'published' });
+    modelMock.findOne.mockReturnValue({ exec: execFind });
+
+    const res: any = await service.getPublicById(rid);
+
+    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, status: 'published' });
+    expect(res.status).toBe('published');
+  });
+
+  it('getPublicById throws when not found', async () => {
+    const rid = '507f1f77bcf86cd799439012';
+    const execFind = jest.fn().mockResolvedValue(null);
+    modelMock.findOne.mockReturnValue({ exec: execFind });
+
+    await expect(service.getPublicById(rid)).rejects.toThrow('Request not found');
+    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, status: 'published' });
+  });
+
+  it('getPublicById throws on invalid requestId', async () => {
+    await expect(service.getPublicById('not-an-objectid')).rejects.toThrow('requestId must be a valid ObjectId');
+    expect(modelMock.findOne).not.toHaveBeenCalled();
   });
 });

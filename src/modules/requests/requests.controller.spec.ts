@@ -17,6 +17,7 @@ describe('RequestsController (unit)', () => {
     countPublic: jest.fn(),
     listMyClient: jest.fn(),
     normalizeFilters: jest.fn(),
+    getPublicById: jest.fn(),
   };
 
   const uploadsMock = {
@@ -210,6 +211,58 @@ describe('RequestsController (unit)', () => {
     );
     expect(res.items[0]).toEqual(
       expect.objectContaining({ id: 'r1', cityId: 'c1', serviceKey: 'home_cleaning' }),
+    );
+  });
+
+  it('getPublicById maps client public info', async () => {
+    svcMock.getPublicById.mockResolvedValue({
+      _id: { toString: () => 'r1' },
+      title: 'Test',
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: new Date('2026-02-01T10:00:00.000Z'),
+      isRecurring: false,
+      comment: null,
+      description: 'details',
+      photos: [],
+      imageUrl: null,
+      tags: [],
+      status: 'published',
+      createdAt: new Date('2026-01-28T10:00:00.000Z'),
+      clientId: 'c1',
+    });
+    usersMock.findPublicByIds.mockResolvedValue([
+      {
+        _id: { toString: () => 'c1' },
+        name: 'Anna',
+        avatar: { url: '/avatars/a.png', isDefault: false },
+        city: 'Berlin',
+      },
+    ]);
+    clientProfilesMock.getByUserIds.mockResolvedValue([{ userId: 'c1', ratingAvg: 4.8, ratingCount: 12 }]);
+
+    const res = await controller.getPublicById('r1');
+
+    expect(svcMock.getPublicById).toHaveBeenCalledWith('r1');
+    expect(usersMock.findPublicByIds).toHaveBeenCalledWith(['c1']);
+    expect(clientProfilesMock.getByUserIds).toHaveBeenCalledWith(['c1']);
+    expect(res).toEqual(
+      expect.objectContaining({
+        id: 'r1',
+        clientId: 'c1',
+        clientName: 'Anna',
+        clientAvatarUrl: '/avatars/a.png',
+        clientCity: 'Berlin',
+        clientRatingAvg: 4.8,
+        clientRatingCount: 12,
+      }),
     );
   });
 

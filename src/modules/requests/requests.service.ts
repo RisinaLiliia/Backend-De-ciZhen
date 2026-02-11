@@ -364,6 +364,16 @@ export class RequestsService {
     return this.model.find(q).sort(sort).skip(offset).limit(limit).exec();
   }
 
+  async getPublicById(requestId: string): Promise<RequestDocument> {
+    const rid = String(requestId ?? '').trim();
+    if (!rid) throw new BadRequestException('requestId is required');
+    this.ensureObjectId(rid, 'requestId');
+
+    const doc = await this.model.findOne({ _id: rid, status: 'published' }).exec();
+    if (!doc) throw new NotFoundException('Request not found');
+    return doc;
+  }
+
   async countPublic(filters: {
     cityId?: string;
     lat?: number;

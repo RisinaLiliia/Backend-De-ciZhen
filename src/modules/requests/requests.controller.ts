@@ -167,6 +167,39 @@ export class RequestsController {
     return this.toDto(created);
   }
 
+  @Get('public/:id')
+  @ApiOperation({
+    summary: 'Get published request by id (public)',
+    description: 'Returns a single published request with public client info.',
+  })
+  @ApiParam({ name: 'id', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @ApiSecurity({} as any)
+  @ApiOkResponse({ type: RequestPublicDto })
+  @ApiPublicErrors()
+  async getPublicById(@Param('id') id: string): Promise<RequestPublicDto> {
+    const doc = await this.requests.getPublicById(id);
+    const clientId = this.normalizeId((doc as any).clientId);
+    if (!clientId) return this.toPublicDto(doc);
+
+    const [clients, profiles] = await Promise.all([
+      this.users.findPublicByIds([clientId]),
+      this.clientProfiles.getByUserIds([clientId]),
+    ]);
+
+    const user = clients[0];
+    if (!user) return this.toPublicDto(doc);
+    const profile = profiles[0];
+
+    return this.toPublicDto(doc, {
+      id: user._id.toString(),
+      name: user.name ?? null,
+      avatarUrl: user.avatar?.url ?? null,
+      city: user.city ?? null,
+      ratingAvg: profile?.ratingAvg ?? null,
+      ratingCount: profile?.ratingCount ?? null,
+    });
+  }
+
   @Get('public')
   @ApiOperation({
     summary: 'List published requests (for providers)',
