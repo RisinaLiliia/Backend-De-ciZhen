@@ -38,4 +38,6 @@ REDIS_PORT: Joi.number().when(Joi.ref("REDIS_DISABLED"), {
   GEOCODE_USER_AGENT: Joi.string().optional(),
   GEOCODE_ACCEPT_LANGUAGE: Joi.string().optional(),
   GEOCODE_CACHE_TTL_SECONDS: Joi.number().min(0).optional(),
+
+  PRESENCE_TTL_SECONDS: Joi.number().min(5).max(3600).optional(),
 }).unknown(true);

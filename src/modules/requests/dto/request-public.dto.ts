@@ -41,6 +41,12 @@ export class RequestPublicDto {
   @ApiPropertyOptional({ example: 37, nullable: true })
   clientRatingCount: number | null;
 
+  @ApiPropertyOptional({ example: true, nullable: true })
+  clientIsOnline: boolean | null;
+
+  @ApiPropertyOptional({ example: '2026-02-11T10:00:00.000Z', nullable: true })
+  clientLastSeenAt: Date | null;
+
   @ApiPropertyOptional({ example: 'furniture', nullable: true })
   categoryKey: string | null;
 

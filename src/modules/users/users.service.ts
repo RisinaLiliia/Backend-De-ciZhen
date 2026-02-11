@@ -57,7 +57,7 @@ export class UsersService {
     if (ids.length === 0) return [];
     return this.userModel
       .find({ _id: { $in: ids } })
-      .select("name avatar city")
+      .select("name avatar city lastSeenAt")
       .exec();
   }
 
@@ -122,6 +122,14 @@ export class UsersService {
 
     if (!user) throw new NotFoundException("User not found");
     return user;
+  }
+
+  async touchLastSeen(userId: string): Promise<void> {
+    const id = String(userId ?? "").trim();
+    if (!id) return;
+    await this.userModel
+      .findByIdAndUpdate(id, { $set: { lastSeenAt: new Date() } })
+      .exec();
   }
 
   async blockUser(userId: string): Promise<void> {
