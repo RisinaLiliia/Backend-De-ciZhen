@@ -49,6 +49,9 @@ export class ProvidersService {
     if (profile.isBlocked) throw new ForbiddenException('Provider profile is blocked');
 
     Object.assign(profile, updates);
+    if (profile.status === 'draft' && !profile.isBlocked && this.isProfileComplete(profile)) {
+      profile.status = 'active';
+    }
     return profile.save();
   }
 
@@ -142,5 +145,18 @@ export class ProvidersService {
     .sort({ ratingAvg: -1, ratingCount: -1, basePrice: 1, updatedAt: -1 })
     .exec();
 }
+
+  private isProfileComplete(profile: ProviderProfile): boolean {
+    const displayName = String(profile.displayName ?? '').trim();
+    const cityId = String(profile.cityId ?? '').trim();
+    const serviceKeys = Array.isArray(profile.serviceKeys) ? profile.serviceKeys.filter(Boolean) : [];
+    const basePrice = profile.basePrice;
+
+    return displayName.length > 0
+      && cityId.length > 0
+      && serviceKeys.length > 0
+      && typeof basePrice === 'number'
+      && !Number.isNaN(basePrice);
+  }
 
 }
