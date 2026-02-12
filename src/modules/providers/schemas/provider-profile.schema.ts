@@ -67,6 +67,9 @@ export class ProviderProfile {
   @Prop({ type: Number, default: 0, min: 0 })
   completedJobs: number;
 
+  @Prop({ type: [String], default: [] })
+  favoriteRequestIds: string[];
+
   @Prop({ type: Object, default: {} })
   metadata: Record<string, unknown>;
 }

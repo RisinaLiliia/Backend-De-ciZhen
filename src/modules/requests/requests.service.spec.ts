@@ -482,4 +482,23 @@ describe('RequestsService', () => {
     await expect(service.getPublicById('not-an-objectid')).rejects.toThrow('requestId must be a valid ObjectId');
     expect(modelMock.findOne).not.toHaveBeenCalled();
   });
+
+  it('listPublicByIds returns empty when no valid ids', async () => {
+    const res = await service.listPublicByIds(['bad-id', 'also-bad']);
+    expect(res).toEqual([]);
+    expect(modelMock.find).not.toHaveBeenCalled();
+  });
+
+  it('listPublicByIds queries published requests', async () => {
+    const exec = jest.fn().mockResolvedValue([{ _id: 'r1' }]);
+    modelMock.find.mockReturnValue({ exec });
+
+    const res = await service.listPublicByIds(['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012']);
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      _id: { $in: ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'] },
+      status: 'published',
+    });
+    expect(res.length).toBe(1);
+  });
 });

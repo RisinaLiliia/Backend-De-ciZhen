@@ -4427,6 +4427,258 @@
           {}
         ]
       }
+    },
+    "/favorites/requests/{requestId}": {
+      "post": {
+        "operationId": "FavoritesController_addFavorite",
+        "summary": "Provider: add request to favorites",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoritesOkDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "favorites"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "FavoritesController_removeFavorite",
+        "summary": "Provider: remove request from favorites",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoritesOkDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "favorites"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/favorites/requests": {
+      "get": {
+        "operationId": "FavoritesController_listFavorites",
+        "summary": "Provider: list favorite requests",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequestPublicDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "favorites"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -6252,6 +6504,18 @@
           "targetRole",
           "rating",
           "createdAt"
+        ]
+      },
+      "FavoritesOkDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "ok"
         ]
       }
     }

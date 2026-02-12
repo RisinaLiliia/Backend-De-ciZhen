@@ -374,6 +374,18 @@ export class RequestsService {
     return doc;
   }
 
+  async listPublicByIds(requestIds: string[]): Promise<RequestDocument[]> {
+    const ids = Array.isArray(requestIds)
+      ? Array.from(
+          new Set(
+            requestIds.map((x) => String(x)).filter((x) => Types.ObjectId.isValid(x)),
+          ),
+        )
+      : [];
+    if (ids.length === 0) return [];
+    return this.model.find({ _id: { $in: ids }, status: 'published' }).exec();
+  }
+
   async countPublic(filters: {
     cityId?: string;
     lat?: number;
