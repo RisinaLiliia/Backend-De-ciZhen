@@ -12,6 +12,7 @@ import { RegisterDto } from "./dto/register.dto";
 import { RedisService } from "../../infra/redis.service";
 import { JwtPayload, TokenResponse, SafeUser, AppRole } from "./auth.types";
 import type { UserDocument } from "../users/schemas/user.schema";
+import { ProvidersService } from "../providers/providers.service";
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
     private jwt: JwtService,
     private usersService: UsersService,
     private redisService: RedisService,
+    private providersService: ProvidersService,
   ) {}
 
   async register(data: RegisterDto): Promise<TokenResponse> {
@@ -39,6 +41,13 @@ export class AuthService {
       ...(data.language ? { language: data.language } : {}),
     });
 
+    if (role === "provider") {
+      try {
+        await this.providersService.activateIfComplete(user._id.toString());
+      } catch {
+      }
+    }
+
     return this.generateTokens(user);
   }
 
@@ -52,6 +61,13 @@ export class AuthService {
 
     const ok = await comparePassword(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException("Invalid credentials");
+
+    if (user.role === "provider") {
+      try {
+        await this.providersService.activateIfComplete(user._id.toString());
+      } catch {
+      }
+    }
 
     return this.generateTokens(user);
   }

@@ -7,10 +7,12 @@ import { UsersModule } from "../users/users.module";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { PassportModule } from "@nestjs/passport";
 import { PresenceModule } from "../presence/presence.module";
+import { ProvidersModule } from "../providers/providers.module";
 
 @Module({
   imports: [
     UsersModule,
+    ProvidersModule,
     PresenceModule,
     PassportModule,
     JwtModule.registerAsync({
