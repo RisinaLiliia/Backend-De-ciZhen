@@ -11,6 +11,7 @@ import { AuthService } from "./auth.service";
 import { UsersService } from "../users/users.service";
 import { RedisService } from "../../infra/redis.service";
 import type { UserDocument } from "../users/schemas/user.schema";
+import { ProvidersService } from "../providers/providers.service";
 
 jest.mock("../../utils/password", () => ({
   hashPassword: jest.fn(async () => "HASHED_REFRESH"),
@@ -39,6 +40,10 @@ describe("AuthService", () => {
     del: jest.fn(),
   };
 
+  const providersServiceMock = {
+    activateIfComplete: jest.fn(),
+  };
+
   const makeUser = (overrides: Partial<any> = {}): UserDocument =>
     ({
       _id: { toString: () => overrides.id ?? "userId1" },
@@ -64,6 +69,7 @@ describe("AuthService", () => {
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: UsersService, useValue: usersServiceMock },
         { provide: RedisService, useValue: redisServiceMock },
+        { provide: ProvidersService, useValue: providersServiceMock },
       ],
     }).compile();
 
@@ -128,6 +134,25 @@ describe("AuthService", () => {
       );
     });
 
+    it("activates provider profile on register when role is provider", async () => {
+      const user = makeUser({ role: "provider" });
+      usersServiceMock.create.mockResolvedValue(user);
+
+      jwtServiceMock.sign
+        .mockReturnValueOnce("ACCESS_TOKEN")
+        .mockReturnValueOnce("REFRESH_TOKEN");
+
+      await authService.register({
+        name: "Provider",
+        email: "provider@test.com",
+        password: "Password1",
+        acceptPrivacyPolicy: true,
+        role: "provider",
+      } as any);
+
+      expect(providersServiceMock.activateIfComplete).toHaveBeenCalledWith("userId1");
+    });
+
     it("propagates duplicate email as ConflictException", async () => {
       usersServiceMock.create.mockRejectedValue(
         new ConflictException("Email already in use"),
@@ -188,6 +213,19 @@ describe("AuthService", () => {
       expect(res.accessToken).toBe("ACCESS_TOKEN");
       expect(res.refreshToken).toBe("REFRESH_TOKEN");
       expect(redisServiceMock.set).toHaveBeenCalledTimes(1);
+    });
+
+    it("activates provider profile on login when role is provider", async () => {
+      (comparePassword as jest.Mock).mockResolvedValueOnce(true);
+      usersServiceMock.findAuthUserByEmail.mockResolvedValue(makeUser({ role: "provider" }));
+
+      jwtServiceMock.sign
+        .mockReturnValueOnce("ACCESS_TOKEN")
+        .mockReturnValueOnce("REFRESH_TOKEN");
+
+      await authService.login("liliia@test.com", "Password1");
+
+      expect(providersServiceMock.activateIfComplete).toHaveBeenCalledWith("userId1");
     });
   });
 

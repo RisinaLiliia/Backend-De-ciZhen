@@ -55,6 +55,15 @@ export class ProvidersService {
     return profile.save();
   }
 
+  async activateIfComplete(userId: string): Promise<void> {
+    const profile = await this.getOrCreateMyProfile(userId);
+    if (profile.isBlocked) return;
+    if (profile.status === 'draft' && this.isProfileComplete(profile)) {
+      profile.status = 'active';
+      await profile.save();
+    }
+  }
+
   async applyRating(userId: string, rating: number): Promise<ProviderProfileDocument> {
     const profile = await this.getOrCreateMyProfile(userId);
     const count = Number(profile.ratingCount ?? 0);
