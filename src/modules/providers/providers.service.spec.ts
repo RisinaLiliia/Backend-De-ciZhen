@@ -60,6 +60,53 @@ describe('ProvidersService', () => {
     );
   });
 
+  it('updateMyProfile auto-activates when draft and required fields are present', async () => {
+    const profile = {
+      userId: 'u1',
+      isBlocked: false,
+      status: 'draft',
+      displayName: null,
+      cityId: null,
+      serviceKeys: [],
+      basePrice: null,
+      save: jest.fn().mockResolvedValue({ status: 'active' }),
+    };
+    modelMock.findOne.mockReturnValue(execWrap(profile));
+
+    await service.updateMyProfile('u1', {
+      displayName: 'Anna Cleaner',
+      cityId: 'city_berlin',
+      serviceKeys: ['home_cleaning'],
+      basePrice: 40,
+    });
+
+    expect(profile.status).toBe('active');
+    expect(profile.save).toHaveBeenCalled();
+  });
+
+  it('updateMyProfile keeps draft when required fields are missing', async () => {
+    const profile = {
+      userId: 'u1',
+      isBlocked: false,
+      status: 'draft',
+      displayName: null,
+      cityId: null,
+      serviceKeys: [],
+      basePrice: null,
+      save: jest.fn().mockResolvedValue({ status: 'draft' }),
+    };
+    modelMock.findOne.mockReturnValue(execWrap(profile));
+
+    await service.updateMyProfile('u1', {
+      displayName: 'Anna Cleaner',
+      cityId: 'city_berlin',
+      serviceKeys: [],
+    });
+
+    expect(profile.status).toBe('draft');
+    expect(profile.save).toHaveBeenCalled();
+  });
+
   it('blockProfile throws NotFound if missing', async () => {
     modelMock.findOneAndUpdate.mockReturnValue(execWrap(null));
     await expect(service.blockProfile('u1')).rejects.toBeInstanceOf(NotFoundException);

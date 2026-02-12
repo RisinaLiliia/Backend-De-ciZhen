@@ -59,11 +59,39 @@ describe('providers profile (e2e)', () => {
       displayName: 'Best Provider',
       cityId: 'c1',
       basePrice: 40,
+      status: 'active',
     });
 
     const saved = await providerProfileModel.findOne({ userId: provider.userId }).exec();
     expect(saved?.displayName).toBe('Best Provider');
     expect(saved?.serviceKeys).toEqual(['home_cleaning']);
+    expect(saved?.status).toBe('active');
+  });
+
+  it('keeps draft when required fields are missing', async () => {
+    const provider = await registerAndGetToken(app, 'provider', 'prov-prof-2@test.local', 'Provider Prof 2');
+
+    await request(app.getHttpServer())
+      .get('/providers/me/profile')
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .expect(200);
+
+    const updateRes = await request(app.getHttpServer())
+      .patch('/providers/me/profile')
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .send({
+        displayName: 'Provider',
+        cityId: 'c1',
+        serviceKeys: [],
+      })
+      .expect(200);
+
+    expect(updateRes.body).toMatchObject({
+      status: 'draft',
+    });
+
+    const saved = await providerProfileModel.findOne({ userId: provider.userId }).exec();
+    expect(saved?.status).toBe('draft');
   });
 
   it('GET /providers returns public list', async () => {
