@@ -21,6 +21,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { PresenceModule } from './modules/presence/presence.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
+import { ChatsModule } from './modules/chats/chats.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { FavoritesModule } from './modules/favorites/favorites.module';
     LegalModule,
     PresenceModule,
     FavoritesModule,
+    ChatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -19,6 +19,7 @@ import { ReviewsModule } from "../modules/reviews/reviews.module";
 import { LegalModule } from "../modules/legal/legal.module";
 import { PresenceModule } from "../modules/presence/presence.module";
 import { FavoritesModule } from "../modules/favorites/favorites.module";
+import { ChatsModule } from "../modules/chats/chats.module";
 import { MongooseStubModule } from "./mongoose-stub.module";
 import { RedisStubModule } from "./redis-stub.module";
 
@@ -62,6 +63,7 @@ import { RedisStubModule } from "./redis-stub.module";
     LegalModule,
     PresenceModule,
     FavoritesModule,
+    ChatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
