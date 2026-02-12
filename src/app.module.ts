@@ -20,6 +20,7 @@ import { GeoModule } from './modules/geo/geo.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { PresenceModule } from './modules/presence/presence.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { PresenceModule } from './modules/presence/presence.module';
     ReviewsModule,
     LegalModule,
     PresenceModule,
+    FavoritesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

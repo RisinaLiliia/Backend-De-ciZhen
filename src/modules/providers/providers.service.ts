@@ -1,7 +1,8 @@
 // src/modules/providers/providers.service.ts
-import { ConflictException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
+import { Types } from 'mongoose';
 import { ProviderProfile, ProviderProfileDocument } from './schemas/provider-profile.schema';
 
 type CreateProfileInput = {
@@ -60,6 +61,53 @@ export class ProvidersService {
     profile.ratingCount = nextCount;
     profile.ratingAvg = nextAvg;
     return profile.save();
+  }
+
+  private ensureObjectId(id: string, field: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(`${field} must be a valid ObjectId`);
+    }
+  }
+
+  async addFavoriteRequest(userId: string, requestId: string): Promise<ProviderProfileDocument> {
+    const rid = String(requestId ?? '').trim();
+    this.ensureObjectId(rid, 'requestId');
+
+    const profile = await this.getOrCreateMyProfile(userId);
+    if (profile.isBlocked) throw new ForbiddenException('Provider profile is blocked');
+
+    const updated = await this.model
+      .findOneAndUpdate(
+        { userId },
+        { $addToSet: { favoriteRequestIds: rid } },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) throw new NotFoundException('Provider profile not found');
+    return updated;
+  }
+
+  async removeFavoriteRequest(userId: string, requestId: string): Promise<ProviderProfileDocument> {
+    const rid = String(requestId ?? '').trim();
+    this.ensureObjectId(rid, 'requestId');
+
+    const updated = await this.model
+      .findOneAndUpdate(
+        { userId },
+        { $pull: { favoriteRequestIds: rid } },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) throw new NotFoundException('Provider profile not found');
+    return updated;
+  }
+
+  async listFavoriteRequestIds(userId: string): Promise<string[]> {
+    const profile = await this.getByUserId(userId);
+    if (!profile) throw new NotFoundException('Provider profile not found');
+    return Array.isArray(profile.favoriteRequestIds) ? profile.favoriteRequestIds : [];
   }
 
   async blockProfile(userId: string): Promise<void> {
