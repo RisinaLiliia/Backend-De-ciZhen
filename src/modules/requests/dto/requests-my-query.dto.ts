@@ -5,12 +5,12 @@ import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-va
 
 export class RequestsMyQueryDto {
   @ApiPropertyOptional({
-    enum: ['draft', 'published', 'matched', 'closed', 'cancelled'],
+    enum: ['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'],
   })
   @IsOptional()
   @IsString()
-  @IsIn(['draft', 'published', 'matched', 'closed', 'cancelled'])
-  status?: 'draft' | 'published' | 'matched' | 'closed' | 'cancelled';
+  @IsIn(['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'])
+  status?: 'draft' | 'published' | 'paused' | 'matched' | 'closed' | 'cancelled';
 
   @ApiPropertyOptional({
     example: '2026-01-01T00:00:00.000Z',

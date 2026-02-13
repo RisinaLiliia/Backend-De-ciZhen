@@ -4,7 +4,7 @@ import type { Document } from 'mongoose';
 
 export type RequestDocument = Request & Document;
 
-export type RequestStatus = 'draft' | 'published' | 'matched' | 'closed' | 'cancelled';
+export type RequestStatus = 'draft' | 'published' | 'paused' | 'matched' | 'closed' | 'cancelled';
 export type PropertyType = 'apartment' | 'house';
 export type GeoPoint = { type: 'Point'; coordinates: [number, number] };
 
@@ -79,7 +79,7 @@ export class Request {
 
   @Prop({
     type: String,
-    enum: ['draft', 'published', 'matched', 'closed', 'cancelled'],
+    enum: ['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'],
     default: 'published',
     index: true,
   })
@@ -87,6 +87,9 @@ export class Request {
 
   @Prop({ type: String, default: null, index: true })
   matchedProviderUserId: string | null;
+
+  @Prop({ type: String, default: null, index: true })
+  assignedContractId: string | null;
 
   @Prop({ type: Date, default: null })
   matchedAt: Date | null;

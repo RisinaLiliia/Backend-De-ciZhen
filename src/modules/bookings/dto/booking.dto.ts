@@ -12,6 +12,9 @@ export class BookingDto {
   offerId: string;
 
   @ApiPropertyOptional({ nullable: true })
+  contractId?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
   providerUserId?: string | null;
 
   @ApiPropertyOptional({ nullable: true })

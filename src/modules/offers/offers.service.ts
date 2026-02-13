@@ -13,11 +13,9 @@ import { Types } from 'mongoose';
 import { Offer, OfferDocument } from './schemas/offer.schema';
 import { ProviderProfile, ProviderProfileDocument } from '../providers/schemas/provider-profile.schema';
 import { Request, RequestDocument } from '../requests/schemas/request.schema';
-import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
+import { Contract, ContractDocument } from '../contracts/schemas/contract.schema';
 
 const PROVIDER_DAILY_OFFER_LIMIT = 30;
-const DEFAULT_BOOKING_DURATION_MIN = 60;
-
 @Injectable()
 export class OffersService {
   constructor(
@@ -25,7 +23,7 @@ export class OffersService {
     @InjectModel(ProviderProfile.name)
     private readonly providerModel: Model<ProviderProfileDocument>,
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
-    @InjectModel(Booking.name) private readonly bookingModel: Model<BookingDocument>,
+    @InjectModel(Contract.name) private readonly contractModel: Model<ContractDocument>,
   ) {}
 
   private normalizeId(v?: string): string {
@@ -314,9 +312,10 @@ export class OffersService {
         },
         {
           $set: {
-            status: 'matched',
+            status: 'paused',
             matchedProviderUserId: offer.providerUserId,
             matchedAt: new Date(),
+            assignedContractId: null,
           },
         },
       )
@@ -328,27 +327,34 @@ export class OffersService {
 
     await this.offerModel.updateOne({ _id: offer._id }, { $set: { status: 'accepted' } }).exec();
 
-    const durationMin = DEFAULT_BOOKING_DURATION_MIN;
-    const startAt = new Date(req.preferredDate);
-    const endAt = new Date(startAt.getTime() + durationMin * 60 * 1000);
+    let contract = await this.contractModel.findOne({ offerId: String(offer._id) }).exec();
+    if (!contract) {
+      try {
+        contract = await this.contractModel.create({
+          requestId: String(req._id),
+          offerId: String(offer._id),
+          clientId: clientUserId,
+          providerUserId: offer.providerUserId,
+          status: 'pending',
+          priceAmount: typeof offer.pricing?.amount === 'number' ? offer.pricing.amount : null,
+          priceType: offer.pricing?.type ?? null,
+          priceDetails: offer.pricing?.details ?? null,
+          confirmedAt: null,
+          completedAt: null,
+          cancelledAt: null,
+          cancelReason: null,
+        } as any);
+      } catch (e: any) {
+        if (e?.code !== 11000) throw e;
+        contract = await this.contractModel.findOne({ offerId: String(offer._id) }).exec();
+      }
+    }
 
-    try {
-      await this.bookingModel.create({
-        requestId: String(req._id),
-        offerId: String(offer._id),
-        providerUserId: offer.providerUserId,
-        clientId: clientUserId,
-        startAt,
-        durationMin,
-        endAt,
-        status: 'confirmed',
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        metadata: {},
-      } as any);
-    } catch (e: any) {
-      if (e?.code !== 11000) throw e;
+    if (contract) {
+      await this.requestModel.updateOne(
+        { _id: req._id, assignedContractId: null },
+        { $set: { assignedContractId: String(contract._id) } },
+      );
     }
 
     await this.offerModel
@@ -373,7 +379,7 @@ export class OffersService {
     const owner = String(req.clientId ?? '');
     if (owner !== clientUserId) throw new ForbiddenException('Access denied');
 
-    if (req.status === 'matched') {
+    if (req.status === 'matched' || req.status === 'paused') {
       throw new BadRequestException('Request already matched; cannot decline offers');
     }
 

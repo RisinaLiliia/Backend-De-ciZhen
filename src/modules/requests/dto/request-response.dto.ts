@@ -80,8 +80,8 @@ export class RequestResponseDto {
   @ApiPropertyOptional({ example: ['ikea', 'assembly'], nullable: true, isArray: true })
   tags: string[] | null;
 
-  @ApiProperty({ example: 'published', enum: ['draft', 'published', 'matched', 'closed', 'cancelled'] })
-  status: 'draft' | 'published' | 'matched' | 'closed' | 'cancelled';
+  @ApiProperty({ example: 'published', enum: ['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'] })
+  status: 'draft' | 'published' | 'paused' | 'matched' | 'closed' | 'cancelled';
 
   @ApiProperty({ example: '2026-01-28T10:20:30.123Z' })
   createdAt: Date;

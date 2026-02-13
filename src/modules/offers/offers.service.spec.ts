@@ -5,7 +5,7 @@ import { OffersService } from './offers.service';
 import { Offer } from './schemas/offer.schema';
 import { ProviderProfile } from '../providers/schemas/provider-profile.schema';
 import { Request } from '../requests/schemas/request.schema';
-import { Booking } from '../bookings/schemas/booking.schema';
+import { Contract } from '../contracts/schemas/contract.schema';
 import {
   ConflictException,
   ForbiddenException,
@@ -35,8 +35,9 @@ describe('OffersService', () => {
     updateOne: jest.fn(),
   };
 
-  const bookingModelMock = {
+  const contractModelMock = {
     create: jest.fn(),
+    findOne: jest.fn(),
   };
 
   const execWrap = (value: any) => ({ exec: jest.fn().mockResolvedValue(value) });
@@ -52,7 +53,7 @@ describe('OffersService', () => {
         { provide: getModelToken(Offer.name), useValue: offerModelMock },
         { provide: getModelToken(ProviderProfile.name), useValue: providerModelMock },
         { provide: getModelToken(Request.name), useValue: requestModelMock },
-        { provide: getModelToken(Booking.name), useValue: bookingModelMock },
+        { provide: getModelToken(Contract.name), useValue: contractModelMock },
       ],
     }).compile();
 
@@ -165,7 +166,8 @@ describe('OffersService', () => {
     requestModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
     offerModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
     offerModelMock.updateMany.mockReturnValue(execWrap({ modifiedCount: 1 }));
-    bookingModelMock.create.mockResolvedValue({ _id: 'b1' });
+    contractModelMock.findOne.mockReturnValue(execWrap(null));
+    contractModelMock.create.mockResolvedValue({ _id: 'c1' });
 
     await service.acceptForClient('c1', '507f1f77bcf86cd799439012');
 
@@ -174,7 +176,7 @@ describe('OffersService', () => {
       { _id: offerDoc._id },
       { $set: { status: 'accepted' } },
     );
-    expect(bookingModelMock.create).toHaveBeenCalled();
+    expect(contractModelMock.create).toHaveBeenCalled();
     expect(offerModelMock.updateMany).toHaveBeenCalled();
   });
 

@@ -65,6 +65,6 @@ export class OfferDto {
   @ApiPropertyOptional({ example: '2026-01-29T10:20:30.123Z', nullable: true })
   requestPreferredDate?: Date | null;
 
-  @ApiPropertyOptional({ enum: ['draft', 'published', 'matched', 'closed', 'cancelled'], nullable: true })
-  requestStatus?: 'draft' | 'published' | 'matched' | 'closed' | 'cancelled' | null;
+  @ApiPropertyOptional({ enum: ['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'], nullable: true })
+  requestStatus?: 'draft' | 'published' | 'paused' | 'matched' | 'closed' | 'cancelled' | null;
 }

@@ -12,6 +12,7 @@ import { AuthModule } from "../modules/auth/auth.module";
 import { ProvidersModule } from "../modules/providers/providers.module";
 import { RequestsModule } from "../modules/requests/requests.module";
 import { OffersModule } from "../modules/offers/offers.module";
+import { ContractsModule } from "../modules/contracts/contracts.module";
 import { AvailabilityModule } from "../modules/availability/availability.module";
 import { BookingsModule } from "../modules/bookings/bookings.module";
 import { GeoModule } from "../modules/geo/geo.module";
@@ -56,6 +57,7 @@ import { RedisStubModule } from "./redis-stub.module";
     ProvidersModule,
     RequestsModule,
     OffersModule,
+    ContractsModule,
     AvailabilityModule,
     BookingsModule,
     GeoModule,

@@ -15,6 +15,9 @@ export class Booking {
   @Prop({ type: String, required: true })
   offerId: string;
 
+  @Prop({ type: String, default: null })
+  contractId: string | null;
+
   @Prop({ type: String, required: true })
   providerUserId: string;
 
@@ -88,6 +91,14 @@ BookingSchema.index(
 
 BookingSchema.index({ clientId: 1, status: 1, startAt: -1 }, { name: 'idx_client_my' });
 BookingSchema.index({ providerUserId: 1, status: 1, startAt: -1 }, { name: 'idx_provider_my' });
+BookingSchema.index(
+  { contractId: 1 },
+  {
+    name: 'uniq_contract_booking',
+    unique: true,
+    partialFilterExpression: { contractId: { $type: 'string' } },
+  },
+);
 
 BookingSchema.index(
   { providerUserId: 1, status: 1, startAt: 1, endAt: 1 },
