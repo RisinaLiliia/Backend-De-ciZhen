@@ -6057,7 +6057,7 @@
             "example": true
           },
           "acceptedPrivacyPolicyAt": {
-            "type": "object",
+            "type": "string",
             "example": "2025-01-01T12:00:00.000Z"
           },
           "isBlocked": {
@@ -6066,7 +6066,8 @@
           },
           "blockedAt": {
             "type": "object",
-            "example": null
+            "example": null,
+            "nullable": true
           },
           "createdAt": {
             "format": "date-time",
@@ -6079,7 +6080,7 @@
             "example": "2025-01-02T12:00:00.000Z"
           },
           "lastSeenAt": {
-            "type": "object",
+            "type": "string",
             "example": "2026-02-11T10:00:00.000Z"
           }
         },
@@ -6291,23 +6292,23 @@
             "example": "userId1"
           },
           "displayName": {
-            "type": "object",
+            "type": "string",
             "example": "Anna Cleaner"
           },
           "bio": {
-            "type": "object",
+            "type": "string",
             "example": "I do cleaning in Berlin..."
           },
           "companyName": {
-            "type": "object",
+            "type": "string",
             "example": "Sparkle GmbH"
           },
           "vatId": {
-            "type": "object",
+            "type": "string",
             "example": "DE123456789"
           },
           "cityId": {
-            "type": "object",
+            "type": "string",
             "example": "cityId_berlin"
           },
           "serviceKeys": {
@@ -6320,7 +6321,7 @@
             }
           },
           "basePrice": {
-            "type": "object",
+            "type": "number",
             "example": 40
           },
           "status": {
@@ -6338,7 +6339,8 @@
           },
           "blockedAt": {
             "type": "object",
-            "example": null
+            "example": null,
+            "nullable": true
           },
           "createdAt": {
             "format": "date-time",
@@ -6407,12 +6409,12 @@
             "example": "65f0c1a2b3c4d5e6f7a8b9c1"
           },
           "displayName": {
-            "type": "object",
+            "type": "string",
             "example": "Anna K.",
             "nullable": true
           },
           "avatarUrl": {
-            "type": "object",
+            "type": "string",
             "example": "https://cdn.example.com/avatars/a.png",
             "nullable": true
           },
@@ -6432,7 +6434,7 @@
             "description": "Completed jobs count"
           },
           "basePrice": {
-            "type": "object",
+            "type": "number",
             "example": 35,
             "nullable": true,
             "description": "Base price (optional)"
@@ -6577,7 +6579,7 @@
             "example": "home_cleaning"
           },
           "cityId": {
-            "type": "object",
+            "type": "string",
             "example": "64f0c1a2b3c4d5e6f7a8b9c0",
             "nullable": true
           },
@@ -6597,47 +6599,47 @@
             "nullable": true
           },
           "clientId": {
-            "type": "object",
+            "type": "string",
             "example": "507f1f77bcf86cd799439011",
             "nullable": true
           },
           "clientName": {
-            "type": "object",
+            "type": "string",
             "example": "Anna Schmidt",
             "nullable": true
           },
           "clientAvatarUrl": {
-            "type": "object",
+            "type": "string",
             "example": "https://cdn.example.com/u/1.png",
             "nullable": true
           },
           "clientCity": {
-            "type": "object",
+            "type": "string",
             "example": "Berlin",
             "nullable": true
           },
           "clientRatingAvg": {
-            "type": "object",
+            "type": "number",
             "example": 4.8,
             "nullable": true
           },
           "clientRatingCount": {
-            "type": "object",
+            "type": "number",
             "example": 37,
             "nullable": true
           },
           "categoryKey": {
-            "type": "object",
+            "type": "string",
             "example": "furniture",
             "nullable": true
           },
           "categoryName": {
-            "type": "object",
+            "type": "string",
             "example": "Möbelaufbau",
             "nullable": true
           },
           "subcategoryName": {
-            "type": "object",
+            "type": "string",
             "example": "IKEA Aufbau",
             "nullable": true
           },
@@ -6654,7 +6656,7 @@
             "example": 55
           },
           "price": {
-            "type": "object",
+            "type": "number",
             "example": 120,
             "nullable": true
           },
@@ -6668,12 +6670,12 @@
             "example": false
           },
           "comment": {
-            "type": "object",
+            "type": "string",
             "example": "Need eco products, please",
             "nullable": true
           },
           "description": {
-            "type": "object",
+            "type": "string",
             "example": "Assemble two wardrobes, tools available",
             "nullable": true
           },
@@ -6684,11 +6686,11 @@
             "nullable": true,
             "type": "array",
             "items": {
-              "type": "object"
+              "type": "string"
             }
           },
           "imageUrl": {
-            "type": "object",
+            "type": "string",
             "example": "https://cdn.example.com/req/1.jpg",
             "nullable": true
           },
@@ -6700,7 +6702,7 @@
             "nullable": true,
             "type": "array",
             "items": {
-              "type": "object"
+              "type": "string"
             }
           },
           "status": {
@@ -6750,7 +6752,7 @@
             "example": "home_cleaning"
           },
           "cityId": {
-            "type": "object",
+            "type": "string",
             "example": "64f0c1a2b3c4d5e6f7a8b9c0",
             "nullable": true
           },
@@ -6770,57 +6772,57 @@
             "nullable": true
           },
           "clientId": {
-            "type": "object",
+            "type": "string",
             "example": "507f1f77bcf86cd799439011",
             "nullable": true
           },
           "clientName": {
-            "type": "object",
+            "type": "string",
             "example": "Anna Schmidt",
             "nullable": true
           },
           "clientAvatarUrl": {
-            "type": "object",
+            "type": "string",
             "example": "https://cdn.example.com/u/1.png",
             "nullable": true
           },
           "clientCity": {
-            "type": "object",
+            "type": "string",
             "example": "Berlin",
             "nullable": true
           },
           "clientRatingAvg": {
-            "type": "object",
+            "type": "number",
             "example": 4.8,
             "nullable": true
           },
           "clientRatingCount": {
-            "type": "object",
+            "type": "number",
             "example": 37,
             "nullable": true
           },
           "clientIsOnline": {
-            "type": "object",
+            "type": "boolean",
             "example": true,
             "nullable": true
           },
           "clientLastSeenAt": {
-            "type": "object",
+            "type": "string",
             "example": "2026-02-11T10:00:00.000Z",
             "nullable": true
           },
           "categoryKey": {
-            "type": "object",
+            "type": "string",
             "example": "furniture",
             "nullable": true
           },
           "categoryName": {
-            "type": "object",
+            "type": "string",
             "example": "Möbelaufbau",
             "nullable": true
           },
           "subcategoryName": {
-            "type": "object",
+            "type": "string",
             "example": "IKEA Aufbau",
             "nullable": true
           },
@@ -6837,7 +6839,7 @@
             "example": 55
           },
           "price": {
-            "type": "object",
+            "type": "number",
             "example": 120,
             "nullable": true
           },
@@ -6851,12 +6853,12 @@
             "example": false
           },
           "comment": {
-            "type": "object",
+            "type": "string",
             "example": "Need eco products, please",
             "nullable": true
           },
           "description": {
-            "type": "object",
+            "type": "string",
             "example": "Assemble two wardrobes, tools available",
             "nullable": true
           },
@@ -6867,11 +6869,11 @@
             "nullable": true,
             "type": "array",
             "items": {
-              "type": "object"
+              "type": "string"
             }
           },
           "imageUrl": {
-            "type": "object",
+            "type": "string",
             "example": "https://cdn.example.com/req/1.jpg",
             "nullable": true
           },
@@ -6883,7 +6885,7 @@
             "nullable": true,
             "type": "array",
             "items": {
-              "type": "object"
+              "type": "string"
             }
           },
           "status": {
@@ -7012,12 +7014,12 @@
             "example": "65f0c1a2b3c4d5e6f7a8b9c1"
           },
           "providerUserId": {
-            "type": "object",
+            "type": "string",
             "example": "64f0c1a2b3c4d5e6f7a8b9c9",
             "nullable": true
           },
           "clientUserId": {
-            "type": "object",
+            "type": "string",
             "example": "64f0c1a2b3c4d5e6f7a8b9a1",
             "nullable": true
           },
@@ -7032,12 +7034,12 @@
             "example": "sent"
           },
           "message": {
-            "type": "object",
+            "type": "string",
             "example": "I can start tomorrow morning.",
             "nullable": true
           },
           "amount": {
-            "type": "object",
+            "type": "number",
             "example": 120,
             "nullable": true
           },
@@ -7052,12 +7054,12 @@
             "nullable": true
           },
           "availableAt": {
-            "type": "object",
+            "type": "string",
             "example": "2026-02-01T10:00:00.000Z",
             "nullable": true
           },
           "availabilityNote": {
-            "type": "object",
+            "type": "string",
             "example": "Can do weekends too",
             "nullable": true
           },
@@ -7072,12 +7074,12 @@
             "example": "2026-01-28T10:20:30.123Z"
           },
           "providerDisplayName": {
-            "type": "object",
+            "type": "string",
             "example": "Anna Cleaner",
             "nullable": true
           },
           "providerAvatarUrl": {
-            "type": "object",
+            "type": "string",
             "example": "https://cdn.example.com/a.png",
             "nullable": true
           },
@@ -7094,22 +7096,22 @@
             "example": 40
           },
           "providerBasePrice": {
-            "type": "object",
+            "type": "number",
             "example": 35,
             "nullable": true
           },
           "requestServiceKey": {
-            "type": "object",
+            "type": "string",
             "example": "home_cleaning",
             "nullable": true
           },
           "requestCityId": {
-            "type": "object",
+            "type": "string",
             "example": "Berlin",
             "nullable": true
           },
           "requestPreferredDate": {
-            "type": "object",
+            "type": "string",
             "example": "2026-01-29T10:20:30.123Z",
             "nullable": true
           },
@@ -7203,7 +7205,7 @@
             ]
           },
           "priceAmount": {
-            "type": "object",
+            "type": "number",
             "example": 120,
             "nullable": true
           },
@@ -7218,27 +7220,27 @@
             "nullable": true
           },
           "priceDetails": {
-            "type": "object",
+            "type": "string",
             "example": "Includes materials",
             "nullable": true
           },
           "confirmedAt": {
-            "type": "object",
+            "type": "string",
             "example": "2026-02-01T10:00:00.000Z",
             "nullable": true
           },
           "completedAt": {
-            "type": "object",
+            "type": "string",
             "example": "2026-02-01T10:00:00.000Z",
             "nullable": true
           },
           "cancelledAt": {
-            "type": "object",
+            "type": "string",
             "example": "2026-02-01T10:00:00.000Z",
             "nullable": true
           },
           "cancelReason": {
-            "type": "object",
+            "type": "string",
             "example": "Client cancelled",
             "nullable": true
           },
@@ -7604,7 +7606,7 @@
             "example": "2026-03-28T16:00:00.000Z"
           },
           "reason": {
-            "type": "object",
+            "type": "string",
             "example": "Vacation",
             "nullable": true
           },
@@ -7664,17 +7666,17 @@
             "example": 8.6821
           },
           "city": {
-            "type": "object",
+            "type": "string",
             "example": "Frankfurt am Main",
             "nullable": true
           },
           "postalCode": {
-            "type": "object",
+            "type": "string",
             "example": "60329",
             "nullable": true
           },
           "countryCode": {
-            "type": "object",
+            "type": "string",
             "example": "DE",
             "nullable": true
           }
@@ -7755,7 +7757,7 @@
             "example": 5
           },
           "text": {
-            "type": "object",
+            "type": "string",
             "example": "Great client, on time",
             "nullable": true
           },
@@ -7795,7 +7797,7 @@
             "example": 5
           },
           "text": {
-            "type": "object",
+            "type": "string",
             "example": "Great client, on time",
             "nullable": true
           },
@@ -7921,12 +7923,12 @@
             "example": "active"
           },
           "lastMessageAt": {
-            "type": "object",
+            "type": "string",
             "example": "2026-02-12T10:00:00.000Z",
             "nullable": true
           },
           "lastMessagePreview": {
-            "type": "object",
+            "type": "string",
             "example": "Hi, can we reschedule?",
             "nullable": true
           },

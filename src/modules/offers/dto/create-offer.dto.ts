@@ -14,11 +14,10 @@ export class CreateOfferDto {
   @MaxLength(2000)
   message?: string;
 
-  @ApiPropertyOptional({ example: 120 })
-  @IsOptional()
+  @ApiProperty({ example: 120 })
   @IsNumber()
-  @Min(0)
-  amount?: number;
+  @Min(0.01)
+  amount: number;
 
   @ApiPropertyOptional({ example: 'fixed', enum: ['fixed', 'estimate', 'hourly'] })
   @IsOptional()

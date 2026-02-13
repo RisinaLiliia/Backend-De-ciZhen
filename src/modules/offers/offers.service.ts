@@ -14,6 +14,7 @@ import { Offer, OfferDocument } from './schemas/offer.schema';
 import { ProviderProfile, ProviderProfileDocument } from '../providers/schemas/provider-profile.schema';
 import { Request, RequestDocument } from '../requests/schemas/request.schema';
 import { Contract, ContractDocument } from '../contracts/schemas/contract.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
 
 const PROVIDER_DAILY_OFFER_LIMIT = 30;
 @Injectable()
@@ -24,6 +25,7 @@ export class OffersService {
     private readonly providerModel: Model<ProviderProfileDocument>,
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
     @InjectModel(Contract.name) private readonly contractModel: Model<ContractDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
   private normalizeId(v?: string): string {
@@ -74,17 +76,16 @@ export class OffersService {
       availableAt?: string;
       availabilityNote?: string;
     },
-  ): Promise<OfferDocument> {
+  ): Promise<{ offer: OfferDocument; providerProfile: ProviderProfileDocument }> {
     const rid = this.normalizeId(input.requestId);
     if (!rid) throw new BadRequestException('requestId is required');
     this.ensureObjectId(rid, 'requestId');
 
     await this.enforceProviderDailyLimit(providerUserId);
 
-    const provider = await this.providerModel.findOne({ userId: providerUserId }).exec();
-    if (!provider) throw new NotFoundException('Provider profile not found');
-    if (provider.isBlocked) throw new ForbiddenException('Provider profile is blocked');
-    if (provider.status !== 'active') throw new ForbiddenException('Provider profile is not active');
+    if (typeof input.amount !== 'number' || !Number.isFinite(input.amount) || input.amount <= 0) {
+      throw new BadRequestException('amount must be a positive number');
+    }
 
     const req = await this.requestModel.findById(rid).exec();
     if (!req) throw new NotFoundException('Request not found');
@@ -97,26 +98,48 @@ export class OffersService {
     if (!owner) throw new BadRequestException('Request has no clientId');
     if (owner === providerUserId) throw new ForbiddenException('Cannot offer on own request');
 
-    if (provider.cityId && req.cityId && provider.cityId !== req.cityId) {
-      throw new ForbiddenException('Provider city does not match request city');
+    const provider = await this.providerModel.findOne({ userId: providerUserId }).exec();
+    if (provider?.isBlocked) throw new ForbiddenException('Provider profile is blocked');
+
+    const serviceKey = req.serviceKey ?? null;
+    let providerDoc = provider;
+
+    if (!providerDoc) {
+      providerDoc = await this.providerModel.create({
+        userId: providerUserId,
+        serviceKeys: serviceKey ? [serviceKey] : [],
+        status: 'draft',
+      });
+    } else if (serviceKey && !providerDoc.serviceKeys?.includes(serviceKey)) {
+      await this.providerModel.updateOne(
+        { _id: providerDoc._id },
+        { $addToSet: { serviceKeys: serviceKey } },
+      );
+      providerDoc = {
+        ...(providerDoc as any),
+        serviceKeys: [...(providerDoc.serviceKeys ?? []), serviceKey],
+      } as any;
     }
-    if (!provider.serviceKeys?.includes(req.serviceKey)) {
-      throw new ForbiddenException('Provider does not offer requested service');
+
+    await this.userModel
+      .updateOne({ _id: providerUserId, role: { $ne: 'admin' } }, { $set: { role: 'provider' } })
+      .exec();
+
+    if (providerDoc?.cityId && req.cityId && providerDoc.cityId !== req.cityId) {
+      throw new ForbiddenException('Provider city does not match request city');
     }
 
     try {
-      return await this.offerModel.create({
+      const offer = await this.offerModel.create({
         requestId: rid,
         providerUserId,
         clientUserId: owner,
         status: 'sent',
         message: input.message ? String(input.message).trim() : null,
-        pricing: input.amount || input.priceType
-          ? {
-              amount: typeof input.amount === 'number' ? input.amount : undefined,
-              type: input.priceType,
-            }
-          : null,
+        pricing: {
+          amount: input.amount,
+          type: input.priceType,
+        },
         availability: input.availableAt || input.availabilityNote
           ? {
               date: input.availableAt,
@@ -125,6 +148,12 @@ export class OffersService {
           : null,
         metadata: {},
       });
+
+      const providerProfile = await this.providerModel.findOne({ userId: providerUserId }).exec();
+      if (!providerProfile) {
+        throw new NotFoundException('Provider profile not found');
+      }
+      return { offer, providerProfile };
     } catch (e: any) {
       if (e?.code === 11000) throw new ConflictException('Already offered on this request');
       throw e;

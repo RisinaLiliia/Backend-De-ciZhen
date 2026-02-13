@@ -11,6 +11,8 @@ import { OffersQueryDto } from './dto/offer-query.dto';
 import { AcceptOfferResultDto } from './dto/accept-offer.dto';
 import { RejectOfferResultDto } from './dto/reject-offer.dto';
 import { ApiErrors } from '../../common/swagger/api-errors.decorator';
+import { CreateOfferResponseDto } from './dto/create-offer-response.dto';
+import { ProviderProfileDto } from '../providers/dto/provider-profile.dto';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
@@ -18,6 +20,25 @@ type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 @Controller('offers')
 export class OffersController {
   constructor(private readonly offers: OffersService) {}
+
+  private toProviderProfileDto(p: any): ProviderProfileDto {
+    return {
+      id: p._id.toString(),
+      userId: p.userId,
+      displayName: p.displayName ?? null,
+      bio: p.bio ?? null,
+      companyName: p.companyName ?? null,
+      vatId: p.vatId ?? null,
+      cityId: p.cityId ?? null,
+      serviceKeys: p.serviceKeys ?? [],
+      basePrice: p.basePrice ?? null,
+      status: p.status,
+      isBlocked: Boolean(p.isBlocked),
+      blockedAt: p.blockedAt ?? null,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+    };
+  }
 
   private toDto(o: any, viewer?: CurrentUserPayload): OfferDto {
     const role = viewer?.role;
@@ -55,18 +76,21 @@ export class OffersController {
   @Post()
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Provider: create offer for request' })
-  @ApiCreatedResponse({ type: OfferDto })
+  @ApiCreatedResponse({ type: CreateOfferResponseDto })
   @ApiErrors({ conflict: true })
   async create(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateOfferDto,
-  ): Promise<OfferDto> {
-    if (user.role !== 'provider' && user.role !== 'admin') {
+  ): Promise<CreateOfferResponseDto> {
+    if (user.role !== 'provider' && user.role !== 'admin' && user.role !== 'client') {
       throw new ForbiddenException('Access denied');
     }
 
     const created = await this.offers.createForProvider(user.userId, dto);
-    return this.toDto(created, user);
+    return {
+      offer: this.toDto(created.offer, user),
+      providerProfile: this.toProviderProfileDto(created.providerProfile),
+    };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -76,7 +100,7 @@ export class OffersController {
   @ApiOkResponse({ type: OfferDto, isArray: true })
   @ApiErrors({ conflict: false, notFound: false })
   async my(@CurrentUser() user: CurrentUserPayload, @Query() q: OffersQueryDto): Promise<OfferDto[]> {
-    if (user.role !== 'provider' && user.role !== 'admin') {
+    if (user.role !== 'provider' && user.role !== 'admin' && user.role !== 'client') {
       throw new ForbiddenException('Access denied');
     }
 

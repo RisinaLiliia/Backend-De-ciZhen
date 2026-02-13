@@ -7,6 +7,7 @@ import { Offer, OfferSchema } from './schemas/offer.schema';
 import { ProviderProfile, ProviderProfileSchema } from '../providers/schemas/provider-profile.schema';
 import { Request, RequestSchema } from '../requests/schemas/request.schema';
 import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
       { name: ProviderProfile.name, schema: ProviderProfileSchema },
       { name: Request.name, schema: RequestSchema },
       { name: Contract.name, schema: ContractSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [OffersController],
