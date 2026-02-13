@@ -81,7 +81,7 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
 
     const b1 = await bookingModel.create({
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId,
       clientId,
       startAt: new Date('2026-03-05T10:00:00.000Z'),
@@ -107,7 +107,7 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
 
     const b2 = await bookingModel.create({
       requestId: 'r2',
-      responseId: 'resp2',
+      offerId: 'resp2',
       providerUserId,
       clientId,
       startAt: new Date('2026-03-05T09:00:00.000Z'),
@@ -165,7 +165,7 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
         requestId: uid('req-e2e'),
-        responseId: uid('resp-e2e'),
+        offerId: uid('resp-e2e'),
         providerUserId,
         startAt: '2026-03-05T10:00:00.000Z',
         durationMin: 60,
@@ -192,7 +192,7 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
         requestId: uid('req-e2e-badslot'),
-        responseId: uid('resp-e2e-badslot'),
+        offerId: uid('resp-e2e-badslot'),
         providerUserId,
         startAt: '2026-03-05T09:30:00.000Z',
         durationMin: 60,
@@ -213,13 +213,13 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
     await request(app.getHttpServer())
       .post('/bookings')
       .set('Authorization', `Bearer ${t1}`)
-      .send({ requestId: uid('req-e2e-a'), responseId: uid('resp-e2e-a'), ...payload })
+      .send({ requestId: uid('req-e2e-a'), offerId: uid('resp-e2e-a'), ...payload })
       .expect(201);
 
     await request(app.getHttpServer())
       .post('/bookings')
       .set('Authorization', `Bearer ${t2}`)
-      .send({ requestId: uid('req-e2e-b'), responseId: uid('resp-e2e-b'), ...payload })
+      .send({ requestId: uid('req-e2e-b'), offerId: uid('resp-e2e-b'), ...payload })
       .expect(409);
   });
 
@@ -264,7 +264,7 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
     .set('Authorization', `Bearer ${clientToken}`)
     .send({
       requestId: reqA,
-      responseId: respA,
+      offerId: respA,
       providerUserId: providerId,
       startAt: '2026-03-05T10:00:00.000Z',
       durationMin: 60,
@@ -274,7 +274,7 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
 
   expect(created1.body).toMatchObject({
     requestId: reqA,
-    responseId: respA,
+    offerId: respA,
     clientId: clientId,
     startAt: '2026-03-05T10:00:00.000Z',
     endAt: '2026-03-05T11:00:00.000Z',
@@ -307,7 +307,7 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
     .set('Authorization', `Bearer ${clientToken}`)
     .send({
       requestId: reqB,
-      responseId: respB,
+      offerId: respB,
       providerUserId: providerId,
       startAt: '2026-03-05T09:00:00.000Z',
       durationMin: 60,
@@ -328,7 +328,7 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
 
   expect(rescheduled.body).toMatchObject({
     requestId: reqB,
-    responseId: respB,
+    offerId: respB,
     clientId: clientId,
     startAt: '2026-03-05T10:00:00.000Z',
     endAt: '2026-03-05T11:00:00.000Z',

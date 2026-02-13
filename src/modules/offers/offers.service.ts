@@ -1,4 +1,4 @@
-// src/modules/responses/responses.service.ts
+// src/modules/offers/offers.service.ts
 import {
   BadRequestException,
   ConflictException,
@@ -10,18 +10,18 @@ import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { Types } from 'mongoose';
 
-import { Response as Resp, ResponseDocument } from './schemas/response.schema';
+import { Offer, OfferDocument } from './schemas/offer.schema';
 import { ProviderProfile, ProviderProfileDocument } from '../providers/schemas/provider-profile.schema';
 import { Request, RequestDocument } from '../requests/schemas/request.schema';
 import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
 
-const PROVIDER_DAILY_RESPONSE_LIMIT = 30;
-const DEFAULT_BOOKING_DURATION_MIN = 60; 
+const PROVIDER_DAILY_OFFER_LIMIT = 30;
+const DEFAULT_BOOKING_DURATION_MIN = 60;
 
 @Injectable()
-export class ResponsesService {
+export class OffersService {
   constructor(
-    @InjectModel(Resp.name) private readonly responseModel: Model<ResponseDocument>,
+    @InjectModel(Offer.name) private readonly offerModel: Model<OfferDocument>,
     @InjectModel(ProviderProfile.name)
     private readonly providerModel: Model<ProviderProfileDocument>,
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
@@ -52,22 +52,32 @@ export class ResponsesService {
     const from = this.startOfTodayUtc();
     const to = this.startOfTomorrowUtc();
 
-    const cnt = await this.responseModel
+    const cnt = await this.offerModel
       .countDocuments({
         providerUserId,
         createdAt: { $gte: from, $lt: to },
       })
       .exec();
 
-    if (cnt >= PROVIDER_DAILY_RESPONSE_LIMIT) {
+    if (cnt >= PROVIDER_DAILY_OFFER_LIMIT) {
       throw new ForbiddenException(
-        `Daily response limit reached (${PROVIDER_DAILY_RESPONSE_LIMIT}). Try again tomorrow.`,
+        `Daily offer limit reached (${PROVIDER_DAILY_OFFER_LIMIT}). Try again tomorrow.`,
       );
     }
   }
 
-  async createForProvider(providerUserId: string, requestId: string): Promise<ResponseDocument> {
-    const rid = this.normalizeId(requestId);
+  async createForProvider(
+    providerUserId: string,
+    input: {
+      requestId: string;
+      message?: string;
+      amount?: number;
+      priceType?: 'fixed' | 'estimate' | 'hourly';
+      availableAt?: string;
+      availabilityNote?: string;
+    },
+  ): Promise<OfferDocument> {
+    const rid = this.normalizeId(input.requestId);
     if (!rid) throw new BadRequestException('requestId is required');
     this.ensureObjectId(rid, 'requestId');
 
@@ -82,12 +92,12 @@ export class ResponsesService {
     if (!req) throw new NotFoundException('Request not found');
 
     if (req.status !== 'published') {
-      throw new BadRequestException('Request is not available for responses');
+      throw new BadRequestException('Request is not available for offers');
     }
 
     const owner = String(req.clientId ?? '');
     if (!owner) throw new BadRequestException('Request has no clientId');
-    if (owner === providerUserId) throw new ForbiddenException('Cannot respond to own request');
+    if (owner === providerUserId) throw new ForbiddenException('Cannot offer on own request');
 
     if (provider.cityId && req.cityId && provider.cityId !== req.cityId) {
       throw new ForbiddenException('Provider city does not match request city');
@@ -97,31 +107,43 @@ export class ResponsesService {
     }
 
     try {
-      return await this.responseModel.create({
+      return await this.offerModel.create({
         requestId: rid,
         providerUserId,
         clientUserId: owner,
-        status: 'pending',
+        status: 'sent',
+        message: input.message ? String(input.message).trim() : null,
+        pricing: input.amount || input.priceType
+          ? {
+              amount: typeof input.amount === 'number' ? input.amount : undefined,
+              type: input.priceType,
+            }
+          : null,
+        availability: input.availableAt || input.availabilityNote
+          ? {
+              date: input.availableAt,
+              note: input.availabilityNote ? String(input.availabilityNote).trim() : undefined,
+            }
+          : null,
         metadata: {},
       });
     } catch (e: any) {
-      if (e?.code === 11000) throw new ConflictException('Already responded to this request');
+      if (e?.code === 11000) throw new ConflictException('Already offered on this request');
       throw e;
     }
   }
 
   async listMy(
     providerUserId: string,
-    filters?: { status?: 'pending' | 'accepted' | 'rejected' },
+    filters?: { status?: 'sent' | 'accepted' | 'declined' | 'withdrawn' },
   ): Promise<any[]> {
     const match: Record<string, any> = { providerUserId };
     if (filters?.status) match.status = filters.status;
 
-    return this.responseModel
+    return this.offerModel
       .aggregate([
         { $match: match },
         { $sort: { createdAt: -1 } },
-
         {
           $addFields: {
             requestObjId: {
@@ -155,11 +177,10 @@ export class ResponsesService {
       .exec();
   }
 
-
   async listByRequestForClient(
     clientUserId: string,
     requestId: string,
-    filters?: { status?: 'pending' | 'accepted' | 'rejected' },
+    filters?: { status?: 'sent' | 'accepted' | 'declined' | 'withdrawn' },
   ): Promise<any[]> {
     const rid = this.normalizeId(requestId);
     if (!rid) throw new BadRequestException('requestId is required');
@@ -174,7 +195,7 @@ export class ResponsesService {
     const match: Record<string, any> = { requestId: rid };
     if (filters?.status) match.status = filters.status;
 
-    return this.responseModel
+    return this.offerModel
       .aggregate([
         { $match: match },
         { $sort: { status: 1, createdAt: -1 } },
@@ -204,12 +225,12 @@ export class ResponsesService {
 
   async listMyClient(
     clientUserId: string,
-    filters?: { status?: 'pending' | 'accepted' | 'rejected' },
+    filters?: { status?: 'sent' | 'accepted' | 'declined' | 'withdrawn' },
   ): Promise<any[]> {
     const match: Record<string, any> = { clientUserId };
     if (filters?.status) match.status = filters.status;
 
-    return this.responseModel
+    return this.offerModel
       .aggregate([
         { $match: match },
         { $sort: { createdAt: -1 } },
@@ -265,22 +286,23 @@ export class ResponsesService {
       .exec();
   }
 
-  async acceptForClient(clientUserId: string, responseId: string): Promise<void> {
-    const id = this.normalizeId(responseId);
-    if (!id) throw new BadRequestException('responseId is required');
-    this.ensureObjectId(id, 'responseId');
+  async acceptForClient(clientUserId: string, offerId: string): Promise<void> {
+    const id = this.normalizeId(offerId);
+    if (!id) throw new BadRequestException('offerId is required');
+    this.ensureObjectId(id, 'offerId');
 
-    const resp = await this.responseModel.findById(id).exec();
-    if (!resp) throw new NotFoundException('Response not found');
+    const offer = await this.offerModel.findById(id).exec();
+    if (!offer) throw new NotFoundException('Offer not found');
 
-    const req = await this.requestModel.findById(resp.requestId).exec();
+    const req = await this.requestModel.findById(offer.requestId).exec();
     if (!req) throw new NotFoundException('Request not found');
 
     const owner = String(req.clientId ?? '');
     if (owner !== clientUserId) throw new ForbiddenException('Access denied');
 
-    if (resp.status === 'accepted') return;
-    if (resp.status === 'rejected') throw new BadRequestException('Cannot accept rejected response');
+    if (offer.status === 'accepted') return;
+    if (offer.status === 'declined') throw new BadRequestException('Cannot accept declined offer');
+    if (offer.status === 'withdrawn') throw new BadRequestException('Cannot accept withdrawn offer');
 
     const lock = await this.requestModel
       .updateOne(
@@ -293,7 +315,7 @@ export class ResponsesService {
         {
           $set: {
             status: 'matched',
-            matchedProviderUserId: resp.providerUserId,
+            matchedProviderUserId: offer.providerUserId,
             matchedAt: new Date(),
           },
         },
@@ -304,60 +326,60 @@ export class ResponsesService {
       throw new BadRequestException('Request already matched or not available');
     }
 
-    await this.responseModel.updateOne({ _id: resp._id }, { $set: { status: 'accepted' } }).exec();
-    
+    await this.offerModel.updateOne({ _id: offer._id }, { $set: { status: 'accepted' } }).exec();
+
     const durationMin = DEFAULT_BOOKING_DURATION_MIN;
-const startAt = new Date(req.preferredDate);
-const endAt = new Date(startAt.getTime() + durationMin * 60 * 1000);
+    const startAt = new Date(req.preferredDate);
+    const endAt = new Date(startAt.getTime() + durationMin * 60 * 1000);
 
-try {
-  await this.bookingModel.create({
-    requestId: String(req._id),
-    responseId: String(resp._id),
-    providerUserId: resp.providerUserId,
-    clientId: clientUserId,
-    startAt,
-    durationMin,
-    endAt,
-    status: 'confirmed',
-    cancelledAt: null,
-    cancelledBy: null,
-    cancelReason: null,
-    metadata: {},
-  } as any);
-} catch (e: any) {
-  if (e?.code !== 11000) throw e;
-}
+    try {
+      await this.bookingModel.create({
+        requestId: String(req._id),
+        offerId: String(offer._id),
+        providerUserId: offer.providerUserId,
+        clientId: clientUserId,
+        startAt,
+        durationMin,
+        endAt,
+        status: 'confirmed',
+        cancelledAt: null,
+        cancelledBy: null,
+        cancelReason: null,
+        metadata: {},
+      } as any);
+    } catch (e: any) {
+      if (e?.code !== 11000) throw e;
+    }
 
-    await this.responseModel
+    await this.offerModel
       .updateMany(
-        { requestId: resp.requestId, _id: { $ne: resp._id }, status: 'pending' },
-        { $set: { status: 'rejected' } },
+        { requestId: offer.requestId, _id: { $ne: offer._id }, status: 'sent' },
+        { $set: { status: 'declined' } },
       )
       .exec();
   }
 
-  async rejectForClient(clientUserId: string, responseId: string): Promise<void> {
-    const id = this.normalizeId(responseId);
-    if (!id) throw new BadRequestException('responseId is required');
-    this.ensureObjectId(id, 'responseId');
+  async declineForClient(clientUserId: string, offerId: string): Promise<void> {
+    const id = this.normalizeId(offerId);
+    if (!id) throw new BadRequestException('offerId is required');
+    this.ensureObjectId(id, 'offerId');
 
-    const resp = await this.responseModel.findById(id).exec();
-    if (!resp) throw new NotFoundException('Response not found');
+    const offer = await this.offerModel.findById(id).exec();
+    if (!offer) throw new NotFoundException('Offer not found');
 
-    const req = await this.requestModel.findById(resp.requestId).exec();
+    const req = await this.requestModel.findById(offer.requestId).exec();
     if (!req) throw new NotFoundException('Request not found');
 
     const owner = String(req.clientId ?? '');
     if (owner !== clientUserId) throw new ForbiddenException('Access denied');
 
     if (req.status === 'matched') {
-      throw new BadRequestException('Request already matched; cannot reject responses');
+      throw new BadRequestException('Request already matched; cannot decline offers');
     }
 
-    if (resp.status === 'rejected') return;
-    if (resp.status === 'accepted') throw new BadRequestException('Cannot reject accepted response');
+    if (offer.status === 'declined') return;
+    if (offer.status === 'accepted') throw new BadRequestException('Cannot decline accepted offer');
 
-    await this.responseModel.updateOne({ _id: resp._id }, { $set: { status: 'rejected' } }).exec();
+    await this.offerModel.updateOne({ _id: offer._id }, { $set: { status: 'declined' } }).exec();
   }
 }

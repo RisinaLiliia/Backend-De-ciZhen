@@ -30,7 +30,7 @@ describe('v6.2 bookings /my (e2e)', () => {
     token: string,
     payload: {
       requestId: string;
-      responseId: string;
+      offerId: string;
       providerUserId: string;
       startAt: string;
       durationMin?: number;
@@ -89,7 +89,7 @@ describe('v6.2 bookings /my (e2e)', () => {
 
     await createBookingAsClient(client.accessToken, {
       requestId: 'req-my-1',
-      responseId: 'resp-my-1',
+      offerId: 'resp-my-1',
       providerUserId,
       startAt: '2026-03-05T09:00:00.000Z', 
       durationMin: 60,
@@ -98,7 +98,7 @@ describe('v6.2 bookings /my (e2e)', () => {
 
     await createBookingAsClient(client.accessToken, {
       requestId: 'req-my-2',
-      responseId: 'resp-my-2',
+      offerId: 'resp-my-2',
       providerUserId,
       startAt: '2026-03-05T10:00:00.000Z', 
       durationMin: 60,
@@ -115,7 +115,7 @@ describe('v6.2 bookings /my (e2e)', () => {
 
     expect(myClient.body[0]).toMatchObject({
       requestId: 'req-my-2',
-      responseId: 'resp-my-2',
+      offerId: 'resp-my-2',
       status: 'confirmed',
       startAt: '2026-03-05T10:00:00.000Z',
       endAt: '2026-03-05T11:00:00.000Z',
@@ -123,7 +123,7 @@ describe('v6.2 bookings /my (e2e)', () => {
 
     expect(myClient.body[1]).toMatchObject({
       requestId: 'req-my-1',
-      responseId: 'resp-my-1',
+      offerId: 'resp-my-1',
       status: 'confirmed',
       startAt: '2026-03-05T09:00:00.000Z',
       endAt: '2026-03-05T10:00:00.000Z',
@@ -142,7 +142,7 @@ describe('v6.2 bookings /my (e2e)', () => {
 
       await createBookingAsClient(client.accessToken, {
         requestId: 'req-my-3',
-        responseId: 'resp-my-3',
+        offerId: 'resp-my-3',
         providerUserId: String(provider.userId),
         startAt: '2026-03-05T09:00:00.000Z', 
         durationMin: 60,
@@ -156,7 +156,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       expect(myProvider.body.length).toBe(1);
       expect(myProvider.body[0]).toMatchObject({
         requestId: 'req-my-3',
-        responseId: 'resp-my-3',
+        offerId: 'resp-my-3',
         providerUserId: String(provider.userId),
         status: 'confirmed',
         startAt: '2026-03-05T09:00:00.000Z',
@@ -170,7 +170,7 @@ describe('v6.2 bookings /my (e2e)', () => {
 
     await createBookingAsClient(client.accessToken, {
       requestId: 'req-f-1',
-      responseId: 'resp-f-1',
+      offerId: 'resp-f-1',
       providerUserId,
       startAt: '2026-03-05T09:00:00.000Z',
       durationMin: 60,
@@ -178,7 +178,7 @@ describe('v6.2 bookings /my (e2e)', () => {
 
     await createBookingAsClient(client.accessToken, {
       requestId: 'req-f-2',
-      responseId: 'resp-f-2',
+      offerId: 'resp-f-2',
       providerUserId,
       startAt: '2026-03-05T10:00:00.000Z',
       durationMin: 60,
@@ -186,7 +186,7 @@ describe('v6.2 bookings /my (e2e)', () => {
 
     await createBookingAsClient(client.accessToken, {
       requestId: 'req-f-3',
-      responseId: 'resp-f-3',
+      offerId: 'resp-f-3',
       providerUserId,
       startAt: '2026-03-12T09:00:00.000Z',
       durationMin: 60,

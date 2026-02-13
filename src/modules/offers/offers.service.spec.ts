@@ -1,8 +1,8 @@
-// src/modules/responses/responses.service.spec.ts
+// src/modules/offers/offers.service.spec.ts
 import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { ResponsesService } from './responses.service';
-import { Response as Resp } from './schemas/response.schema';
+import { OffersService } from './offers.service';
+import { Offer } from './schemas/offer.schema';
 import { ProviderProfile } from '../providers/schemas/provider-profile.schema';
 import { Request } from '../requests/schemas/request.schema';
 import { Booking } from '../bookings/schemas/booking.schema';
@@ -13,10 +13,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 
-describe('ResponsesService', () => {
-  let service: ResponsesService;
+describe('OffersService', () => {
+  let service: OffersService;
 
-  const responseModelMock = {
+  const offerModelMock = {
     create: jest.fn(),
     findById: jest.fn(),
     findOne: jest.fn(),
@@ -44,45 +44,45 @@ describe('ResponsesService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    responseModelMock.countDocuments.mockReturnValue(execWrap(0));
+    offerModelMock.countDocuments.mockReturnValue(execWrap(0));
 
     const moduleRef = await Test.createTestingModule({
       providers: [
-        ResponsesService,
-        { provide: getModelToken(Resp.name), useValue: responseModelMock },
+        OffersService,
+        { provide: getModelToken(Offer.name), useValue: offerModelMock },
         { provide: getModelToken(ProviderProfile.name), useValue: providerModelMock },
         { provide: getModelToken(Request.name), useValue: requestModelMock },
-        { provide: getModelToken(Booking.name), useValue: bookingModelMock }, // ✅ FIX
+        { provide: getModelToken(Booking.name), useValue: bookingModelMock },
       ],
     }).compile();
 
-    service = moduleRef.get(ResponsesService);
+    service = moduleRef.get(OffersService);
   });
 
   it('createForProvider throws if provider missing', async () => {
     providerModelMock.findOne.mockReturnValue(execWrap(null));
-    await expect(service.createForProvider('p1', '507f1f77bcf86cd799439011')).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
 
   it('createForProvider enforces daily limit', async () => {
-    responseModelMock.countDocuments.mockReturnValue(execWrap(30));
-    await expect(service.createForProvider('p1', '507f1f77bcf86cd799439011')).rejects.toBeInstanceOf(
+    offerModelMock.countDocuments.mockReturnValue(execWrap(30));
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
 
   it('createForProvider throws if provider blocked', async () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: true, status: 'active' }));
-    await expect(service.createForProvider('p1', '507f1f77bcf86cd799439011')).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
 
   it('createForProvider throws if provider not active', async () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'draft' }));
-    await expect(service.createForProvider('p1', '507f1f77bcf86cd799439011')).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
@@ -91,7 +91,7 @@ describe('ResponsesService', () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
     requestModelMock.findById.mockReturnValue(execWrap(null));
 
-    await expect(service.createForProvider('p1', '507f1f77bcf86cd799439011')).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
@@ -100,42 +100,42 @@ describe('ResponsesService', () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
     requestModelMock.findById.mockReturnValue(execWrap({ _id: 'r1', clientId: 'c1', status: 'draft', cityId: 'Berlin', serviceKey: 'home_cleaning' }));
 
-    await expect(service.createForProvider('p1', '507f1f77bcf86cd799439011')).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
 
-  it('createForProvider creates pending response', async () => {
+  it('createForProvider creates sent offer', async () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
     requestModelMock.findById.mockReturnValue(execWrap({ _id: '507f1f77bcf86cd799439011', clientId: 'c1', status: 'published', cityId: 'Berlin', serviceKey: 'home_cleaning' }));
-    responseModelMock.create.mockResolvedValue({ _id: 'x', requestId: '507f1f77bcf86cd799439011', providerUserId: 'p1', clientUserId: 'c1', status: 'pending' });
+    offerModelMock.create.mockResolvedValue({ _id: 'x', requestId: '507f1f77bcf86cd799439011', providerUserId: 'p1', clientUserId: 'c1', status: 'sent' });
 
-    const res: any = await service.createForProvider('p1', '507f1f77bcf86cd799439011');
-    expect(responseModelMock.create).toHaveBeenCalledWith(
+    const res: any = await service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' });
+    expect(offerModelMock.create).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: '507f1f77bcf86cd799439011',
         providerUserId: 'p1',
         clientUserId: 'c1',
-        status: 'pending',
+        status: 'sent',
       }),
     );
-    expect(res.status).toBe('pending');
+    expect(res.status).toBe('sent');
   });
 
   it('createForProvider maps duplicate key to Conflict', async () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
     requestModelMock.findById.mockReturnValue(execWrap({ _id: '507f1f77bcf86cd799439011', clientId: 'c1', status: 'published', cityId: 'Berlin', serviceKey: 'home_cleaning' }));
-    responseModelMock.create.mockRejectedValue({ code: 11000 });
+    offerModelMock.create.mockRejectedValue({ code: 11000 });
 
-    await expect(service.createForProvider('p1', '507f1f77bcf86cd799439011')).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
       ConflictException,
     );
   });
 
   it('listMy supports status filter', async () => {
-    responseModelMock.aggregate.mockReturnValue(execWrap([]));
-    await service.listMy('p1', { status: 'pending' });
-    expect(responseModelMock.aggregate).toHaveBeenCalled();
+    offerModelMock.aggregate.mockReturnValue(execWrap([]));
+    await service.listMy('p1', { status: 'sent' });
+    expect(offerModelMock.aggregate).toHaveBeenCalled();
   });
 
   it('listByRequestForClient forbids if not owner', async () => {
@@ -145,15 +145,15 @@ describe('ResponsesService', () => {
     );
   });
 
-  it('acceptForClient locks request, accepts one and rejects others', async () => {
-    const respDoc: any = {
-      _id: { toString: () => 'resp1' },
+  it('acceptForClient locks request, accepts one and declines others', async () => {
+    const offerDoc: any = {
+      _id: { toString: () => 'offer1' },
       requestId: '507f1f77bcf86cd799439011',
       providerUserId: 'p1',
-      status: 'pending',
+      status: 'sent',
     };
 
-    responseModelMock.findById.mockReturnValue(execWrap(respDoc));
+    offerModelMock.findById.mockReturnValue(execWrap(offerDoc));
     requestModelMock.findById.mockReturnValue(execWrap({
       _id: '507f1f77bcf86cd799439011',
       clientId: 'c1',
@@ -163,24 +163,24 @@ describe('ResponsesService', () => {
     }));
 
     requestModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
-    responseModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
-    responseModelMock.updateMany.mockReturnValue(execWrap({ modifiedCount: 1 }));
+    offerModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
+    offerModelMock.updateMany.mockReturnValue(execWrap({ modifiedCount: 1 }));
     bookingModelMock.create.mockResolvedValue({ _id: 'b1' });
 
     await service.acceptForClient('c1', '507f1f77bcf86cd799439012');
 
     expect(requestModelMock.updateOne).toHaveBeenCalled();
-    expect(responseModelMock.updateOne).toHaveBeenCalledWith(
-      { _id: respDoc._id },
+    expect(offerModelMock.updateOne).toHaveBeenCalledWith(
+      { _id: offerDoc._id },
       { $set: { status: 'accepted' } },
     );
     expect(bookingModelMock.create).toHaveBeenCalled();
-    expect(responseModelMock.updateMany).toHaveBeenCalled();
+    expect(offerModelMock.updateMany).toHaveBeenCalled();
   });
 
-  it('rejectForClient forbids rejecting accepted', async () => {
-    responseModelMock.findById.mockReturnValue(execWrap({
-      _id: 'resp1',
+  it('declineForClient forbids declining accepted', async () => {
+    offerModelMock.findById.mockReturnValue(execWrap({
+      _id: 'offer1',
       requestId: '507f1f77bcf86cd799439011',
       status: 'accepted',
     }));
@@ -190,7 +190,7 @@ describe('ResponsesService', () => {
       status: 'published',
     }));
 
-    await expect(service.rejectForClient('c1', '507f1f77bcf86cd799439012')).rejects.toBeInstanceOf(
+    await expect(service.declineForClient('c1', '507f1f77bcf86cd799439012')).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });

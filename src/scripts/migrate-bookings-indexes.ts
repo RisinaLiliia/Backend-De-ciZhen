@@ -53,7 +53,7 @@ async function main() {
     },
     {
       name: 'uniq_active_booking_same_slot',
-      key: { requestId: 1, responseId: 1, startAt: 1 },
+      key: { requestId: 1, offerId: 1, startAt: 1 },
       options: {
         unique: true,
         background: true,
@@ -66,7 +66,7 @@ async function main() {
 
     { name: 'idx_provider_overlap', key: { providerUserId: 1, status: 1, startAt: 1, endAt: 1 }, options: { background: true } },
 
-    { name: 'idx_booking_chain', key: { requestId: 1, responseId: 1, providerUserId: 1, clientId: 1 }, options: { background: true } },
+    { name: 'idx_booking_chain', key: { requestId: 1, offerId: 1, providerUserId: 1, clientId: 1 }, options: { background: true } },
 
     { name: 'uniq_rescheduled_from', key: { rescheduledFromId: 1 }, options: { unique: true, sparse: true, background: true } },
     { name: 'idx_rescheduled_to', key: { rescheduledToId: 1 }, options: { sparse: true, background: true } },

@@ -13,7 +13,7 @@ export class Booking {
   requestId: string;
 
   @Prop({ type: String, required: true })
-  responseId: string;
+  offerId: string;
 
   @Prop({ type: String, required: true })
   providerUserId: string;
@@ -78,7 +78,7 @@ BookingSchema.index(
 );
 
 BookingSchema.index(
-  { requestId: 1, responseId: 1, startAt: 1 },
+  { requestId: 1, offerId: 1, startAt: 1 },
   {
     unique: true,
     partialFilterExpression: { status: { $in: ['confirmed', 'completed'] } },
@@ -95,7 +95,7 @@ BookingSchema.index(
 );
 
 BookingSchema.index(
-  { requestId: 1, responseId: 1, providerUserId: 1, clientId: 1 },
+  { requestId: 1, offerId: 1, providerUserId: 1, clientId: 1 },
   { name: 'idx_booking_chain' },
 );
 

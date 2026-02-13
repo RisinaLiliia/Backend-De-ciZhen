@@ -35,7 +35,7 @@ describe('BookingsController (unit)', () => {
       {
         _id: { toString: () => 'b1' },
         requestId: 'r1',
-        responseId: 'resp1',
+        offerId: 'resp1',
         providerUserId: 'p1',
         clientId: 'c1',
         startAt: new Date(),
@@ -100,7 +100,7 @@ describe('BookingsController (unit)', () => {
     svcMock.reschedule.mockResolvedValue({
       _id: { toString: () => 'b2' },
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId: 'p1',
       clientId: 'c1',
       startAt: new Date('2026-02-10T10:00:00.000Z'),
@@ -179,9 +179,9 @@ describe('BookingsController (unit)', () => {
       latestId: 'b3',
       currentIndex: 1,
       items: [
-        { _id: { toString: () => 'b1' }, requestId: 'r1', responseId: 'resp1', providerUserId: 'p1', clientId: 'c1', startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'cancelled' },
-        { _id: { toString: () => 'b2' }, requestId: 'r1', responseId: 'resp1', providerUserId: 'p1', clientId: 'c1', startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'cancelled' },
-        { _id: { toString: () => 'b3' }, requestId: 'r1', responseId: 'resp1', providerUserId: 'p1', clientId: 'c1', startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'confirmed' },
+        { _id: { toString: () => 'b1' }, requestId: 'r1', offerId: 'resp1', providerUserId: 'p1', clientId: 'c1', startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'cancelled' },
+        { _id: { toString: () => 'b2' }, requestId: 'r1', offerId: 'resp1', providerUserId: 'p1', clientId: 'c1', startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'cancelled' },
+        { _id: { toString: () => 'b3' }, requestId: 'r1', offerId: 'resp1', providerUserId: 'p1', clientId: 'c1', startAt: new Date(), durationMin: 60, endAt: new Date(), status: 'confirmed' },
       ],
     });
 
