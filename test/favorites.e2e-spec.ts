@@ -37,13 +37,17 @@ describe('favorites (e2e)', () => {
   it('provider can favorite request and list favorites', async () => {
     const provider = await registerAndGetToken(app, 'provider', 'prov-fav@test.local', 'Provider Fav');
 
-    await providerProfileModel.create({
-      userId: provider.userId,
-      status: 'active',
-      isBlocked: false,
-      cityId: 'c1',
-      serviceKeys: ['home_cleaning'],
-    });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      {
+        userId: provider.userId,
+        status: 'active',
+        isBlocked: false,
+        cityId: 'c1',
+        serviceKeys: ['home_cleaning'],
+      },
+      { upsert: true, new: true },
+    );
 
     const req = await requestModel.create({
       title: 'Need cleaning',
