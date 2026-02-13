@@ -10,6 +10,7 @@ import { Offer, OfferDocument } from '../src/modules/offers/schemas/offer.schema
 import { Request as Req, RequestDocument } from '../src/modules/requests/schemas/request.schema';
 import { ProviderProfile, ProviderProfileDocument } from '../src/modules/providers/schemas/provider-profile.schema';
 import { Booking, BookingDocument } from '../src/modules/bookings/schemas/booking.schema';
+import { Contract, ContractDocument } from '../src/modules/contracts/schemas/contract.schema';
 
 jest.setTimeout(30000);
 
@@ -21,6 +22,7 @@ describe('offers (e2e)', () => {
   let requestModel: Model<RequestDocument>;
   let providerProfileModel: Model<ProviderProfileDocument>;
   let bookingModel: Model<BookingDocument>;
+  let contractModel: Model<ContractDocument>;
 
   beforeAll(async () => {
     ctx = await setupTestApp({ useValidationPipe: true });
@@ -30,6 +32,7 @@ describe('offers (e2e)', () => {
     requestModel = app.get(getModelToken(Req.name));
     providerProfileModel = app.get(getModelToken(ProviderProfile.name));
     bookingModel = app.get(getModelToken(Booking.name));
+    contractModel = app.get(getModelToken(Contract.name));
   });
 
   afterAll(async () => {
@@ -42,6 +45,7 @@ describe('offers (e2e)', () => {
       requestModel.deleteMany({}),
       providerProfileModel.deleteMany({}),
       bookingModel.deleteMany({}),
+      contractModel.deleteMany({}),
     ]);
   });
 
@@ -164,14 +168,19 @@ describe('offers (e2e)', () => {
       .expect({ ok: true, acceptedOfferId: offerId });
 
     const updatedReq = await requestModel.findById(req._id).exec();
-    expect(updatedReq?.status).toBe('matched');
+    expect(updatedReq?.status).toBe('paused');
     expect(updatedReq?.matchedProviderUserId).toBe(provider.userId);
+    expect(updatedReq?.assignedContractId).toBeTruthy();
 
     const updatedOffer = await offerModel.findById(offerId).exec();
     expect(updatedOffer?.status).toBe('accepted');
 
+    const contract = await contractModel.findOne({ offerId }).exec();
+    expect(contract).toBeTruthy();
+    expect(contract?.status).toBe('pending');
+
     const booking = await bookingModel.findOne({ offerId, requestId: String(req._id) }).exec();
-    expect(booking).toBeTruthy();
+    expect(booking).toBeNull();
   });
 
   it('client can decline offer', async () => {

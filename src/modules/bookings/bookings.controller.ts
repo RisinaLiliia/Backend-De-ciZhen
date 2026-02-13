@@ -31,6 +31,7 @@ export class BookingsController {
       id: b._id.toString(),
       requestId: b.requestId,
       offerId: b.offerId,
+      contractId: b.contractId ?? null,
       providerUserId,
       clientId,
       startAt: new Date(b.startAt).toISOString(),
@@ -200,6 +201,7 @@ export class BookingsController {
     const created = await this.bookings.createByClient(user.userId, {
       requestId: dto.requestId,
       offerId: dto.offerId,
+      contractId: dto.contractId,
       providerUserId: dto.providerUserId,
       startAt: dto.startAt,
       durationMin: dto.durationMin,

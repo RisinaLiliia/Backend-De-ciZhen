@@ -1617,6 +1617,7 @@
               "enum": [
                 "draft",
                 "published",
+                "paused",
                 "matched",
                 "closed",
                 "cancelled"
@@ -2744,24 +2745,160 @@
         ]
       }
     },
-    "/availability/me": {
-      "patch": {
-        "operationId": "AvailabilityController_updateMy",
-        "summary": "Provider: update my availability settings + weekly schedule",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateAvailabilityDto"
+    "/contracts/my": {
+      "get": {
+        "operationId": "ContractsController_my",
+        "summary": "List my contracts (client/provider)",
+        "parameters": [
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "enum": [
+                "client",
+                "provider",
+                "all"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "pending",
+                "confirmed",
+                "in_progress",
+                "completed",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContractDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
               }
             }
           }
         },
+        "tags": [
+          "contracts"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/contracts/{id}": {
+      "get": {
+        "operationId": "ContractsController_getById",
+        "summary": "Get contract by id",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Updated"
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request / Validation error",
@@ -2825,7 +2962,7 @@
           }
         },
         "tags": [
-          "availability"
+          "contracts"
         ],
         "security": [
           {
@@ -2834,67 +2971,73 @@
         ]
       }
     },
-    "/availability/providers/{providerUserId}/slots": {
-      "get": {
-        "operationId": "AvailabilityController_listSlots",
-        "summary": "Public: list provider slots for UI (DST-safe)",
-        "description": "Generates slots in provider TZ with DST support. Considers blackouts and matched/closed requests. Max range 14 days.",
+    "/contracts/{id}/confirm": {
+      "post": {
+        "operationId": "ContractsController_confirm",
+        "summary": "Client: confirm contract and create booking",
         "parameters": [
           {
-            "name": "providerUserId",
+            "name": "id",
             "required": true,
             "in": "path",
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "from",
-            "required": false,
-            "in": "query",
-            "description": "YYYY-MM-DD (local date in tz)",
-            "schema": {
-              "example": "2026-01-29",
-              "type": "string"
-            }
-          },
-          {
-            "name": "to",
-            "required": false,
-            "in": "query",
-            "description": "YYYY-MM-DD (local date in tz)",
-            "schema": {
-              "example": "2026-02-05",
-              "type": "string"
-            }
-          },
-          {
-            "name": "tz",
-            "required": false,
-            "in": "query",
-            "description": "IANA time zone override for UI",
-            "schema": {
-              "example": "Europe/Berlin",
-              "type": "string"
-            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmContractDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SlotDto"
-                  }
+                  "$ref": "#/components/schemas/ContractDto"
                 }
               }
             }
           },
           "400": {
             "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2935,28 +3078,46 @@
           }
         },
         "tags": [
-          "availability"
+          "contracts"
         ],
         "security": [
-          {}
+          {
+            "access-token": []
+          }
         ]
       }
     },
-    "/availability/me/blackouts": {
-      "get": {
-        "operationId": "AvailabilityController_myBlackouts",
-        "summary": "Provider: list my blackouts",
-        "parameters": [],
+    "/contracts/{id}/cancel": {
+      "post": {
+        "operationId": "ContractsController_cancel",
+        "summary": "Cancel contract (client/provider)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelContractDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BlackoutDto"
-                  }
+                  "$ref": "#/components/schemas/ContractDto"
                 }
               }
             }
@@ -3023,102 +3184,7 @@
           }
         },
         "tags": [
-          "availability"
-        ],
-        "security": [
-          {
-            "access-token": []
-          }
-        ]
-      },
-      "post": {
-        "operationId": "AvailabilityController_addBlackout",
-        "summary": "Provider: create blackout (UTC)",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateBlackoutDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BlackoutDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request / Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "availability"
+          "contracts"
         ],
         "security": [
           {
@@ -3127,10 +3193,10 @@
         ]
       }
     },
-    "/availability/me/blackouts/{id}": {
-      "delete": {
-        "operationId": "AvailabilityController_removeBlackout",
-        "summary": "Provider: remove blackout",
+    "/contracts/{id}/complete": {
+      "post": {
+        "operationId": "ContractsController_complete",
+        "summary": "Complete contract (client/provider)",
         "parameters": [
           {
             "name": "id",
@@ -3147,9 +3213,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "example": {
-                    "ok": true
-                  }
+                  "$ref": "#/components/schemas/ContractDto"
                 }
               }
             }
@@ -3216,7 +3280,7 @@
           }
         },
         "tags": [
-          "availability"
+          "contracts"
         ],
         "security": [
           {
@@ -3890,6 +3954,487 @@
         },
         "tags": [
           "bookings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/availability/me": {
+      "patch": {
+        "operationId": "AvailabilityController_updateMy",
+        "summary": "Provider: update my availability settings + weekly schedule",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAvailabilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/availability/providers/{providerUserId}/slots": {
+      "get": {
+        "operationId": "AvailabilityController_listSlots",
+        "summary": "Public: list provider slots for UI (DST-safe)",
+        "description": "Generates slots in provider TZ with DST support. Considers blackouts and matched/closed requests. Max range 14 days.",
+        "parameters": [
+          {
+            "name": "providerUserId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD (local date in tz)",
+            "schema": {
+              "example": "2026-01-29",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD (local date in tz)",
+            "schema": {
+              "example": "2026-02-05",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz",
+            "required": false,
+            "in": "query",
+            "description": "IANA time zone override for UI",
+            "schema": {
+              "example": "Europe/Berlin",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SlotDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/availability/me/blackouts": {
+      "get": {
+        "operationId": "AvailabilityController_myBlackouts",
+        "summary": "Provider: list my blackouts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlackoutDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "AvailabilityController_addBlackout",
+        "summary": "Provider: create blackout (UTC)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBlackoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlackoutDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/availability/me/blackouts/{id}": {
+      "delete": {
+        "operationId": "AvailabilityController_removeBlackout",
+        "summary": "Provider: remove blackout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "ok": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "availability"
         ],
         "security": [
           {
@@ -5876,6 +6421,7 @@
             "enum": [
               "draft",
               "published",
+              "paused",
               "matched",
               "closed",
               "cancelled"
@@ -6058,6 +6604,7 @@
             "enum": [
               "draft",
               "published",
+              "paused",
               "matched",
               "closed",
               "cancelled"
@@ -6283,6 +6830,7 @@
             "enum": [
               "draft",
               "published",
+              "paused",
               "matched",
               "closed",
               "cancelled"
@@ -6332,148 +6880,134 @@
           "rejectedOfferId"
         ]
       },
-      "TimeRangeDto": {
-        "type": "object",
-        "properties": {
-          "start": {
-            "type": "string",
-            "example": "09:00"
-          },
-          "end": {
-            "type": "string",
-            "example": "13:00"
-          }
-        },
-        "required": [
-          "start",
-          "end"
-        ]
-      },
-      "WeeklyDayDto": {
-        "type": "object",
-        "properties": {
-          "dayOfWeek": {
-            "type": "number",
-            "example": 1,
-            "description": "0=Sun ... 6=Sat"
-          },
-          "ranges": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TimeRangeDto"
-            }
-          }
-        },
-        "required": [
-          "dayOfWeek",
-          "ranges"
-        ]
-      },
-      "UpdateAvailabilityDto": {
-        "type": "object",
-        "properties": {
-          "timeZone": {
-            "type": "string",
-            "example": "Europe/Berlin"
-          },
-          "slotDurationMin": {
-            "type": "number",
-            "example": 60,
-            "description": "Slot duration in minutes"
-          },
-          "bufferMin": {
-            "type": "number",
-            "example": 0,
-            "description": "Buffer between slots in minutes"
-          },
-          "isActive": {
-            "type": "boolean",
-            "example": true
-          },
-          "weekly": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WeeklyDayDto"
-            }
-          }
-        }
-      },
-      "SlotDto": {
-        "type": "object",
-        "properties": {
-          "startAt": {
-            "type": "string",
-            "example": "2026-01-29T09:00:00.000Z"
-          },
-          "endAt": {
-            "type": "string",
-            "example": "2026-01-29T10:00:00.000Z"
-          }
-        },
-        "required": [
-          "startAt",
-          "endAt"
-        ]
-      },
-      "BlackoutDto": {
+      "ContractDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "example": "66f0c1a2b3c4d5e6f7a8b9ff"
           },
-          "startAt": {
+          "requestId": {
             "type": "string",
-            "example": "2026-03-28T10:00:00.000Z"
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
           },
-          "endAt": {
+          "offerId": {
             "type": "string",
-            "example": "2026-03-28T16:00:00.000Z"
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa"
           },
-          "reason": {
+          "clientId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          },
+          "providerUserId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c9"
+          },
+          "status": {
+            "type": "string",
+            "example": "pending",
+            "enum": [
+              "pending",
+              "confirmed",
+              "in_progress",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "priceAmount": {
             "type": "object",
-            "example": "Vacation",
+            "example": 120,
             "nullable": true
           },
-          "isActive": {
-            "type": "boolean",
-            "example": true
+          "priceType": {
+            "type": "string",
+            "example": "fixed",
+            "enum": [
+              "fixed",
+              "estimate",
+              "hourly"
+            ],
+            "nullable": true
+          },
+          "priceDetails": {
+            "type": "object",
+            "example": "Includes materials",
+            "nullable": true
+          },
+          "confirmedAt": {
+            "type": "object",
+            "example": "2026-02-01T10:00:00.000Z",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "object",
+            "example": "2026-02-01T10:00:00.000Z",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "example": "2026-02-01T10:00:00.000Z",
+            "nullable": true
+          },
+          "cancelReason": {
+            "type": "object",
+            "example": "Client cancelled",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
           }
         },
         "required": [
           "id",
-          "startAt",
-          "endAt",
-          "isActive"
+          "requestId",
+          "offerId",
+          "clientId",
+          "providerUserId",
+          "status",
+          "createdAt",
+          "updatedAt"
         ]
       },
-      "CreateBlackoutDto": {
+      "ConfirmContractDto": {
         "type": "object",
         "properties": {
           "startAt": {
             "type": "string",
-            "example": "2026-03-28T10:00:00.000Z",
-            "description": "UTC ISO string"
+            "example": "2026-02-10T10:00:00.000Z",
+            "description": "Start datetime in UTC (must match a returned availability slot)"
           },
-          "endAt": {
-            "type": "string",
-            "example": "2026-03-28T16:00:00.000Z",
-            "description": "UTC ISO string"
+          "durationMin": {
+            "type": "number",
+            "example": 60,
+            "description": "Optional. Defaults to 60. Must match slot duration."
           },
-          "reason": {
+          "note": {
             "type": "string",
-            "example": "Vacation",
+            "example": "Please be on time",
             "nullable": true
-          },
-          "isActive": {
-            "type": "boolean",
-            "example": true
           }
         },
         "required": [
-          "startAt",
-          "endAt"
+          "startAt"
         ]
+      },
+      "CancelContractDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Client changed plans",
+            "nullable": true
+          }
+        }
       },
       "BookingDto": {
         "type": "object",
@@ -6487,6 +7021,10 @@
           },
           "offerId": {
             "type": "string"
+          },
+          "contractId": {
+            "type": "object",
+            "nullable": true
           },
           "providerUserId": {
             "type": "object",
@@ -6646,6 +7184,11 @@
             "example": "offer1",
             "description": "Offer id (string, from Offers module)"
           },
+          "contractId": {
+            "type": "string",
+            "example": "contract1",
+            "description": "Contract id (string, from Contracts module)"
+          },
           "providerUserId": {
             "type": "string",
             "example": "p1",
@@ -6672,6 +7215,149 @@
           "offerId",
           "providerUserId",
           "startAt"
+        ]
+      },
+      "TimeRangeDto": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "example": "09:00"
+          },
+          "end": {
+            "type": "string",
+            "example": "13:00"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ]
+      },
+      "WeeklyDayDto": {
+        "type": "object",
+        "properties": {
+          "dayOfWeek": {
+            "type": "number",
+            "example": 1,
+            "description": "0=Sun ... 6=Sat"
+          },
+          "ranges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeRangeDto"
+            }
+          }
+        },
+        "required": [
+          "dayOfWeek",
+          "ranges"
+        ]
+      },
+      "UpdateAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "example": "Europe/Berlin"
+          },
+          "slotDurationMin": {
+            "type": "number",
+            "example": 60,
+            "description": "Slot duration in minutes"
+          },
+          "bufferMin": {
+            "type": "number",
+            "example": 0,
+            "description": "Buffer between slots in minutes"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "weekly": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeeklyDayDto"
+            }
+          }
+        }
+      },
+      "SlotDto": {
+        "type": "object",
+        "properties": {
+          "startAt": {
+            "type": "string",
+            "example": "2026-01-29T09:00:00.000Z"
+          },
+          "endAt": {
+            "type": "string",
+            "example": "2026-01-29T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "startAt",
+          "endAt"
+        ]
+      },
+      "BlackoutDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ff"
+          },
+          "startAt": {
+            "type": "string",
+            "example": "2026-03-28T10:00:00.000Z"
+          },
+          "endAt": {
+            "type": "string",
+            "example": "2026-03-28T16:00:00.000Z"
+          },
+          "reason": {
+            "type": "object",
+            "example": "Vacation",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "id",
+          "startAt",
+          "endAt",
+          "isActive"
+        ]
+      },
+      "CreateBlackoutDto": {
+        "type": "object",
+        "properties": {
+          "startAt": {
+            "type": "string",
+            "example": "2026-03-28T10:00:00.000Z",
+            "description": "UTC ISO string"
+          },
+          "endAt": {
+            "type": "string",
+            "example": "2026-03-28T16:00:00.000Z",
+            "description": "UTC ISO string"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Vacation",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "startAt",
+          "endAt"
         ]
       },
       "GeoAutocompleteItemDto": {

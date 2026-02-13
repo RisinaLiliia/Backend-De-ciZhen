@@ -1,4 +1,4 @@
-// src/scripts/migrate-bookings-indexes.ts
+// src/scripts/migrate-contracts-indexes.ts
 import 'dotenv/config';
 import mongoose from 'mongoose';
 
@@ -14,10 +14,6 @@ function stableKeyString(key: Record<string, any>): string {
     .join(',');
 }
 
-function keysEqual(a: any, b: any): boolean {
-  return stableKeyString(a) === stableKeyString(b);
-}
-
 async function main() {
   const uri = process.env.MONGO_URI;
   if (!uri) {
@@ -29,9 +25,7 @@ async function main() {
   const isProd = nodeEnv === 'production';
 
   if (dropUnused && isProd && process.env.ALLOW_DROP_PROD !== '1') {
-    throw new Error(
-      'Refusing to DROP indexes in production. Set ALLOW_DROP_PROD=1 if you are 100% sure.',
-    );
+    throw new Error('Refusing to DROP indexes in production. Set ALLOW_DROP_PROD=1 if you are 100% sure.');
   }
 
   await mongoose.connect(uri);
@@ -39,49 +33,21 @@ async function main() {
 
   const db = mongoose.connection.db;
   if (!db) throw new Error('No mongoose.connection.db');
-  const col = db.collection('bookings');
+  const col = db.collection('contracts');
 
   const desired: IndexSpec[] = [
-    {
-      name: 'uniq_active_booking_per_request',
-      key: { requestId: 1 },
-      options: {
-        unique: true,
-        background: true,
-        partialFilterExpression: { status: { $in: ['confirmed', 'completed'] } },
-      },
-    },
-    {
-      name: 'uniq_active_booking_same_slot',
-      key: { requestId: 1, offerId: 1, startAt: 1 },
-      options: {
-        unique: true,
-        background: true,
-        partialFilterExpression: { status: { $in: ['confirmed', 'completed'] } },
-      },
-    },
-
-    { name: 'idx_client_my', key: { clientId: 1, status: 1, startAt: -1 }, options: { background: true } },
-    { name: 'idx_provider_my', key: { providerUserId: 1, status: 1, startAt: -1 }, options: { background: true } },
-    { name: 'uniq_contract_booking', key: { contractId: 1 }, options: { unique: true, sparse: true, background: true } },
-
-    { name: 'idx_provider_overlap', key: { providerUserId: 1, status: 1, startAt: 1, endAt: 1 }, options: { background: true } },
-
-    { name: 'idx_booking_chain', key: { requestId: 1, offerId: 1, providerUserId: 1, clientId: 1 }, options: { background: true } },
-
-    { name: 'uniq_rescheduled_from', key: { rescheduledFromId: 1 }, options: { unique: true, sparse: true, background: true } },
-    { name: 'idx_rescheduled_to', key: { rescheduledToId: 1 }, options: { sparse: true, background: true } },
-
-    { name: 'idx_status_endAt', key: { status: 1, endAt: 1 }, options: { background: true } },
+    { name: 'uniq_offer_contract', key: { offerId: 1 }, options: { unique: true, background: true } },
+    { name: 'idx_request_contracts', key: { requestId: 1, createdAt: -1 }, options: { background: true } },
+    { name: 'idx_client_contracts', key: { clientId: 1, createdAt: -1 }, options: { background: true } },
+    { name: 'idx_provider_contracts', key: { providerUserId: 1, createdAt: -1 }, options: { background: true } },
+    { name: 'idx_status_contracts', key: { status: 1, createdAt: -1 }, options: { background: true } },
   ];
 
   const desiredByName = new Map(desired.map((d) => [d.name, d]));
   const desiredByKey = new Map(desired.map((d) => [stableKeyString(d.key), d]));
 
   const existing = await col.indexes();
-  const existingNames = existing.map((x: any) => x.name);
-  console.log('Existing indexes:', existingNames);
-
+  console.log('Existing indexes:', existing.map((x: any) => x.name));
 
   for (const idx of existing) {
     if (idx.name === '_id_') continue;

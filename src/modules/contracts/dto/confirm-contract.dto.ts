@@ -1,28 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsISO8601, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
-export class CreateBookingDto {
-  @ApiProperty({ example: 'r1', description: 'Request id (string, from Requests module)' })
-  @IsString()
-  @MaxLength(64)
-  requestId: string;
-
-  @ApiProperty({ example: 'offer1', description: 'Offer id (string, from Offers module)' })
-  @IsString()
-  @MaxLength(64)
-  offerId: string;
-
-  @ApiPropertyOptional({ example: 'contract1', description: 'Contract id (string, from Contracts module)' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  contractId?: string;
-
-  @ApiProperty({ example: 'p1', description: 'Provider userId (string)' })
-  @IsString()
-  @MaxLength(64)
-  providerUserId: string;
-
+export class ConfirmContractDto {
   @ApiProperty({
     example: '2026-02-10T10:00:00.000Z',
     description: 'Start datetime in UTC (must match a returned availability slot)',

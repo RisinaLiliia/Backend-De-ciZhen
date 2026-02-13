@@ -65,11 +65,12 @@ private async assertStartAtIsSlot(providerUserId: string, startAt: Date, duratio
     if (!ok) throw new ConflictException('Slot is not available (not in provider availability)');
   }
 
-async createByClient(
+  async createByClient(
     clientId: string,
     input: {
       requestId: string;
       offerId: string;
+      contractId?: string;
       providerUserId: string;
       startAt: string;
       durationMin?: number;
@@ -79,10 +80,12 @@ async createByClient(
     const requestId = this.normalizeId(input.requestId);
     const offerId = this.normalizeId(input.offerId);
     const providerUserId = this.normalizeId(input.providerUserId);
+    const contractId = this.normalizeId(input.contractId);
 
     if (!requestId) throw new BadRequestException('requestId is required');
     if (!offerId) throw new BadRequestException('offerId is required');
     if (!providerUserId) throw new BadRequestException('providerUserId is required');
+    if (input.contractId !== undefined && !contractId) throw new BadRequestException('contractId is invalid');
 
     const startAt = this.parseDateOrThrow(input.startAt, 'startAt');
     if (startAt.getTime() <= Date.now()) throw new BadRequestException('startAt must be in the future');
@@ -102,6 +105,7 @@ async createByClient(
       const created = await this.bookingModel.create({
         requestId,
         offerId,
+        contractId: contractId || null,
         providerUserId,
         clientId,
         startAt,

@@ -6,7 +6,7 @@ import { OffersService } from './offers.service';
 import { Offer, OfferSchema } from './schemas/offer.schema';
 import { ProviderProfile, ProviderProfileSchema } from '../providers/schemas/provider-profile.schema';
 import { Request, RequestSchema } from '../requests/schemas/request.schema';
-import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
+import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
 
 @Module({
   imports: [
@@ -14,7 +14,7 @@ import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
       { name: Offer.name, schema: OfferSchema },
       { name: ProviderProfile.name, schema: ProviderProfileSchema },
       { name: Request.name, schema: RequestSchema },
-      { name: Booking.name, schema: BookingSchema },
+      { name: Contract.name, schema: ContractSchema },
     ]),
   ],
   controllers: [OffersController],
