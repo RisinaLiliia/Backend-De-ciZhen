@@ -119,10 +119,10 @@ describe('contracts (e2e)', () => {
     const createRes = await request(app.getHttpServer())
       .post('/offers')
       .set('Authorization', `Bearer ${provider.accessToken}`)
-      .send({ requestId: req._id.toString() })
+      .send({ requestId: req._id.toString(), amount: 120 })
       .expect(201);
 
-    const offerId = createRes.body.id as string;
+    const offerId = createRes.body.offer.id as string;
     const contract = await acceptOfferAndGetContract(client.accessToken, offerId);
 
     expect(contract.status).toBe('pending');
@@ -142,10 +142,10 @@ describe('contracts (e2e)', () => {
     const createRes = await request(app.getHttpServer())
       .post('/offers')
       .set('Authorization', `Bearer ${provider.accessToken}`)
-      .send({ requestId: req._id.toString() })
+      .send({ requestId: req._id.toString(), amount: 120 })
       .expect(201);
 
-    const offerId = createRes.body.id as string;
+    const offerId = createRes.body.offer.id as string;
     const contract = await acceptOfferAndGetContract(client.accessToken, offerId);
 
     await request(app.getHttpServer())
@@ -175,10 +175,10 @@ describe('contracts (e2e)', () => {
     const createRes = await request(app.getHttpServer())
       .post('/offers')
       .set('Authorization', `Bearer ${provider.accessToken}`)
-      .send({ requestId: req._id.toString() })
+      .send({ requestId: req._id.toString(), amount: 120 })
       .expect(201);
 
-    const offerId = createRes.body.id as string;
+    const offerId = createRes.body.offer.id as string;
     const contract = await acceptOfferAndGetContract(client.accessToken, offerId);
 
     await request(app.getHttpServer())
@@ -205,10 +205,10 @@ describe('contracts (e2e)', () => {
     const createRes = await request(app.getHttpServer())
       .post('/offers')
       .set('Authorization', `Bearer ${provider.accessToken}`)
-      .send({ requestId: req._id.toString() })
+      .send({ requestId: req._id.toString(), amount: 120 })
       .expect(201);
 
-    const offerId = createRes.body.id as string;
+    const offerId = createRes.body.offer.id as string;
     const contract = await acceptOfferAndGetContract(client.accessToken, offerId);
 
     await request(app.getHttpServer())

@@ -6,6 +6,7 @@ import { Offer } from './schemas/offer.schema';
 import { ProviderProfile } from '../providers/schemas/provider-profile.schema';
 import { Request } from '../requests/schemas/request.schema';
 import { Contract } from '../contracts/schemas/contract.schema';
+import { User } from '../users/schemas/user.schema';
 import {
   ConflictException,
   ForbiddenException,
@@ -28,6 +29,8 @@ describe('OffersService', () => {
 
   const providerModelMock = {
     findOne: jest.fn(),
+    create: jest.fn(),
+    updateOne: jest.fn(),
   };
 
   const requestModelMock = {
@@ -40,12 +43,17 @@ describe('OffersService', () => {
     findOne: jest.fn(),
   };
 
+  const userModelMock = {
+    updateOne: jest.fn(),
+  };
   const execWrap = (value: any) => ({ exec: jest.fn().mockResolvedValue(value) });
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
     offerModelMock.countDocuments.mockReturnValue(execWrap(0));
+    providerModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
+    userModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -54,45 +62,63 @@ describe('OffersService', () => {
         { provide: getModelToken(ProviderProfile.name), useValue: providerModelMock },
         { provide: getModelToken(Request.name), useValue: requestModelMock },
         { provide: getModelToken(Contract.name), useValue: contractModelMock },
+        { provide: getModelToken(User.name), useValue: userModelMock },
       ],
     }).compile();
 
     service = moduleRef.get(OffersService);
   });
 
-  it('createForProvider throws if provider missing', async () => {
-    providerModelMock.findOne.mockReturnValue(execWrap(null));
-    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
-      NotFoundException,
+  it('createForProvider creates provider profile when missing', async () => {
+    providerModelMock.findOne
+      .mockReturnValueOnce(execWrap(null))
+      .mockReturnValueOnce(execWrap({ _id: 'prov1', userId: 'p1', serviceKeys: ['home_cleaning'], status: 'draft', isBlocked: false }));
+    providerModelMock.create.mockResolvedValue({ _id: 'prov1', userId: 'p1', serviceKeys: ['home_cleaning'], status: 'draft', isBlocked: false });
+    requestModelMock.findById.mockReturnValue(execWrap({ _id: '507f1f77bcf86cd799439011', clientId: 'c1', status: 'published', cityId: 'Berlin', serviceKey: 'home_cleaning' }));
+    offerModelMock.create.mockResolvedValue({ _id: 'x', requestId: '507f1f77bcf86cd799439011', providerUserId: 'p1', clientUserId: 'c1', status: 'sent' });
+
+    const res: any = await service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 120 });
+    expect(providerModelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'p1',
+        serviceKeys: ['home_cleaning'],
+        status: 'draft',
+      }),
     );
+    expect(res.offer.status).toBe('sent');
+    expect(res.providerProfile.userId).toBe('p1');
   });
 
   it('createForProvider enforces daily limit', async () => {
     offerModelMock.countDocuments.mockReturnValue(execWrap(30));
-    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 120 })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
 
   it('createForProvider throws if provider blocked', async () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: true, status: 'active' }));
-    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 120 })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
 
-  it('createForProvider throws if provider not active', async () => {
-    providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'draft' }));
-    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+  it('createForProvider allows draft provider', async () => {
+    providerModelMock.findOne
+      .mockReturnValueOnce(execWrap({ _id: 'prov1', userId: 'p1', isBlocked: false, status: 'draft', serviceKeys: [] }))
+      .mockReturnValueOnce(execWrap({ _id: 'prov1', userId: 'p1', isBlocked: false, status: 'draft', serviceKeys: ['home_cleaning'] }));
+    requestModelMock.findById.mockReturnValue(execWrap({ _id: '507f1f77bcf86cd799439011', clientId: 'c1', status: 'published', cityId: 'Berlin', serviceKey: 'home_cleaning' }));
+    offerModelMock.create.mockResolvedValue({ _id: 'x', requestId: '507f1f77bcf86cd799439011', providerUserId: 'p1', clientUserId: 'c1', status: 'sent' });
+
+    const res: any = await service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 120 });
+    expect(res.offer.status).toBe('sent');
   });
 
   it('createForProvider throws if request missing', async () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
     requestModelMock.findById.mockReturnValue(execWrap(null));
 
-    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 120 })).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
@@ -101,17 +127,19 @@ describe('OffersService', () => {
     providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
     requestModelMock.findById.mockReturnValue(execWrap({ _id: 'r1', clientId: 'c1', status: 'draft', cityId: 'Berlin', serviceKey: 'home_cleaning' }));
 
-    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 120 })).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
 
   it('createForProvider creates sent offer', async () => {
-    providerModelMock.findOne.mockReturnValue(execWrap({ userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
+    providerModelMock.findOne
+      .mockReturnValueOnce(execWrap({ _id: 'prov1', userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }))
+      .mockReturnValueOnce(execWrap({ _id: 'prov1', userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
     requestModelMock.findById.mockReturnValue(execWrap({ _id: '507f1f77bcf86cd799439011', clientId: 'c1', status: 'published', cityId: 'Berlin', serviceKey: 'home_cleaning' }));
     offerModelMock.create.mockResolvedValue({ _id: 'x', requestId: '507f1f77bcf86cd799439011', providerUserId: 'p1', clientUserId: 'c1', status: 'sent' });
 
-    const res: any = await service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' });
+    const res: any = await service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 120 });
     expect(offerModelMock.create).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: '507f1f77bcf86cd799439011',
@@ -120,7 +148,7 @@ describe('OffersService', () => {
         status: 'sent',
       }),
     );
-    expect(res.status).toBe('sent');
+    expect(res.offer.status).toBe('sent');
   });
 
   it('createForProvider maps duplicate key to Conflict', async () => {
@@ -128,8 +156,14 @@ describe('OffersService', () => {
     requestModelMock.findById.mockReturnValue(execWrap({ _id: '507f1f77bcf86cd799439011', clientId: 'c1', status: 'published', cityId: 'Berlin', serviceKey: 'home_cleaning' }));
     offerModelMock.create.mockRejectedValue({ code: 11000 });
 
-    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011' })).rejects.toBeInstanceOf(
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 120 })).rejects.toBeInstanceOf(
       ConflictException,
+    );
+  });
+
+  it('createForProvider requires positive amount', async () => {
+    await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 0 })).rejects.toBeInstanceOf(
+      BadRequestException,
     );
   });
 

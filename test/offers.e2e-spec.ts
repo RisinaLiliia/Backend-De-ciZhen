@@ -86,10 +86,10 @@ describe('offers (e2e)', () => {
     const createRes = await request(app.getHttpServer())
       .post('/offers')
       .set('Authorization', `Bearer ${provider.accessToken}`)
-      .send({ requestId: req._id.toString() })
+      .send({ requestId: req._id.toString(), amount: 120 })
       .expect(201);
 
-    const offerId = createRes.body.id as string;
+    const offerId = createRes.body.offer.id as string;
 
     const myRes = await request(app.getHttpServer())
       .get('/offers/my')
@@ -156,10 +156,10 @@ describe('offers (e2e)', () => {
     const createRes = await request(app.getHttpServer())
       .post('/offers')
       .set('Authorization', `Bearer ${provider.accessToken}`)
-      .send({ requestId: req._id.toString() })
+      .send({ requestId: req._id.toString(), amount: 130 })
       .expect(201);
 
-    const offerId = createRes.body.id as string;
+    const offerId = createRes.body.offer.id as string;
 
     await request(app.getHttpServer())
       .patch(`/offers/actions/${offerId}/accept`)
@@ -220,10 +220,10 @@ describe('offers (e2e)', () => {
     const createRes = await request(app.getHttpServer())
       .post('/offers')
       .set('Authorization', `Bearer ${provider.accessToken}`)
-      .send({ requestId: req._id.toString() })
+      .send({ requestId: req._id.toString(), amount: 110 })
       .expect(201);
 
-    const offerId = createRes.body.id as string;
+    const offerId = createRes.body.offer.id as string;
 
     await request(app.getHttpServer())
       .patch(`/offers/actions/${offerId}/decline`)

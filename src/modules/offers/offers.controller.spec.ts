@@ -29,26 +29,38 @@ describe('OffersController (unit)', () => {
 
   it('provider create returns dto', async () => {
     svcMock.createForProvider.mockResolvedValue({
-      _id: { toString: () => 'offer1' },
-      requestId: 'r1',
-      providerUserId: 'p1',
-      clientUserId: 'c1',
-      status: 'sent',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      offer: {
+        _id: { toString: () => 'offer1' },
+        requestId: 'r1',
+        providerUserId: 'p1',
+        clientUserId: 'c1',
+        status: 'sent',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      providerProfile: {
+        _id: { toString: () => 'prof1' },
+        userId: 'p1',
+        status: 'draft',
+        isBlocked: false,
+        serviceKeys: ['home_cleaning'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     });
 
     const res = await controller.create(
       { userId: 'p1', role: 'provider' } as any,
-      { requestId: '507f1f77bcf86cd799439011' } as any,
+      { requestId: '507f1f77bcf86cd799439011', amount: 120 } as any,
     );
 
-    expect(res).toEqual(expect.objectContaining({ id: 'offer1', status: 'sent' }));
+    expect(res.offer).toEqual(expect.objectContaining({ id: 'offer1', status: 'sent' }));
+    expect(res.providerProfile).toEqual(expect.objectContaining({ id: 'prof1', userId: 'p1' }));
   });
 
   it('forbids wrong role', async () => {
     await expect(
-      controller.create({ userId: 'x', role: 'client' } as any, { requestId: '507f1f77bcf86cd799439011' } as any),
+      controller.create({ userId: 'x', role: 'guest' } as any, { requestId: '507f1f77bcf86cd799439011', amount: 99 } as any),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -71,7 +83,7 @@ describe('OffersController (unit)', () => {
     expect(res[0]).toEqual(expect.objectContaining({ id: 'offer1', status: 'sent' }));
   });
 
-  it('my returns provider offers', async () => {
+  it('my returns actor offers', async () => {
     svcMock.listMy.mockResolvedValue([
       {
         _id: { toString: () => 'offer2' },
@@ -84,7 +96,7 @@ describe('OffersController (unit)', () => {
       },
     ]);
 
-    const res = await controller.my({ userId: 'p1', role: 'provider' } as any, { status: 'sent' } as any);
+    const res = await controller.my({ userId: 'p1', role: 'client' } as any, { status: 'sent' } as any);
 
     expect(svcMock.listMy).toHaveBeenCalledWith('p1', { status: 'sent' });
     expect(res[0]).toEqual(expect.objectContaining({ id: 'offer2', status: 'sent' }));

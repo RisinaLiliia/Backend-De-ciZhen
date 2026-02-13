@@ -52,7 +52,7 @@ describe('ProvidersController (unit) public list', () => {
     expect(res[0].avatarUrl ?? null).toBeNull();
   });
 
-  it('myProfile returns dto for provider', async () => {
+  it('myProfile returns dto for any authenticated user', async () => {
     svcMock.getOrCreateMyProfile.mockResolvedValue({
       _id: { toString: () => 'p1' },
       userId: 'u1',
@@ -67,13 +67,13 @@ describe('ProvidersController (unit) public list', () => {
       updatedAt: new Date('2026-01-02T00:00:00.000Z'),
     });
 
-    const res = await controller.myProfile({ userId: 'u1', role: 'provider' } as any);
+    const res = await controller.myProfile({ userId: 'u1', role: 'client' } as any);
 
     expect(svcMock.getOrCreateMyProfile).toHaveBeenCalledWith('u1');
     expect(res).toEqual(expect.objectContaining({ id: 'p1', userId: 'u1', status: 'active' }));
   });
 
-  it('updateMyProfile updates for provider', async () => {
+  it('updateMyProfile updates for any authenticated user', async () => {
     svcMock.updateMyProfile.mockResolvedValue({
       _id: { toString: () => 'p2' },
       userId: 'u2',
@@ -89,13 +89,10 @@ describe('ProvidersController (unit) public list', () => {
     });
 
     const dto = { displayName: 'New Name', cityId: 'c2' } as any;
-    const res = await controller.updateMyProfile({ userId: 'u2', role: 'provider' } as any, dto);
+    const res = await controller.updateMyProfile({ userId: 'u2', role: 'client' } as any, dto);
 
     expect(svcMock.updateMyProfile).toHaveBeenCalledWith('u2', dto);
     expect(res).toEqual(expect.objectContaining({ id: 'p2', displayName: 'New Name' }));
   });
 
-  it('myProfile forbids client', async () => {
-    await expect(controller.myProfile({ userId: 'u3', role: 'client' } as any)).rejects.toBeInstanceOf(Error);
-  });
 });
