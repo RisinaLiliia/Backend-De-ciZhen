@@ -22,7 +22,7 @@ export class OffersController {
   private toDto(o: any, viewer?: CurrentUserPayload): OfferDto {
     const role = viewer?.role;
     const isAdmin = role === 'admin';
-    const providerUserId = isAdmin || role === 'provider' ? o.providerUserId ?? null : null;
+    const providerUserId = isAdmin || role === 'provider' || role === 'client' ? o.providerUserId ?? null : null;
     const clientUserId = isAdmin || role === 'client' ? o.clientUserId ?? null : null;
 
     return {

@@ -2,23 +2,32 @@
 import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ChatsService } from './chats.service';
-import { Chat } from './schemas/chat.schema';
+import { ChatThread } from './schemas/chat-thread.schema';
+import { ChatMessage } from './schemas/chat-message.schema';
 import { Request } from '../requests/schemas/request.schema';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('ChatsService', () => {
   let service: ChatsService;
 
-  const chatModelMock = {
+  const threadModelMock = {
     findOne: jest.fn(),
     create: jest.fn(),
     find: jest.fn(),
     findById: jest.fn(),
+    updateOne: jest.fn(),
+  };
+
+  const messageModelMock = {
+    create: jest.fn(),
+    find: jest.fn(),
   };
 
   const requestModelMock = {
     findById: jest.fn(),
   };
+
+  const execWrap = (value: any) => ({ exec: jest.fn().mockResolvedValue(value) });
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -26,7 +35,8 @@ describe('ChatsService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ChatsService,
-        { provide: getModelToken(Chat.name), useValue: chatModelMock },
+        { provide: getModelToken(ChatThread.name), useValue: threadModelMock },
+        { provide: getModelToken(ChatMessage.name), useValue: messageModelMock },
         { provide: getModelToken(Request.name), useValue: requestModelMock },
       ],
     }).compile();
@@ -34,71 +44,77 @@ describe('ChatsService', () => {
     service = moduleRef.get(ChatsService);
   });
 
-  it('createOrGet returns existing chat if found', async () => {
-    chatModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({ _id: 'c1' }) });
+  it('createOrGetThread returns existing thread', async () => {
+    threadModelMock.findOne.mockReturnValue(execWrap({ _id: 't1' }));
 
-    const res = await service.createOrGet({
+    const res = await service.createOrGetThread({
       requestId: '507f1f77bcf86cd799439011',
-      clientId: '507f1f77bcf86cd799439012',
-      providerUserId: '507f1f77bcf86cd799439013',
+      providerUserId: '507f1f77bcf86cd799439012',
+      actorUserId: '507f1f77bcf86cd799439012',
+      actorRole: 'provider',
     });
 
-    expect(res).toEqual({ _id: 'c1' });
-    expect(chatModelMock.create).not.toHaveBeenCalled();
-    expect(requestModelMock.findById).not.toHaveBeenCalled();
+    expect(res).toEqual({ _id: 't1' });
+    expect(threadModelMock.create).not.toHaveBeenCalled();
   });
 
-  it('createOrGet creates chat when not exists and request matches clientId', async () => {
-    chatModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-    requestModelMock.findById.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ _id: 'r1', clientId: '507f1f77bcf86cd799439012' }),
-    });
-    chatModelMock.create.mockResolvedValue({ _id: 'c2' });
+  it('createOrGetThread creates when not exists and validates request', async () => {
+    threadModelMock.findOne.mockReturnValue(execWrap(null));
+    requestModelMock.findById.mockReturnValue(execWrap({ _id: 'r1', clientId: 'c1' }));
+    threadModelMock.create.mockResolvedValue({ _id: 't2' });
 
-    const res = await service.createOrGet({
+    const res = await service.createOrGetThread({
       requestId: '507f1f77bcf86cd799439011',
-      clientId: '507f1f77bcf86cd799439012',
-      providerUserId: '507f1f77bcf86cd799439013',
+      providerUserId: '507f1f77bcf86cd799439012',
+      actorUserId: 'c1',
+      actorRole: 'client',
     });
 
-    expect(chatModelMock.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requestId: '507f1f77bcf86cd799439011',
-        clientId: '507f1f77bcf86cd799439012',
-        providerUserId: '507f1f77bcf86cd799439013',
-        participants: ['507f1f77bcf86cd799439012', '507f1f77bcf86cd799439013'],
-        lastMessageAt: null,
-      }),
-    );
-    expect(res).toEqual({ _id: 'c2' });
+    expect(threadModelMock.create).toHaveBeenCalled();
+    expect(res).toEqual({ _id: 't2' });
   });
 
-  it('createOrGet throws when request clientId does not match', async () => {
-    chatModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-    requestModelMock.findById.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ _id: 'r1', clientId: '507f1f77bcf86cd799439099' }),
-    });
+  it('createOrGetThread forbids when actor does not match', async () => {
+    threadModelMock.findOne.mockReturnValue(execWrap(null));
+    requestModelMock.findById.mockReturnValue(execWrap({ _id: 'r1', clientId: 'c1' }));
 
     await expect(
-      service.createOrGet({
+      service.createOrGetThread({
         requestId: '507f1f77bcf86cd799439011',
-        clientId: '507f1f77bcf86cd799439012',
-        providerUserId: '507f1f77bcf86cd799439013',
+        providerUserId: '507f1f77bcf86cd799439012',
+        actorUserId: 'other',
+        actorRole: 'client',
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('getMyChats throws when userId is missing', async () => {
-    await expect(service.getMyChats('')).rejects.toBeInstanceOf(BadRequestException);
+  it('listInbox throws when userId missing', async () => {
+    await expect(service.listInbox('', 'all')).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('getById throws for invalid id', async () => {
-    await expect(service.getById('bad-id')).rejects.toBeInstanceOf(BadRequestException);
+  it('getThreadById throws when not found', async () => {
+    threadModelMock.findById.mockReturnValue(execWrap(null));
+    await expect(service.getThreadById('507f1f77bcf86cd799439011', 'u1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
-  it('getById throws when not found', async () => {
-    chatModelMock.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+  it('getThreadById forbids non participant', async () => {
+    threadModelMock.findById.mockReturnValue(execWrap({ participants: ['u2'] }));
+    await expect(service.getThreadById('507f1f77bcf86cd799439011', 'u1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
 
-    await expect(service.getById('507f1f77bcf86cd799439011')).rejects.toBeInstanceOf(NotFoundException);
+  it('sendMessage creates message and updates thread', async () => {
+    threadModelMock.findById.mockReturnValue(
+      execWrap({ _id: 't1', clientId: 'c1', providerUserId: 'p1', participants: ['c1', 'p1'] }),
+    );
+    messageModelMock.create.mockResolvedValue({ _id: 'm1', createdAt: new Date() });
+    threadModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
+
+    await service.sendMessage('507f1f77bcf86cd799439011', 'c1', 'hi');
+    expect(messageModelMock.create).toHaveBeenCalled();
+    expect(threadModelMock.updateOne).toHaveBeenCalled();
   });
 });

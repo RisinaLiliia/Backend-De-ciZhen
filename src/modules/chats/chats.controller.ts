@@ -1,80 +1,134 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
-import { ChatsService } from './chats.service';
-import { CreateChatDto } from './dto/create-chat.dto';
-import { ChatResponseDto } from './dto/chat-response.dto';
 import { ApiErrors } from '../../common/swagger/api-errors.decorator';
+
+import { ChatsService } from './chats.service';
+import { CreateThreadDto } from './dto/create-thread.dto';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { ChatThreadDto } from './dto/chat-thread.dto';
+import { ChatMessageDto } from './dto/chat-message.dto';
+import { ChatInboxQueryDto } from './dto/chat-inbox-query.dto';
+import { ChatMessagesQueryDto } from './dto/chat-messages-query.dto';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
-@ApiTags('chats')
-@Controller('chats')
+@ApiTags('chat')
+@Controller('chat')
 export class ChatsController {
   constructor(private readonly chats: ChatsService) {}
 
-  private toDto(c: any): ChatResponseDto {
+  private toThreadDto(t: any): ChatThreadDto {
     return {
-      id: c._id.toString(),
-      requestId: c.requestId,
-      clientId: c.clientId,
-      providerUserId: c.providerUserId,
-      participants: c.participants ?? [],
-      lastMessageAt: c.lastMessageAt ?? null,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
+      id: t._id.toString(),
+      requestId: t.requestId,
+      clientId: t.clientId,
+      providerUserId: t.providerUserId,
+      offerId: t.offerId ?? null,
+      contractId: t.contractId ?? null,
+      participants: t.participants ?? [],
+      status: t.status ?? 'active',
+      lastMessageAt: t.lastMessageAt ?? null,
+      lastMessagePreview: t.lastMessagePreview ?? null,
+      unreadClientCount: t.unreadClientCount ?? 0,
+      unreadProviderCount: t.unreadProviderCount ?? 0,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    };
+  }
+
+  private toMessageDto(m: any): ChatMessageDto {
+    return {
+      id: m._id.toString(),
+      threadId: m.threadId,
+      senderId: m.senderId,
+      text: m.text,
+      createdAt: m.createdAt,
     };
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post()
+  @Post('threads')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Create or get chat by requestId + clientId + providerUserId' })
-  @ApiCreatedResponse({ type: ChatResponseDto })
+  @ApiOperation({ summary: 'Create or get thread by requestId + providerUserId' })
+  @ApiCreatedResponse({ type: ChatThreadDto })
   @ApiErrors({ conflict: false })
-  async create(
+  async createThread(
     @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: CreateChatDto,
-  ): Promise<ChatResponseDto> {
-    if (user.role === 'client' && user.userId !== dto.clientId) {
-      throw new ForbiddenException('Access denied');
-    }
-    if (user.role === 'provider' && user.userId !== dto.providerUserId) {
-      throw new ForbiddenException('Access denied');
-    }
-
-    const chat = await this.chats.createOrGet(dto);
-    return this.toDto(chat);
+    @Body() dto: CreateThreadDto,
+  ): Promise<ChatThreadDto> {
+    const thread = await this.chats.createOrGetThread({
+      requestId: dto.requestId,
+      providerUserId: dto.providerUserId,
+      offerId: dto.offerId,
+      contractId: dto.contractId,
+      actorUserId: user.userId,
+      actorRole: user.role as any,
+    });
+    return this.toThreadDto(thread);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('my')
+  @Get('inbox')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'List my chats' })
-  @ApiOkResponse({ type: ChatResponseDto, isArray: true })
+  @ApiOperation({ summary: 'List my chat threads' })
+  @ApiOkResponse({ type: ChatThreadDto, isArray: true })
   @ApiErrors({ conflict: false, notFound: false })
-  async my(@CurrentUser() user: CurrentUserPayload): Promise<ChatResponseDto[]> {
-    const items = await this.chats.getMyChats(user.userId);
-    return items.map((c) => this.toDto(c));
+  async inbox(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query() q: ChatInboxQueryDto,
+  ): Promise<ChatThreadDto[]> {
+    const role = q.role ?? 'all';
+    const items = await this.chats.listInbox(user.userId, role);
+    return items.map((t) => this.toThreadDto(t));
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':id')
+  @Get('threads/:id/messages')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get chat by id' })
-  @ApiParam({ name: 'id', required: true, example: '66f0c1a2b3c4d5e6f7a8b9ff' })
-  @ApiOkResponse({ type: ChatResponseDto })
+  @ApiOperation({ summary: 'List messages for a thread' })
+  @ApiParam({ name: 'id', required: true })
+  @ApiOkResponse({ type: ChatMessageDto, isArray: true })
   @ApiErrors({ conflict: false })
-  async getById(
+  async listMessages(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ): Promise<ChatResponseDto> {
-    const chat = await this.chats.getById(id);
-    if (user.role !== 'admin' && !chat.participants?.includes(user.userId)) {
-      throw new ForbiddenException('Access denied');
-    }
-    return this.toDto(chat);
+    @Param('id') threadId: string,
+    @Query() q: ChatMessagesQueryDto,
+  ): Promise<ChatMessageDto[]> {
+    const items = await this.chats.listMessages(threadId, user.userId, {
+      limit: q.limit,
+      offset: q.offset,
+    });
+    return items.map((m) => this.toMessageDto(m));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('threads/:id/messages')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Send message to thread' })
+  @ApiParam({ name: 'id', required: true })
+  @ApiCreatedResponse({ type: ChatMessageDto })
+  @ApiErrors({ conflict: false })
+  async sendMessage(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') threadId: string,
+    @Body() dto: CreateMessageDto,
+  ): Promise<ChatMessageDto> {
+    const msg = await this.chats.sendMessage(threadId, user.userId, dto.text);
+    return this.toMessageDto(msg);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('threads/:id/read')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Mark thread as read for current user' })
+  @ApiParam({ name: 'id', required: true })
+  @ApiOkResponse({ schema: { example: { ok: true } } })
+  @ApiErrors({ conflict: false })
+  async markRead(@CurrentUser() user: CurrentUserPayload, @Param('id') threadId: string) {
+    await this.chats.markRead(threadId, user.userId);
+    return { ok: true };
   }
 }

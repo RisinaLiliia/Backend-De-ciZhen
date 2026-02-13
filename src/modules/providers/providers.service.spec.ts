@@ -141,44 +141,4 @@ describe('ProvidersService', () => {
     });
   });
 
-  it('addFavoriteRequest throws on invalid requestId', async () => {
-    await expect(service.addFavoriteRequest('u1', 'bad-id')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
-  });
-
-  it('addFavoriteRequest throws when profile is blocked', async () => {
-    modelMock.findOne.mockReturnValue(execWrap({ userId: 'u1', isBlocked: true }));
-    await expect(
-      service.addFavoriteRequest('u1', '507f1f77bcf86cd799439011'),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
-  it('addFavoriteRequest adds request id', async () => {
-    modelMock.findOne.mockReturnValue(execWrap({ userId: 'u1', isBlocked: false }));
-    modelMock.findOneAndUpdate.mockReturnValue(execWrap({ userId: 'u1', favoriteRequestIds: ['r1'] }));
-
-    const res: any = await service.addFavoriteRequest('u1', '507f1f77bcf86cd799439011');
-
-    expect(modelMock.findOneAndUpdate).toHaveBeenCalledWith(
-      { userId: 'u1' },
-      { $addToSet: { favoriteRequestIds: '507f1f77bcf86cd799439011' } },
-      { new: true },
-    );
-    expect(res.userId).toBe('u1');
-  });
-
-  it('removeFavoriteRequest throws on invalid requestId', async () => {
-    await expect(service.removeFavoriteRequest('u1', 'bad-id')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
-  });
-
-  it('listFavoriteRequestIds returns ids', async () => {
-    modelMock.findOne.mockReturnValue(execWrap({ userId: 'u1', favoriteRequestIds: ['r1', 'r2'] }));
-    const res = await service.listFavoriteRequestIds('u1');
-    expect(res).toEqual(['r1', 'r2']);
-  });
 });

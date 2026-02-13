@@ -81,47 +81,6 @@ export class ProvidersService {
     }
   }
 
-  async addFavoriteRequest(userId: string, requestId: string): Promise<ProviderProfileDocument> {
-    const rid = String(requestId ?? '').trim();
-    this.ensureObjectId(rid, 'requestId');
-
-    const profile = await this.getOrCreateMyProfile(userId);
-    if (profile.isBlocked) throw new ForbiddenException('Provider profile is blocked');
-
-    const updated = await this.model
-      .findOneAndUpdate(
-        { userId },
-        { $addToSet: { favoriteRequestIds: rid } },
-        { new: true },
-      )
-      .exec();
-
-    if (!updated) throw new NotFoundException('Provider profile not found');
-    return updated;
-  }
-
-  async removeFavoriteRequest(userId: string, requestId: string): Promise<ProviderProfileDocument> {
-    const rid = String(requestId ?? '').trim();
-    this.ensureObjectId(rid, 'requestId');
-
-    const updated = await this.model
-      .findOneAndUpdate(
-        { userId },
-        { $pull: { favoriteRequestIds: rid } },
-        { new: true },
-      )
-      .exec();
-
-    if (!updated) throw new NotFoundException('Provider profile not found');
-    return updated;
-  }
-
-  async listFavoriteRequestIds(userId: string): Promise<string[]> {
-    const profile = await this.getByUserId(userId);
-    if (!profile) throw new NotFoundException('Provider profile not found');
-    return Array.isArray(profile.favoriteRequestIds) ? profile.favoriteRequestIds : [];
-  }
-
   async blockProfile(userId: string): Promise<void> {
     const res = await this.model
       .findOneAndUpdate({ userId }, { isBlocked: true, blockedAt: new Date(), status: 'suspended' })
@@ -154,6 +113,17 @@ export class ProvidersService {
     .sort({ ratingAvg: -1, ratingCount: -1, basePrice: 1, updatedAt: -1 })
     .exec();
 }
+
+  async listPublicByIds(userIds: string[]): Promise<ProviderProfileDocument[]> {
+    const ids = Array.isArray(userIds)
+      ? Array.from(new Set(userIds.map((x) => String(x)).filter((x) => Types.ObjectId.isValid(x))))
+      : [];
+    if (ids.length === 0) return [];
+    return this.model
+      .find({ userId: { $in: ids }, status: 'active', isBlocked: false })
+      .sort({ ratingAvg: -1, ratingCount: -1, basePrice: 1, updatedAt: -1 })
+      .exec();
+  }
 
   private isProfileComplete(profile: ProviderProfile): boolean {
     const displayName = String(profile.displayName ?? '').trim();
