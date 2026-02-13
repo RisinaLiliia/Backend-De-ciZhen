@@ -152,7 +152,7 @@ describe('contracts (e2e)', () => {
       .post(`/contracts/${contract._id.toString()}/confirm`)
       .set('Authorization', `Bearer ${client.accessToken}`)
       .send({ startAt: '2026-03-05T09:00:00.000Z', durationMin: 60 })
-      .expect(200)
+      .expect(201)
       .expect((res) => {
         expect(res.body.status).toBe('confirmed');
       });
@@ -185,7 +185,7 @@ describe('contracts (e2e)', () => {
       .post(`/contracts/${contract._id.toString()}/cancel`)
       .set('Authorization', `Bearer ${client.accessToken}`)
       .send({ reason: 'no longer needed' })
-      .expect(200)
+      .expect(201)
       .expect((res) => {
         expect(res.body.status).toBe('cancelled');
       });
@@ -215,7 +215,7 @@ describe('contracts (e2e)', () => {
       .post(`/contracts/${contract._id.toString()}/confirm`)
       .set('Authorization', `Bearer ${client.accessToken}`)
       .send({ startAt: '2026-03-05T10:00:00.000Z', durationMin: 60 })
-      .expect(200);
+      .expect(201);
 
     await request(app.getHttpServer())
       .post(`/contracts/${contract._id.toString()}/complete`)
