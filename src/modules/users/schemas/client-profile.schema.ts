@@ -15,9 +15,6 @@ export class ClientProfile {
   @Prop({ type: Number, default: 0, min: 0 })
   ratingCount: number;
 
-  @Prop({ type: [String], default: [] })
-  favoritesProviderIds: string[];
-
   @Prop({ type: Object, default: {} })
   stats: Record<string, number>;
 

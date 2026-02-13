@@ -1,32 +1,15 @@
 // src/modules/favorites/favorites.controller.spec.ts
 import { Test } from '@nestjs/testing';
 import { FavoritesController } from './favorites.controller';
-import { ProvidersService } from '../providers/providers.service';
-import { RequestsService } from '../requests/requests.service';
-import { UsersService } from '../users/users.service';
-import { ClientProfilesService } from '../users/client-profiles.service';
-import { PresenceService } from '../presence/presence.service';
-import { ForbiddenException } from '@nestjs/common';
+import { FavoritesService } from './favorites.service';
 
 describe('FavoritesController (unit)', () => {
   let controller: FavoritesController;
 
-  const providersMock = {
-    addFavoriteRequest: jest.fn(),
-    removeFavoriteRequest: jest.fn(),
-    listFavoriteRequestIds: jest.fn(),
-  };
-  const requestsMock = {
-    listPublicByIds: jest.fn(),
-  };
-  const usersMock = {
-    findPublicByIds: jest.fn(),
-  };
-  const clientProfilesMock = {
-    getByUserIds: jest.fn(),
-  };
-  const presenceMock = {
-    getOnlineMap: jest.fn(),
+  const favoritesMock = {
+    add: jest.fn(),
+    remove: jest.fn(),
+    listByType: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -34,76 +17,38 @@ describe('FavoritesController (unit)', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [FavoritesController],
-      providers: [
-        { provide: ProvidersService, useValue: providersMock },
-        { provide: RequestsService, useValue: requestsMock },
-        { provide: UsersService, useValue: usersMock },
-        { provide: ClientProfilesService, useValue: clientProfilesMock },
-        { provide: PresenceService, useValue: presenceMock },
-      ],
+      providers: [{ provide: FavoritesService, useValue: favoritesMock }],
     }).compile();
 
     controller = moduleRef.get(FavoritesController);
   });
 
-  it('addFavorite forbids non-provider', async () => {
-    await expect(
-      controller.addFavorite({ userId: 'u1', role: 'client' } as any, 'r1'),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+  it('addFavorite calls service', async () => {
+    favoritesMock.add.mockResolvedValue(undefined);
+    const res = await controller.addFavorite({ userId: 'u1', role: 'client' } as any, {
+      type: 'request',
+      targetId: 'r1',
+    } as any);
+    expect(favoritesMock.add).toHaveBeenCalledWith('u1', 'request', 'r1');
+    expect(res).toEqual({ ok: true });
   });
 
-  it('listFavorites returns mapped items', async () => {
-    providersMock.listFavoriteRequestIds.mockResolvedValue(['r1']);
-    requestsMock.listPublicByIds.mockResolvedValue([
-      {
-        _id: { toString: () => 'r1' },
-        title: 'Test',
-        serviceKey: 'home_cleaning',
-        cityId: 'c1',
-        cityName: 'Berlin',
-        categoryKey: 'cleaning',
-        categoryName: 'Cleaning',
-        subcategoryName: 'Home cleaning',
-        propertyType: 'apartment',
-        area: 55,
-        price: 120,
-        preferredDate: new Date('2026-02-01T10:00:00.000Z'),
-        isRecurring: false,
-        comment: null,
-        description: 'details',
-        photos: [],
-        imageUrl: null,
-        tags: [],
-        status: 'published',
-        createdAt: new Date('2026-01-28T10:00:00.000Z'),
-        clientId: 'c1',
-      },
-    ]);
-    usersMock.findPublicByIds.mockResolvedValue([
-      {
-        _id: { toString: () => 'c1' },
-        name: 'Anna',
-        avatar: { url: '/avatars/a.png', isDefault: false },
-        city: 'Berlin',
-        lastSeenAt: new Date('2026-02-11T10:00:00.000Z'),
-      },
-    ]);
-    clientProfilesMock.getByUserIds.mockResolvedValue([{ userId: 'c1', ratingAvg: 4.8, ratingCount: 12 }]);
-    presenceMock.getOnlineMap.mockResolvedValue(new Map([['c1', true]]));
+  it('removeFavorite calls service', async () => {
+    favoritesMock.remove.mockResolvedValue(undefined);
+    const res = await controller.removeFavorite({ userId: 'u1', role: 'provider' } as any, {
+      type: 'provider',
+      targetId: 'p1',
+    } as any);
+    expect(favoritesMock.remove).toHaveBeenCalledWith('u1', 'provider', 'p1');
+    expect(res).toEqual({ ok: true });
+  });
 
-    const res = await controller.listFavorites({ userId: 'p1', role: 'provider' } as any);
-
-    expect(res[0]).toEqual(
-      expect.objectContaining({
-        id: 'r1',
-        clientId: 'c1',
-        clientName: 'Anna',
-        clientAvatarUrl: '/avatars/a.png',
-        clientCity: 'Berlin',
-        clientRatingAvg: 4.8,
-        clientRatingCount: 12,
-        clientIsOnline: true,
-      }),
-    );
+  it('listFavorites returns service result', async () => {
+    favoritesMock.listByType.mockResolvedValue([{ id: 'r1' }]);
+    const res = await controller.listFavorites({ userId: 'u1', role: 'client' } as any, {
+      type: 'request',
+    } as any);
+    expect(favoritesMock.listByType).toHaveBeenCalledWith('u1', 'request');
+    expect(res).toEqual([{ id: 'r1' }]);
   });
 });
