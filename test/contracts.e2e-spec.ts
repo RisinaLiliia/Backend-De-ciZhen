@@ -220,7 +220,7 @@ describe('contracts (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/contracts/${contract._id.toString()}/complete`)
       .set('Authorization', `Bearer ${client.accessToken}`)
-      .expect(200)
+      .expect(201)
       .expect((res) => {
         expect(res.body.status).toBe('completed');
       });
