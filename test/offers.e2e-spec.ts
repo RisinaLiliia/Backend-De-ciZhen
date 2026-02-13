@@ -49,14 +49,18 @@ describe('offers (e2e)', () => {
     const client = await registerAndGetToken(app, 'client', 'client-offer1@test.local', 'Client Offer1');
     const provider = await registerAndGetToken(app, 'provider', 'prov-offer1@test.local', 'Provider Offer1');
 
-    await providerProfileModel.create({
-      userId: provider.userId,
-      status: 'active',
-      isBlocked: false,
-      cityId: 'c1',
-      serviceKeys: ['home_cleaning'],
-      basePrice: 35,
-    });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      {
+        userId: provider.userId,
+        status: 'active',
+        isBlocked: false,
+        cityId: 'c1',
+        serviceKeys: ['home_cleaning'],
+        basePrice: 35,
+      },
+      { upsert: true, new: true },
+    );
 
     const req = await requestModel.create({
       title: 'Need cleaning',
@@ -115,14 +119,18 @@ describe('offers (e2e)', () => {
     const client = await registerAndGetToken(app, 'client', 'client-offer2@test.local', 'Client Offer2');
     const provider = await registerAndGetToken(app, 'provider', 'prov-offer2@test.local', 'Provider Offer2');
 
-    await providerProfileModel.create({
-      userId: provider.userId,
-      status: 'active',
-      isBlocked: false,
-      cityId: 'c1',
-      serviceKeys: ['home_cleaning'],
-      basePrice: 35,
-    });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      {
+        userId: provider.userId,
+        status: 'active',
+        isBlocked: false,
+        cityId: 'c1',
+        serviceKeys: ['home_cleaning'],
+        basePrice: 35,
+      },
+      { upsert: true, new: true },
+    );
 
     const req = await requestModel.create({
       title: 'Need cleaning',
@@ -170,14 +178,18 @@ describe('offers (e2e)', () => {
     const client = await registerAndGetToken(app, 'client', 'client-offer3@test.local', 'Client Offer3');
     const provider = await registerAndGetToken(app, 'provider', 'prov-offer3@test.local', 'Provider Offer3');
 
-    await providerProfileModel.create({
-      userId: provider.userId,
-      status: 'active',
-      isBlocked: false,
-      cityId: 'c1',
-      serviceKeys: ['home_cleaning'],
-      basePrice: 35,
-    });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      {
+        userId: provider.userId,
+        status: 'active',
+        isBlocked: false,
+        cityId: 'c1',
+        serviceKeys: ['home_cleaning'],
+        basePrice: 35,
+      },
+      { upsert: true, new: true },
+    );
 
     const req = await requestModel.create({
       title: 'Need cleaning',
