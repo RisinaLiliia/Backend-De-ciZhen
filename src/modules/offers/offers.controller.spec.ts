@@ -1,11 +1,11 @@
-// src/modules/responses/responses.controller.spec.ts
+// src/modules/offers/offers.controller.spec.ts
 import { Test } from '@nestjs/testing';
-import { ResponsesController } from './responses.controller';
-import { ResponsesService } from './responses.service';
+import { OffersController } from './offers.controller';
+import { OffersService } from './offers.service';
 import { ForbiddenException } from '@nestjs/common';
 
-describe('ResponsesController (unit)', () => {
-  let controller: ResponsesController;
+describe('OffersController (unit)', () => {
+  let controller: OffersController;
 
   const svcMock = {
     createForProvider: jest.fn(),
@@ -13,27 +13,27 @@ describe('ResponsesController (unit)', () => {
     listMyClient: jest.fn(),
     listByRequestForClient: jest.fn(),
     acceptForClient: jest.fn(),
-    rejectForClient: jest.fn(),
+    declineForClient: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const moduleRef = await Test.createTestingModule({
-      controllers: [ResponsesController],
-      providers: [{ provide: ResponsesService, useValue: svcMock }],
+      controllers: [OffersController],
+      providers: [{ provide: OffersService, useValue: svcMock }],
     }).compile();
 
-    controller = moduleRef.get(ResponsesController);
+    controller = moduleRef.get(OffersController);
   });
 
   it('provider create returns dto', async () => {
     svcMock.createForProvider.mockResolvedValue({
-      _id: { toString: () => 'resp1' },
+      _id: { toString: () => 'offer1' },
       requestId: 'r1',
       providerUserId: 'p1',
       clientUserId: 'c1',
-      status: 'pending',
+      status: 'sent',
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -43,7 +43,7 @@ describe('ResponsesController (unit)', () => {
       { requestId: '507f1f77bcf86cd799439011' } as any,
     );
 
-    expect(res).toEqual(expect.objectContaining({ id: 'resp1', status: 'pending' }));
+    expect(res).toEqual(expect.objectContaining({ id: 'offer1', status: 'sent' }));
   });
 
   it('forbids wrong role', async () => {
@@ -55,45 +55,45 @@ describe('ResponsesController (unit)', () => {
   it('client myClient returns dto list', async () => {
     svcMock.listMyClient.mockResolvedValue([
       {
-        _id: { toString: () => 'resp1' },
+        _id: { toString: () => 'offer1' },
         requestId: 'r1',
         providerUserId: 'p1',
         clientUserId: 'c1',
-        status: 'pending',
+        status: 'sent',
         createdAt: new Date(),
         updatedAt: new Date(),
       },
     ]);
 
-    const res = await controller.myClient({ userId: 'c1', role: 'client' } as any, { status: 'pending' } as any);
+    const res = await controller.myClient({ userId: 'c1', role: 'client' } as any, { status: 'sent' } as any);
 
-    expect(svcMock.listMyClient).toHaveBeenCalledWith('c1', { status: 'pending' });
-    expect(res[0]).toEqual(expect.objectContaining({ id: 'resp1', status: 'pending' }));
+    expect(svcMock.listMyClient).toHaveBeenCalledWith('c1', { status: 'sent' });
+    expect(res[0]).toEqual(expect.objectContaining({ id: 'offer1', status: 'sent' }));
   });
 
-  it('my returns provider responses', async () => {
+  it('my returns provider offers', async () => {
     svcMock.listMy.mockResolvedValue([
       {
-        _id: { toString: () => 'resp2' },
+        _id: { toString: () => 'offer2' },
         requestId: 'r2',
         providerUserId: 'p1',
         clientUserId: 'c2',
-        status: 'pending',
+        status: 'sent',
         createdAt: new Date(),
         updatedAt: new Date(),
       },
     ]);
 
-    const res = await controller.my({ userId: 'p1', role: 'provider' } as any, { status: 'pending' } as any);
+    const res = await controller.my({ userId: 'p1', role: 'provider' } as any, { status: 'sent' } as any);
 
-    expect(svcMock.listMy).toHaveBeenCalledWith('p1', { status: 'pending' });
-    expect(res[0]).toEqual(expect.objectContaining({ id: 'resp2', status: 'pending' }));
+    expect(svcMock.listMy).toHaveBeenCalledWith('p1', { status: 'sent' });
+    expect(res[0]).toEqual(expect.objectContaining({ id: 'offer2', status: 'sent' }));
   });
 
-  it('listForRequest returns client responses for request', async () => {
+  it('listForRequest returns client offers for request', async () => {
     svcMock.listByRequestForClient.mockResolvedValue([
       {
-        _id: { toString: () => 'resp3' },
+        _id: { toString: () => 'offer3' },
         requestId: 'r3',
         providerUserId: 'p2',
         clientUserId: 'c1',
@@ -110,24 +110,24 @@ describe('ResponsesController (unit)', () => {
     );
 
     expect(svcMock.listByRequestForClient).toHaveBeenCalledWith('c1', 'r3', { status: 'accepted' });
-    expect(res[0]).toEqual(expect.objectContaining({ id: 'resp3', status: 'accepted' }));
+    expect(res[0]).toEqual(expect.objectContaining({ id: 'offer3', status: 'accepted' }));
   });
 
   it('accept calls service and returns ok', async () => {
     svcMock.acceptForClient.mockResolvedValue(undefined);
 
-    const res = await controller.accept({ userId: 'c1', role: 'client' } as any, 'resp4');
+    const res = await controller.accept({ userId: 'c1', role: 'client' } as any, 'offer4');
 
-    expect(svcMock.acceptForClient).toHaveBeenCalledWith('c1', 'resp4');
-    expect(res).toEqual({ ok: true, acceptedResponseId: 'resp4' });
+    expect(svcMock.acceptForClient).toHaveBeenCalledWith('c1', 'offer4');
+    expect(res).toEqual({ ok: true, acceptedOfferId: 'offer4' });
   });
 
-  it('reject calls service and returns ok', async () => {
-    svcMock.rejectForClient.mockResolvedValue(undefined);
+  it('decline calls service and returns ok', async () => {
+    svcMock.declineForClient.mockResolvedValue(undefined);
 
-    const res = await controller.reject({ userId: 'c1', role: 'client' } as any, 'resp5');
+    const res = await controller.decline({ userId: 'c1', role: 'client' } as any, 'offer5');
 
-    expect(svcMock.rejectForClient).toHaveBeenCalledWith('c1', 'resp5');
-    expect(res).toEqual({ ok: true, rejectedResponseId: 'resp5' });
+    expect(svcMock.declineForClient).toHaveBeenCalledWith('c1', 'offer5');
+    expect(res).toEqual({ ok: true, rejectedOfferId: 'offer5' });
   });
 });

@@ -905,83 +905,6 @@
         ]
       }
     },
-    "/presence/ping": {
-      "post": {
-        "operationId": "PresenceController_ping",
-        "summary": "Update presence (ping)",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PresencePingResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request / Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "presence"
-        ],
-        "security": [
-          {
-            "access-token": []
-          }
-        ]
-      }
-    },
     "/providers/me/profile": {
       "get": {
         "operationId": "ProvidersController_myProfile",
@@ -1249,6 +1172,83 @@
         ],
         "security": [
           {}
+        ]
+      }
+    },
+    "/presence/ping": {
+      "post": {
+        "operationId": "PresenceController_ping",
+        "summary": "Update presence (ping)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresencePingResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "presence"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
         ]
       }
     },
@@ -2136,17 +2136,17 @@
         ]
       }
     },
-    "/responses": {
+    "/offers": {
       "post": {
-        "operationId": "ResponsesController_create",
-        "summary": "Provider: respond to a request",
+        "operationId": "OffersController_create",
+        "summary": "Provider: create offer for request",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateResponseDto"
+                "$ref": "#/components/schemas/CreateOfferDto"
               }
             }
           }
@@ -2157,7 +2157,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResponseDto"
+                  "$ref": "#/components/schemas/OfferDto"
                 }
               }
             }
@@ -2234,7 +2234,7 @@
           }
         },
         "tags": [
-          "responses"
+          "offers"
         ],
         "security": [
           {
@@ -2243,10 +2243,10 @@
         ]
       }
     },
-    "/responses/my": {
+    "/offers/my": {
       "get": {
-        "operationId": "ResponsesController_my",
-        "summary": "Provider: list my responses",
+        "operationId": "OffersController_my",
+        "summary": "Provider: list my offers",
         "parameters": [
           {
             "name": "status",
@@ -2254,11 +2254,12 @@
             "in": "query",
             "description": "Optional status filter",
             "schema": {
-              "example": "pending",
+              "example": "sent",
               "enum": [
-                "pending",
+                "sent",
                 "accepted",
-                "rejected"
+                "declined",
+                "withdrawn"
               ],
               "type": "string"
             }
@@ -2272,7 +2273,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ResponseDto"
+                    "$ref": "#/components/schemas/OfferDto"
                   }
                 }
               }
@@ -2330,7 +2331,7 @@
           }
         },
         "tags": [
-          "responses"
+          "offers"
         ],
         "security": [
           {
@@ -2339,10 +2340,10 @@
         ]
       }
     },
-    "/responses/my-client": {
+    "/offers/my-client": {
       "get": {
-        "operationId": "ResponsesController_myClient",
-        "summary": "Client: list my responses (all requests)",
+        "operationId": "OffersController_myClient",
+        "summary": "Client: list my offers (all requests)",
         "parameters": [
           {
             "name": "status",
@@ -2350,11 +2351,12 @@
             "in": "query",
             "description": "Optional status filter",
             "schema": {
-              "example": "pending",
+              "example": "sent",
               "enum": [
-                "pending",
+                "sent",
                 "accepted",
-                "rejected"
+                "declined",
+                "withdrawn"
               ],
               "type": "string"
             }
@@ -2368,7 +2370,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ResponseDto"
+                    "$ref": "#/components/schemas/OfferDto"
                   }
                 }
               }
@@ -2426,7 +2428,7 @@
           }
         },
         "tags": [
-          "responses"
+          "offers"
         ],
         "security": [
           {
@@ -2435,11 +2437,10 @@
         ]
       }
     },
-    "/responses/by-request/{requestId}": {
+    "/offers/by-request/{requestId}": {
       "get": {
-        "operationId": "ResponsesController_listForRequest",
-        "summary": "Client: list responses for my request (UI)",
-        "description": "Optional filter: ?status=pending",
+        "operationId": "OffersController_listForRequest",
+        "summary": "Client: list offers for my request (UI)",
         "parameters": [
           {
             "name": "requestId",
@@ -2455,11 +2456,12 @@
             "in": "query",
             "description": "Optional status filter",
             "schema": {
-              "example": "pending",
+              "example": "sent",
               "enum": [
-                "pending",
+                "sent",
                 "accepted",
-                "rejected"
+                "declined",
+                "withdrawn"
               ],
               "type": "string"
             }
@@ -2473,7 +2475,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ResponseDto"
+                    "$ref": "#/components/schemas/OfferDto"
                   }
                 }
               }
@@ -2541,7 +2543,7 @@
           }
         },
         "tags": [
-          "responses"
+          "offers"
         ],
         "security": [
           {
@@ -2550,10 +2552,10 @@
         ]
       }
     },
-    "/responses/actions/{id}/accept": {
+    "/offers/actions/{id}/accept": {
       "patch": {
-        "operationId": "ResponsesController_accept",
-        "summary": "Client: accept provider response (match)",
+        "operationId": "OffersController_accept",
+        "summary": "Client: accept provider offer (match)",
         "parameters": [
           {
             "name": "id",
@@ -2570,7 +2572,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AcceptResponseResultDto"
+                  "$ref": "#/components/schemas/AcceptOfferResultDto"
                 }
               }
             }
@@ -2637,7 +2639,7 @@
           }
         },
         "tags": [
-          "responses"
+          "offers"
         ],
         "security": [
           {
@@ -2646,10 +2648,10 @@
         ]
       }
     },
-    "/responses/actions/{id}/reject": {
+    "/offers/actions/{id}/decline": {
       "patch": {
-        "operationId": "ResponsesController_reject",
-        "summary": "Client: reject provider response",
+        "operationId": "OffersController_decline",
+        "summary": "Client: decline provider offer",
         "parameters": [
           {
             "name": "id",
@@ -2666,7 +2668,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RejectResponseResultDto"
+                  "$ref": "#/components/schemas/RejectOfferResultDto"
                 }
               }
             }
@@ -2733,7 +2735,7 @@
           }
         },
         "tags": [
-          "responses"
+          "offers"
         ],
         "security": [
           {
@@ -5444,24 +5446,6 @@
           "ok"
         ]
       },
-      "PresencePingResponseDto": {
-        "type": "object",
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "example": true
-          },
-          "lastSeenAt": {
-            "format": "date-time",
-            "type": "string",
-            "example": "2026-02-11T10:00:00.000Z"
-          }
-        },
-        "required": [
-          "ok",
-          "lastSeenAt"
-        ]
-      },
       "ProviderProfileDto": {
         "type": "object",
         "properties": {
@@ -5626,6 +5610,24 @@
           "ratingAvg",
           "ratingCount",
           "completedJobs"
+        ]
+      },
+      "PresencePingResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          },
+          "lastSeenAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-11T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "ok",
+          "lastSeenAt"
         ]
       },
       "CreateRequestDto": {
@@ -6126,19 +6128,44 @@
           "urls"
         ]
       },
-      "CreateResponseDto": {
+      "CreateOfferDto": {
         "type": "object",
         "properties": {
           "requestId": {
             "type": "string",
             "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "message": {
+            "type": "string",
+            "example": "I can start tomorrow morning."
+          },
+          "amount": {
+            "type": "number",
+            "example": 120
+          },
+          "priceType": {
+            "type": "string",
+            "example": "fixed",
+            "enum": [
+              "fixed",
+              "estimate",
+              "hourly"
+            ]
+          },
+          "availableAt": {
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          },
+          "availabilityNote": {
+            "type": "string",
+            "example": "Can do weekends too"
           }
         },
         "required": [
           "requestId"
         ]
       },
-      "ResponseDto": {
+      "OfferDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -6162,11 +6189,42 @@
           "status": {
             "type": "string",
             "enum": [
-              "pending",
+              "sent",
               "accepted",
-              "rejected"
+              "declined",
+              "withdrawn"
             ],
-            "example": "pending"
+            "example": "sent"
+          },
+          "message": {
+            "type": "object",
+            "example": "I can start tomorrow morning.",
+            "nullable": true
+          },
+          "amount": {
+            "type": "object",
+            "example": 120,
+            "nullable": true
+          },
+          "priceType": {
+            "type": "string",
+            "example": "fixed",
+            "enum": [
+              "fixed",
+              "estimate",
+              "hourly"
+            ],
+            "nullable": true
+          },
+          "availableAt": {
+            "type": "object",
+            "example": "2026-02-01T10:00:00.000Z",
+            "nullable": true
+          },
+          "availabilityNote": {
+            "type": "object",
+            "example": "Can do weekends too",
+            "nullable": true
           },
           "createdAt": {
             "format": "date-time",
@@ -6240,38 +6298,38 @@
           "updatedAt"
         ]
       },
-      "AcceptResponseResultDto": {
+      "AcceptOfferResultDto": {
         "type": "object",
         "properties": {
           "ok": {
             "type": "boolean",
             "example": true
           },
-          "acceptedResponseId": {
+          "acceptedOfferId": {
             "type": "string",
             "example": "66f0c1a2b3c4d5e6f7a8b9ff"
           }
         },
         "required": [
           "ok",
-          "acceptedResponseId"
+          "acceptedOfferId"
         ]
       },
-      "RejectResponseResultDto": {
+      "RejectOfferResultDto": {
         "type": "object",
         "properties": {
           "ok": {
             "type": "boolean",
             "example": true
           },
-          "rejectedResponseId": {
+          "rejectedOfferId": {
             "type": "string",
             "example": "66f0c1a2b3c4d5e6f7a8b9ff"
           }
         },
         "required": [
           "ok",
-          "rejectedResponseId"
+          "rejectedOfferId"
         ]
       },
       "TimeRangeDto": {
@@ -6427,7 +6485,7 @@
           "requestId": {
             "type": "string"
           },
-          "responseId": {
+          "offerId": {
             "type": "string"
           },
           "providerUserId": {
@@ -6496,7 +6554,7 @@
         "required": [
           "id",
           "requestId",
-          "responseId",
+          "offerId",
           "startAt",
           "durationMin",
           "endAt",
@@ -6583,10 +6641,10 @@
             "example": "r1",
             "description": "Request id (string, from Requests module)"
           },
-          "responseId": {
+          "offerId": {
             "type": "string",
-            "example": "resp1",
-            "description": "Response id (string, from Responses module)"
+            "example": "offer1",
+            "description": "Offer id (string, from Offers module)"
           },
           "providerUserId": {
             "type": "string",
@@ -6611,7 +6669,7 @@
         },
         "required": [
           "requestId",
-          "responseId",
+          "offerId",
           "providerUserId",
           "startAt"
         ]

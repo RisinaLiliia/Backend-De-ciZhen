@@ -32,7 +32,7 @@ type BookingOwnership = { clientId: string; providerUserId: string };
 type BookingHistoryItem = {
   _id: unknown;
   requestId: string;
-  responseId: string;
+  offerId: string;
   providerUserId: string;
   clientId: string;
   rescheduledFromId?: unknown | null;
@@ -69,7 +69,7 @@ async createByClient(
     clientId: string,
     input: {
       requestId: string;
-      responseId: string;
+      offerId: string;
       providerUserId: string;
       startAt: string;
       durationMin?: number;
@@ -77,11 +77,11 @@ async createByClient(
     },
   ): Promise<BookingDocument> {
     const requestId = this.normalizeId(input.requestId);
-    const responseId = this.normalizeId(input.responseId);
+    const offerId = this.normalizeId(input.offerId);
     const providerUserId = this.normalizeId(input.providerUserId);
 
     if (!requestId) throw new BadRequestException('requestId is required');
-    if (!responseId) throw new BadRequestException('responseId is required');
+    if (!offerId) throw new BadRequestException('offerId is required');
     if (!providerUserId) throw new BadRequestException('providerUserId is required');
 
     const startAt = this.parseDateOrThrow(input.startAt, 'startAt');
@@ -101,7 +101,7 @@ async createByClient(
     try {
       const created = await this.bookingModel.create({
         requestId,
-        responseId,
+        offerId,
         providerUserId,
         clientId,
         startAt,
@@ -417,7 +417,7 @@ async createByClient(
               [
                 {
                   requestId: oldInTx.requestId,
-                  responseId: oldInTx.responseId,
+                  offerId: oldInTx.offerId,
                   providerUserId: oldInTx.providerUserId,
                   clientId: oldInTx.clientId,
                   startAt: newStartAt,
@@ -445,7 +445,7 @@ async createByClient(
                   { rescheduledFromId: String(oldInTx._id), status: { $in: ['confirmed', 'completed'] } },
                   {
                     requestId: oldInTx.requestId,
-                    responseId: oldInTx.responseId,
+                    offerId: oldInTx.offerId,
                     startAt: newStartAt,
                     status: { $in: ['confirmed', 'completed'] },
                   },
@@ -519,7 +519,7 @@ async createByClient(
       .select({
         _id: 1,
         requestId: 1,
-        responseId: 1,
+        offerId: 1,
         providerUserId: 1,
         clientId: 1,
       })
@@ -532,14 +532,14 @@ async createByClient(
     const all = await this.bookingModel
       .find({
         requestId: requested.requestId,
-        responseId: requested.responseId,
+        offerId: requested.offerId,
         providerUserId: requested.providerUserId,
         clientId: requested.clientId,
       })
       .select({
         _id: 1,
         requestId: 1,
-        responseId: 1,
+        offerId: 1,
         providerUserId: 1,
         clientId: 1,
         startAt: 1,

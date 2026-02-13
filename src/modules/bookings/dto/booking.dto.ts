@@ -9,7 +9,7 @@ export class BookingDto {
   requestId: string;
 
   @ApiProperty()
-  responseId: string;
+  offerId: string;
 
   @ApiPropertyOptional({ nullable: true })
   providerUserId?: string | null;

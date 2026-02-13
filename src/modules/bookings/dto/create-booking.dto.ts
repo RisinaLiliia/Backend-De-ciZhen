@@ -7,10 +7,10 @@ export class CreateBookingDto {
   @MaxLength(64)
   requestId: string;
 
-  @ApiProperty({ example: 'resp1', description: 'Response id (string, from Responses module)' })
+  @ApiProperty({ example: 'offer1', description: 'Offer id (string, from Offers module)' })
   @IsString()
   @MaxLength(64)
-  responseId: string;
+  offerId: string;
 
   @ApiProperty({ example: 'p1', description: 'Provider userId (string)' })
   @IsString()
@@ -40,4 +40,3 @@ export class CreateBookingDto {
   @MaxLength(300)
   note?: string;
 }
-

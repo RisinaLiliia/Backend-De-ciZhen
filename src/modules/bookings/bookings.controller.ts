@@ -30,7 +30,7 @@ export class BookingsController {
     return {
       id: b._id.toString(),
       requestId: b.requestId,
-      responseId: b.responseId,
+      offerId: b.offerId,
       providerUserId,
       clientId,
       startAt: new Date(b.startAt).toISOString(),
@@ -199,7 +199,7 @@ export class BookingsController {
 
     const created = await this.bookings.createByClient(user.userId, {
       requestId: dto.requestId,
-      responseId: dto.responseId,
+      offerId: dto.offerId,
       providerUserId: dto.providerUserId,
       startAt: dto.startAt,
       durationMin: dto.durationMin,

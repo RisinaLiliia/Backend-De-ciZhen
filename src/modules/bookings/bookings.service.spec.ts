@@ -133,7 +133,7 @@ describe('BookingsService (unit)', () => {
     const oldDoc: any = {
       _id: 'b1',
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId: 'p1',
       clientId: 'c1',
       startAt: farFuture,
@@ -210,7 +210,7 @@ describe('BookingsService (unit)', () => {
     const oldDoc: any = {
       _id: 'b1',
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId: 'p1',
       clientId: 'c1',
       startAt: soon,
@@ -298,7 +298,7 @@ describe('BookingsService (unit)', () => {
     const requestedLean: any = {
       _id: id2,
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId: 'p1',
       clientId: 'c1',
     };
@@ -306,7 +306,7 @@ describe('BookingsService (unit)', () => {
     const b1: any = {
       _id: id1,
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId: 'p1',
       clientId: 'c1',
       rescheduledFromId: null,
@@ -319,7 +319,7 @@ describe('BookingsService (unit)', () => {
     const b2: any = {
       _id: id2,
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId: 'p1',
       clientId: 'c1',
       rescheduledFromId: id1,
@@ -332,7 +332,7 @@ describe('BookingsService (unit)', () => {
     const b3: any = {
       _id: id3,
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId: 'p1',
       clientId: 'c1',
       rescheduledFromId: id2,

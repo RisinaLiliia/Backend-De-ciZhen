@@ -9,7 +9,7 @@ import {
   ProviderProfileDocument,
 } from '../../modules/providers/schemas/provider-profile.schema';
 import { Request, RequestDocument } from '../../modules/requests/schemas/request.schema';
-import { Response as Resp, ResponseDocument } from '../../modules/responses/schemas/response.schema';
+import { Offer, OfferDocument } from '../../modules/offers/schemas/offer.schema';
 
 import { User, UserDocument } from '../../modules/users/schemas/user.schema';
 import { hashPassword } from '../../utils/password';
@@ -33,7 +33,7 @@ async function bootstrap() {
   const userModel = app.get<Model<UserDocument>>(getModelToken(User.name));
   const providerModel = app.get<Model<ProviderProfileDocument>>(getModelToken(ProviderProfile.name));
   const requestModel = app.get<Model<RequestDocument>>(getModelToken(Request.name));
-  const responseModel = app.get<Model<ResponseDocument>>(getModelToken(Resp.name));
+  const offerModel = app.get<Model<OfferDocument>>(getModelToken(Offer.name));
 
   console.log('🌱 Seeding demo marketplace...');
 
@@ -160,25 +160,25 @@ async function bootstrap() {
   const requestId = String((req as any)._id);
 
   if ((req as any).status !== 'published') {
-    console.log(`⚠️ request is not published (${String((req as any).status)}), skip responses`);
+    console.log(`⚠️ request is not published (${String((req as any).status)}), skip offers`);
   } else {
-    const ensureResponse = async (providerUserId: string) => {
-      const exists = await responseModel.findOne({ requestId, providerUserId }).exec();
+    const ensureOffer = async (providerUserId: string) => {
+      const exists = await offerModel.findOne({ requestId, providerUserId }).exec();
       if (exists) return exists;
 
-      return responseModel.create({
+      return offerModel.create({
         requestId,
         providerUserId,
         clientUserId: clientId,
-        status: 'pending',
+        status: 'sent',
         metadata: {},
       } as any);
     };
 
-    await ensureResponse(p1Id);
-    await ensureResponse(p2Id);
+    await ensureOffer(p1Id);
+    await ensureOffer(p2Id);
 
-    console.log('✓ responses created');
+    console.log('✓ offers created');
   }
 
   console.log('✅ Demo seed completed');

@@ -53,7 +53,7 @@ describe('reviews (e2e)', () => {
 
     const booking = await bookingModel.create({
       requestId: 'r1',
-      responseId: 'resp1',
+      offerId: 'resp1',
       providerUserId: provider.userId,
       clientId: client.userId,
       startAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
@@ -88,7 +88,7 @@ describe('reviews (e2e)', () => {
 
     const booking = await bookingModel.create({
       requestId: 'r2',
-      responseId: 'resp2',
+      offerId: 'resp2',
       providerUserId: provider.userId,
       clientId: client.userId,
       startAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
@@ -123,7 +123,7 @@ describe('reviews (e2e)', () => {
 
     const booking = await bookingModel.create({
       requestId: 'r3',
-      responseId: 'resp3',
+      offerId: 'resp3',
       providerUserId: provider.userId,
       clientId: client.userId,
       startAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
