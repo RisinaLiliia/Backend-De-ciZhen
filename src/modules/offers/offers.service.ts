@@ -160,6 +160,93 @@ export class OffersService {
     }
   }
 
+  async updateForProvider(
+    providerUserId: string,
+    offerId: string,
+    input: {
+      message?: string;
+      amount?: number;
+      priceType?: 'fixed' | 'estimate' | 'hourly';
+      availableAt?: string;
+      availabilityNote?: string;
+    },
+  ): Promise<{ offer: OfferDocument; providerProfile: ProviderProfileDocument }> {
+    const id = this.normalizeId(offerId);
+    if (!id) throw new BadRequestException('offerId is required');
+    this.ensureObjectId(id, 'offerId');
+
+    const offer = await this.offerModel.findById(id).exec();
+    if (!offer) throw new NotFoundException('Offer not found');
+    if (offer.providerUserId !== providerUserId) throw new ForbiddenException('Access denied');
+    if (offer.status !== 'sent') throw new BadRequestException('Only sent offers can be edited');
+
+    const hasAnyField =
+      typeof input.amount === 'number'
+      || typeof input.message === 'string'
+      || typeof input.priceType === 'string'
+      || typeof input.availableAt === 'string'
+      || typeof input.availabilityNote === 'string';
+
+    if (!hasAnyField) {
+      throw new BadRequestException('Nothing to update');
+    }
+
+    if (typeof input.amount === 'number' && (!Number.isFinite(input.amount) || input.amount <= 0)) {
+      throw new BadRequestException('amount must be a positive number');
+    }
+
+    const nextMessage = typeof input.message === 'string' ? String(input.message).trim() : offer.message;
+    const nextAmount = typeof input.amount === 'number' ? input.amount : offer.pricing?.amount;
+    const nextType = input.priceType ?? offer.pricing?.type;
+    const nextAvailableAt = typeof input.availableAt === 'string' ? input.availableAt : offer.availability?.date;
+    const nextAvailabilityNote =
+      typeof input.availabilityNote === 'string'
+        ? String(input.availabilityNote).trim()
+        : (offer.availability?.note ?? undefined);
+
+    await this.offerModel
+      .updateOne(
+        { _id: offer._id, providerUserId, status: 'sent' },
+        {
+          $set: {
+            message: nextMessage || null,
+            pricing: {
+              amount: nextAmount,
+              type: nextType,
+            },
+            availability: nextAvailableAt || nextAvailabilityNote
+              ? {
+                  date: nextAvailableAt,
+                  note: nextAvailabilityNote || undefined,
+                }
+              : null,
+          },
+        },
+      )
+      .exec();
+
+    const updatedOffer = await this.offerModel.findById(id).exec();
+    if (!updatedOffer) throw new NotFoundException('Offer not found');
+
+    const providerProfile = await this.providerModel.findOne({ userId: providerUserId }).exec();
+    if (!providerProfile) throw new NotFoundException('Provider profile not found');
+
+    return { offer: updatedOffer, providerProfile };
+  }
+
+  async deleteForProvider(providerUserId: string, offerId: string): Promise<void> {
+    const id = this.normalizeId(offerId);
+    if (!id) throw new BadRequestException('offerId is required');
+    this.ensureObjectId(id, 'offerId');
+
+    const offer = await this.offerModel.findById(id).exec();
+    if (!offer) throw new NotFoundException('Offer not found');
+    if (offer.providerUserId !== providerUserId) throw new ForbiddenException('Access denied');
+    if (offer.status !== 'sent') throw new BadRequestException('Only sent offers can be deleted');
+
+    await this.offerModel.deleteOne({ _id: offer._id, providerUserId, status: 'sent' }).exec();
+  }
+
   async listMy(
     providerUserId: string,
     filters?: { status?: 'sent' | 'accepted' | 'declined' | 'withdrawn' },

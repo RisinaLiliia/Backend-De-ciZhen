@@ -45,6 +45,7 @@ describe('ChatsService', () => {
   });
 
   it('createOrGetThread returns existing thread', async () => {
+    requestModelMock.findById.mockReturnValue(execWrap({ _id: 'r1', clientId: 'c1' }));
     threadModelMock.findOne.mockReturnValue(execWrap({ _id: 't1' }));
 
     const res = await service.createOrGetThread({

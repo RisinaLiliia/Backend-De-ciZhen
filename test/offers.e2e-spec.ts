@@ -234,4 +234,126 @@ describe('offers (e2e)', () => {
     const updatedOffer = await offerModel.findById(offerId).exec();
     expect(updatedOffer?.status).toBe('declined');
   });
+
+  it('provider can update own sent offer', async () => {
+    const client = await registerAndGetToken(app, 'client', 'client-offer4@test.local', 'Client Offer4');
+    const provider = await registerAndGetToken(app, 'provider', 'prov-offer4@test.local', 'Provider Offer4');
+
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      {
+        userId: provider.userId,
+        status: 'active',
+        isBlocked: false,
+        cityId: 'c1',
+        serviceKeys: ['home_cleaning'],
+        basePrice: 35,
+      },
+      { upsert: true, new: true },
+    );
+
+    const req = await requestModel.create({
+      title: 'Need cleaning',
+      clientId: client.userId,
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      isRecurring: false,
+      status: 'published',
+    });
+
+    const createRes = await request(app.getHttpServer())
+      .post('/offers')
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .send({ requestId: req._id.toString(), amount: 125, message: 'Initial note' })
+      .expect(201);
+
+    const offerId = createRes.body.offer.id as string;
+
+    const updateRes = await request(app.getHttpServer())
+      .patch(`/offers/${offerId}`)
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .send({ amount: 150, message: 'Updated note', availabilityNote: 'After 18:00' })
+      .expect(200);
+
+    expect(updateRes.body.offer).toMatchObject({
+      id: offerId,
+      status: 'sent',
+      amount: 150,
+      message: 'Updated note',
+      availabilityNote: 'After 18:00',
+    });
+
+    const updatedOffer = await offerModel.findById(offerId).exec();
+    expect(updatedOffer?.pricing?.amount).toBe(150);
+    expect(updatedOffer?.message).toBe('Updated note');
+    expect(updatedOffer?.availability?.note).toBe('After 18:00');
+  });
+
+  it('provider can delete own sent offer', async () => {
+    const client = await registerAndGetToken(app, 'client', 'client-offer5@test.local', 'Client Offer5');
+    const provider = await registerAndGetToken(app, 'provider', 'prov-offer5@test.local', 'Provider Offer5');
+
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      {
+        userId: provider.userId,
+        status: 'active',
+        isBlocked: false,
+        cityId: 'c1',
+        serviceKeys: ['home_cleaning'],
+        basePrice: 35,
+      },
+      { upsert: true, new: true },
+    );
+
+    const req = await requestModel.create({
+      title: 'Need cleaning',
+      clientId: client.userId,
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      isRecurring: false,
+      status: 'published',
+    });
+
+    const createRes = await request(app.getHttpServer())
+      .post('/offers')
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .send({ requestId: req._id.toString(), amount: 118 })
+      .expect(201);
+
+    const offerId = createRes.body.offer.id as string;
+
+    await request(app.getHttpServer())
+      .delete(`/offers/${offerId}`)
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .expect(200)
+      .expect({ ok: true, deletedOfferId: offerId });
+
+    const deletedOffer = await offerModel.findById(offerId).exec();
+    expect(deletedOffer).toBeNull();
+
+    const myRes = await request(app.getHttpServer())
+      .get('/offers/my')
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .query({ status: 'sent' })
+      .expect(200);
+
+    expect(myRes.body).toEqual([]);
+  });
 });

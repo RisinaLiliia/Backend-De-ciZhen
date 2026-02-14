@@ -49,7 +49,11 @@ describe('reviews (e2e)', () => {
     const client = await registerAndGetToken(app, 'client', 'client-rev@test.local', 'Client Rev');
     const provider = await registerAndGetToken(app, 'provider', 'prov-rev@test.local', 'Provider Rev');
 
-    await providerProfileModel.create({ userId: provider.userId, status: 'active', isBlocked: false });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      { userId: provider.userId, status: 'active', isBlocked: false },
+      { upsert: true, new: true },
+    );
 
     const booking = await bookingModel.create({
       requestId: 'r1',
@@ -84,7 +88,11 @@ describe('reviews (e2e)', () => {
     const client = await registerAndGetToken(app, 'client', 'client-rev2@test.local', 'Client Rev2');
     const provider = await registerAndGetToken(app, 'provider', 'prov-rev2@test.local', 'Provider Rev2');
 
-    await providerProfileModel.create({ userId: provider.userId, status: 'active', isBlocked: false });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      { userId: provider.userId, status: 'active', isBlocked: false },
+      { upsert: true, new: true },
+    );
 
     const booking = await bookingModel.create({
       requestId: 'r2',
@@ -119,7 +127,11 @@ describe('reviews (e2e)', () => {
     const client = await registerAndGetToken(app, 'client', 'client-rev3@test.local', 'Client Rev3');
     const provider = await registerAndGetToken(app, 'provider', 'prov-rev3@test.local', 'Provider Rev3');
 
-    await providerProfileModel.create({ userId: provider.userId, status: 'active', isBlocked: false });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      { userId: provider.userId, status: 'active', isBlocked: false },
+      { upsert: true, new: true },
+    );
 
     const booking = await bookingModel.create({
       requestId: 'r3',

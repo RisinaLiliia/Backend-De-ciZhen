@@ -87,35 +87,42 @@ describe('favorites requests (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
-      .post(`/favorites/requests/${requestId}`)
+      .post('/favorites')
       .set('Authorization', `Bearer ${provider.accessToken}`)
+      .send({ type: 'request', targetId: requestId })
       .expect(201);
 
     const listRes = await request(app.getHttpServer())
-      .get('/favorites/requests')
+      .get('/favorites')
+      .query({ type: 'request' })
       .set('Authorization', `Bearer ${provider.accessToken}`)
       .expect(200);
 
     expect(listRes.body.find((x: any) => x.id === requestId)).toBeTruthy();
 
     await request(app.getHttpServer())
-      .delete(`/favorites/requests/${requestId}`)
+      .delete('/favorites')
+      .query({ type: 'request', targetId: requestId })
       .set('Authorization', `Bearer ${provider.accessToken}`)
       .expect(200);
 
     const listAfter = await request(app.getHttpServer())
-      .get('/favorites/requests')
+      .get('/favorites')
+      .query({ type: 'request' })
       .set('Authorization', `Bearer ${provider.accessToken}`)
       .expect(200);
 
     expect(listAfter.body.find((x: any) => x.id === requestId)).toBeFalsy();
   });
 
-  it('client cannot add favorites (403)', async () => {
+  it('client can add favorites for requests', async () => {
     const client = await registerAndGetToken(app, 'client', 'client-fav2@test.local', 'Client Fav 2');
-    await request(app.getHttpServer())
-      .post('/favorites/requests/507f1f77bcf86cd799439011')
+    const addRes = await request(app.getHttpServer())
+      .post('/favorites')
       .set('Authorization', `Bearer ${client.accessToken}`)
-      .expect(403);
+      .send({ type: 'request', targetId: '507f1f77bcf86cd799439011' })
+      .expect(201);
+
+    expect(addRes.body).toEqual({ ok: true });
   });
 });

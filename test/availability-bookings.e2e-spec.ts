@@ -54,7 +54,11 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
       providerProfileModel.deleteMany({}),
     ]);
 
-    await providerProfileModel.create({ userId: providerUserId, displayName: 'Test Provider' });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: providerUserId },
+      { userId: providerUserId, displayName: 'Test Provider' },
+      { upsert: true, new: true },
+    );
 
     await availability.updateMy(providerUserId, {
       timeZone: 'UTC',
@@ -237,7 +241,11 @@ describe('v6.1 availability + bookings (e2e + services in one app)', () => {
   const providerId = String(providerReg.userId);
   const clientId = String(clientReg.userId);
 
-  await providerProfileModel.create({ userId: providerId, displayName: 'HTTP Provider' });
+  await providerProfileModel.findOneAndUpdate(
+    { userId: providerId },
+    { userId: providerId, displayName: 'HTTP Provider' },
+    { upsert: true, new: true },
+  );
 
   await availability.updateMy(providerId, {
     timeZone: 'UTC',

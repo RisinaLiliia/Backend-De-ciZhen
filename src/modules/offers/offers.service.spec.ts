@@ -21,6 +21,7 @@ describe('OffersService', () => {
     create: jest.fn(),
     findById: jest.fn(),
     findOne: jest.fn(),
+    deleteOne: jest.fn(),
     updateMany: jest.fn(),
     updateOne: jest.fn(),
     countDocuments: jest.fn(),
@@ -52,6 +53,7 @@ describe('OffersService', () => {
     jest.clearAllMocks();
 
     offerModelMock.countDocuments.mockReturnValue(execWrap(0));
+    offerModelMock.deleteOne.mockReturnValue(execWrap({ deletedCount: 1 }));
     providerModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
     userModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
 
@@ -229,5 +231,63 @@ describe('OffersService', () => {
     await expect(service.declineForClient('c1', '507f1f77bcf86cd799439012')).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('updateForProvider updates own sent offer', async () => {
+    const offerDoc: any = {
+      _id: 'offer1',
+      requestId: '507f1f77bcf86cd799439011',
+      providerUserId: 'p1',
+      status: 'sent',
+      message: 'old',
+      pricing: { amount: 100, type: 'fixed' },
+      availability: null,
+    };
+
+    offerModelMock.findById
+      .mockReturnValueOnce(execWrap(offerDoc))
+      .mockReturnValueOnce(execWrap({ ...offerDoc, message: 'new', pricing: { amount: 120, type: 'fixed' } }));
+    offerModelMock.updateOne.mockReturnValue(execWrap({ modifiedCount: 1 }));
+    providerModelMock.findOne.mockReturnValue(execWrap({
+      _id: 'prov1',
+      userId: 'p1',
+      status: 'draft',
+      isBlocked: false,
+      serviceKeys: ['home_cleaning'],
+    }));
+
+    const res: any = await service.updateForProvider('p1', '507f1f77bcf86cd799439012', {
+      amount: 120,
+      message: 'new',
+    });
+
+    expect(offerModelMock.updateOne).toHaveBeenCalled();
+    expect(res.offer.pricing.amount).toBe(120);
+    expect(res.providerProfile.userId).toBe('p1');
+  });
+
+  it('updateForProvider forbids editing foreign offer', async () => {
+    offerModelMock.findById.mockReturnValue(execWrap({
+      _id: 'offer1',
+      providerUserId: 'other',
+      status: 'sent',
+      pricing: { amount: 100, type: 'fixed' },
+      availability: null,
+    }));
+
+    await expect(service.updateForProvider('p1', '507f1f77bcf86cd799439012', { amount: 120 })).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('deleteForProvider removes own sent offer', async () => {
+    offerModelMock.findById.mockReturnValue(execWrap({
+      _id: 'offer1',
+      providerUserId: 'p1',
+      status: 'sent',
+    }));
+
+    await service.deleteForProvider('p1', '507f1f77bcf86cd799439012');
+    expect(offerModelMock.deleteOne).toHaveBeenCalledWith({ _id: 'offer1', providerUserId: 'p1', status: 'sent' });
   });
 });

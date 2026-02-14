@@ -49,6 +49,6 @@ describe('FavoritesController (unit)', () => {
       type: 'request',
     } as any);
     expect(favoritesMock.listByType).toHaveBeenCalledWith('u1', 'request');
-    expect(res).toEqual([{ id: 'r1' }]);
+    expect(res).toEqual([expect.objectContaining({ id: 'r1' })]);
   });
 });

@@ -47,7 +47,11 @@ describe('v6.2 bookings /my (e2e)', () => {
   }
 
   async function ensureProviderHasAvailability(providerId: string) {
-    await providerProfileModel.create({ userId: providerId, displayName: `Provider ${providerId}` });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: providerId },
+      { userId: providerId, displayName: `Provider ${providerId}` },
+      { upsert: true, new: true },
+    );
 
     await availability.updateMy(providerId, {
       timeZone: 'UTC',

@@ -9,6 +9,8 @@ describe('OffersController (unit)', () => {
 
   const svcMock = {
     createForProvider: jest.fn(),
+    updateForProvider: jest.fn(),
+    deleteForProvider: jest.fn(),
     listMy: jest.fn(),
     listMyClient: jest.fn(),
     listByRequestForClient: jest.fn(),
@@ -81,6 +83,48 @@ describe('OffersController (unit)', () => {
 
     expect(svcMock.listMyClient).toHaveBeenCalledWith('c1', { status: 'sent' });
     expect(res[0]).toEqual(expect.objectContaining({ id: 'offer1', status: 'sent' }));
+  });
+
+  it('update returns dto', async () => {
+    svcMock.updateForProvider.mockResolvedValue({
+      offer: {
+        _id: { toString: () => 'offer1' },
+        requestId: 'r1',
+        providerUserId: 'p1',
+        clientUserId: 'c1',
+        status: 'sent',
+        pricing: { amount: 150, type: 'fixed' },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      providerProfile: {
+        _id: { toString: () => 'prof1' },
+        userId: 'p1',
+        status: 'draft',
+        isBlocked: false,
+        serviceKeys: ['home_cleaning'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    const res = await controller.update(
+      { userId: 'p1', role: 'provider' } as any,
+      'offer1',
+      { amount: 150 } as any,
+    );
+
+    expect(svcMock.updateForProvider).toHaveBeenCalledWith('p1', 'offer1', { amount: 150 });
+    expect(res.offer).toEqual(expect.objectContaining({ id: 'offer1', amount: 150 }));
+  });
+
+  it('remove calls service and returns ok', async () => {
+    svcMock.deleteForProvider.mockResolvedValue(undefined);
+
+    const res = await controller.remove({ userId: 'p1', role: 'provider' } as any, 'offer9');
+
+    expect(svcMock.deleteForProvider).toHaveBeenCalledWith('p1', 'offer9');
+    expect(res).toEqual({ ok: true, deletedOfferId: 'offer9' });
   });
 
   it('my returns actor offers', async () => {
