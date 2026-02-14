@@ -1,5 +1,5 @@
 // src/modules/offers/offers.controller.ts
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -13,6 +13,8 @@ import { RejectOfferResultDto } from './dto/reject-offer.dto';
 import { ApiErrors } from '../../common/swagger/api-errors.decorator';
 import { CreateOfferResponseDto } from './dto/create-offer-response.dto';
 import { ProviderProfileDto } from '../providers/dto/provider-profile.dto';
+import { UpdateOfferDto } from './dto/update-offer.dto';
+import { DeleteOfferResultDto } from './dto/delete-offer.dto';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
@@ -91,6 +93,48 @@ export class OffersController {
       offer: this.toDto(created.offer, user),
       providerProfile: this.toProviderProfileDto(created.providerProfile),
     };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Provider: update own offer' })
+  @ApiParam({ name: 'id', required: true })
+  @ApiOkResponse({ type: CreateOfferResponseDto })
+  @ApiErrors({ conflict: false })
+  async update(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') offerId: string,
+    @Body() dto: UpdateOfferDto,
+  ): Promise<CreateOfferResponseDto> {
+    if (user.role !== 'provider' && user.role !== 'admin' && user.role !== 'client') {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const updated = await this.offers.updateForProvider(user.userId, offerId, dto);
+    return {
+      offer: this.toDto(updated.offer, user),
+      providerProfile: this.toProviderProfileDto(updated.providerProfile),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Provider: delete own offer' })
+  @ApiParam({ name: 'id', required: true })
+  @ApiOkResponse({ type: DeleteOfferResultDto })
+  @ApiErrors({ conflict: false })
+  async remove(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') offerId: string,
+  ): Promise<DeleteOfferResultDto> {
+    if (user.role !== 'provider' && user.role !== 'admin' && user.role !== 'client') {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.offers.deleteForProvider(user.userId, offerId);
+    return { ok: true, deletedOfferId: offerId };
   }
 
   @UseGuards(JwtAuthGuard)

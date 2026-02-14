@@ -60,7 +60,7 @@ describe('chats (e2e)', () => {
     });
   });
 
-  it('provider can create chat, list my chats, and client can fetch by id', async () => {
+  it('provider can create thread, list inbox, and client can fetch messages', async () => {
     const client = await registerAndGetToken(app, 'client', 'client-chat-1@test.local', 'Client Chat');
     const provider = await registerAndGetToken(app, 'provider', 'provider-chat-1@test.local', 'Provider Chat');
 
@@ -82,11 +82,10 @@ describe('chats (e2e)', () => {
     expect(requestId).toBeTruthy();
 
     const createChatRes = await request(app.getHttpServer())
-      .post('/chats')
+      .post('/chat/threads')
       .set('Authorization', `Bearer ${provider.accessToken}`)
       .send({
         requestId,
-        clientId: client.userId,
         providerUserId: provider.userId,
       })
       .expect(201);
@@ -95,23 +94,25 @@ describe('chats (e2e)', () => {
     expect(chatId).toBeTruthy();
 
     const listRes = await request(app.getHttpServer())
-      .get('/chats/my')
+      .get('/chat/inbox')
       .set('Authorization', `Bearer ${provider.accessToken}`)
       .expect(200);
 
     expect(listRes.body.find((c: any) => c.id === chatId)).toBeTruthy();
 
+    await request(app.getHttpServer())
+      .post(`/chat/threads/${chatId}/messages`)
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .send({ text: 'Hello from provider' })
+      .expect(201);
+
     const getByIdRes = await request(app.getHttpServer())
-      .get(`/chats/${chatId}`)
+      .get(`/chat/threads/${chatId}/messages`)
       .set('Authorization', `Bearer ${client.accessToken}`)
       .expect(200);
 
-    expect(getByIdRes.body).toMatchObject({
-      id: chatId,
-      requestId,
-      clientId: client.userId,
-      providerUserId: provider.userId,
-    });
+    expect(Array.isArray(getByIdRes.body)).toBe(true);
+    expect(getByIdRes.body[0]).toMatchObject({ threadId: chatId, text: 'Hello from provider' });
   });
 
   it('forbids access to chat for non-participant', async () => {
@@ -136,11 +137,10 @@ describe('chats (e2e)', () => {
     const requestId = createReq.body?.id;
 
     const createChatRes = await request(app.getHttpServer())
-      .post('/chats')
+      .post('/chat/threads')
       .set('Authorization', `Bearer ${provider.accessToken}`)
       .send({
         requestId,
-        clientId: client.userId,
         providerUserId: provider.userId,
       })
       .expect(201);
@@ -148,21 +148,35 @@ describe('chats (e2e)', () => {
     const chatId = createChatRes.body?.id;
 
     await request(app.getHttpServer())
-      .get(`/chats/${chatId}`)
+      .get(`/chat/threads/${chatId}/messages`)
       .set('Authorization', `Bearer ${other.accessToken}`)
       .expect(403);
   });
 
-  it('client cannot create chat for another clientId (403)', async () => {
-    const client = await registerAndGetToken(app, 'client', 'client-chat-4@test.local', 'Client Chat 4');
+  it('client cannot create chat for another client request (403)', async () => {
+    const ownerClient = await registerAndGetToken(app, 'client', 'client-chat-4@test.local', 'Client Chat 4');
+    const foreignClient = await registerAndGetToken(app, 'client', 'client-chat-5@test.local', 'Client Chat 5');
     const provider = await registerAndGetToken(app, 'provider', 'provider-chat-4@test.local', 'Provider Chat 4');
 
-    await request(app.getHttpServer())
-      .post('/chats')
-      .set('Authorization', `Bearer ${client.accessToken}`)
+    const createReq = await request(app.getHttpServer())
+      .post('/requests/my')
+      .set('Authorization', `Bearer ${ownerClient.accessToken}`)
       .send({
-        requestId: '507f1f77bcf86cd799439011',
-        clientId: '507f1f77bcf86cd799439012',
+        title: 'Owned request',
+        serviceKey,
+        cityId,
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/chat/threads')
+      .set('Authorization', `Bearer ${foreignClient.accessToken}`)
+      .send({
+        requestId: createReq.body?.id,
         providerUserId: provider.userId,
       })
       .expect(403);

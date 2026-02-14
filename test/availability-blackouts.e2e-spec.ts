@@ -44,7 +44,11 @@ describe('availability blackouts (e2e)', () => {
   it('provider can update availability', async () => {
     const provider = await registerAndGetToken(app, 'provider', 'prov-avail@test.local', 'Provider Avail');
 
-    await providerProfileModel.create({ userId: provider.userId, status: 'active', isBlocked: false });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      { userId: provider.userId, status: 'active', isBlocked: false },
+      { upsert: true, new: true },
+    );
 
     await request(app.getHttpServer())
       .patch('/availability/me')
@@ -73,7 +77,11 @@ describe('availability blackouts (e2e)', () => {
   it('provider can manage blackouts', async () => {
     const provider = await registerAndGetToken(app, 'provider', 'prov-blackout@test.local', 'Provider Blackout');
 
-    await providerProfileModel.create({ userId: provider.userId, status: 'active', isBlocked: false });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      { userId: provider.userId, status: 'active', isBlocked: false },
+      { upsert: true, new: true },
+    );
 
     const startAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const endAt = new Date(startAt.getTime() + 2 * 60 * 60 * 1000);
@@ -118,7 +126,11 @@ describe('availability blackouts (e2e)', () => {
 
   it('GET /availability/providers/:providerUserId/slots returns slots (HTTP)', async () => {
     const provider = await registerAndGetToken(app, 'provider', 'prov-slots@test.local', 'Provider Slots');
-    await providerProfileModel.create({ userId: provider.userId, status: 'active', isBlocked: false });
+    await providerProfileModel.findOneAndUpdate(
+      { userId: provider.userId },
+      { userId: provider.userId, status: 'active', isBlocked: false },
+      { upsert: true, new: true },
+    );
 
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const isoDay = tomorrow.toISOString().slice(0, 10);
