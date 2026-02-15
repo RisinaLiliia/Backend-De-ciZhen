@@ -354,6 +354,112 @@ describe('RequestsController (unit)', () => {
     expect(res).toEqual(expect.objectContaining({ id: 'r2', status: 'draft' }));
   });
 
+  it('createMy creates draft for provider too (dual-role user flow)', async () => {
+    svcMock.createForClient.mockResolvedValue({
+      _id: { toString: () => 'r2p' },
+      title: 'Test',
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: new Date('2026-02-01T10:00:00.000Z'),
+      isRecurring: false,
+      comment: null,
+      description: 'details',
+      photos: [],
+      imageUrl: null,
+      tags: [],
+      status: 'draft',
+      createdAt: new Date('2026-01-28T10:00:00.000Z'),
+    });
+
+    const res = await controller.createMy(
+      { userId: 'provider-1', role: 'provider' } as any,
+      {
+        title: 'Test',
+        serviceKey: 'home_cleaning',
+        cityId: 'c1',
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+      } as any,
+    );
+
+    expect(svcMock.createForClient).toHaveBeenCalledWith(expect.anything(), 'provider-1');
+    expect(res).toEqual(expect.objectContaining({ id: 'r2p', status: 'draft' }));
+  });
+
+  it('createMy publishes immediately when publishNow=true', async () => {
+    svcMock.createForClient.mockResolvedValue({
+      _id: { toString: () => 'r4' },
+      title: 'Draft',
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: new Date('2026-02-01T10:00:00.000Z'),
+      isRecurring: false,
+      comment: null,
+      description: 'details',
+      photos: [],
+      imageUrl: null,
+      tags: [],
+      status: 'draft',
+      createdAt: new Date('2026-01-28T10:00:00.000Z'),
+    });
+    svcMock.publishForClient.mockResolvedValue({
+      _id: { toString: () => 'r4' },
+      title: 'Draft',
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: new Date('2026-02-01T10:00:00.000Z'),
+      isRecurring: false,
+      comment: null,
+      description: 'details',
+      photos: [],
+      imageUrl: null,
+      tags: [],
+      status: 'published',
+      createdAt: new Date('2026-01-28T10:00:00.000Z'),
+    });
+
+    const res = await controller.createMy(
+      { userId: 'u1', role: 'client' } as any,
+      {
+        title: 'Test',
+        serviceKey: 'home_cleaning',
+        cityId: 'c1',
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+        publishNow: true,
+      } as any,
+    );
+
+    expect(svcMock.createForClient).toHaveBeenCalledWith(expect.anything(), 'u1');
+    expect(svcMock.publishForClient).toHaveBeenCalledWith('u1', 'r4');
+    expect(res).toEqual(expect.objectContaining({ id: 'r4', status: 'published' }));
+  });
+
   it('uploadMyPhotos returns urls for client', async () => {
     uploadsMock.uploadImages.mockResolvedValue([
       { url: 'https://cdn.example.com/req/1.jpg' },

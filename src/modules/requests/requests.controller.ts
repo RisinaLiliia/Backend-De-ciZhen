@@ -1,5 +1,5 @@
 // src/modules/requests/requests.controller.ts
-import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -307,17 +307,13 @@ export class RequestsController {
   @UseGuards(JwtAuthGuard)
   @Get('my')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Client: list my requests' })
+  @ApiOperation({ summary: 'User: list my requests' })
   @ApiOkResponse({ type: RequestResponseDto, isArray: true })
   @ApiErrors({ conflict: false, notFound: false })
   async my(
     @CurrentUser() user: CurrentUserPayload,
     @Query() q: RequestsMyQueryDto,
   ): Promise<RequestResponseDto[]> {
-    if (user.role !== 'client') {
-      throw new ForbiddenException('Access denied');
-    }
-
     const filters = this.requests.normalizeFilters(q);
     const items = await this.requests.listMyClient(user.userId, filters);
     return items.map((x) => this.toDto(x));
@@ -327,8 +323,8 @@ export class RequestsController {
   @Post('my')
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Client: create my request (draft)',
-    description: 'Creates a request for an authenticated client. Default status: draft.',
+    summary: 'User: create my request (draft)',
+    description: 'Creates a request for an authenticated user. Default status: draft.',
   })
   @ApiExtraModels(RequestResponseDto)
   @ApiCreatedResponse({
@@ -367,11 +363,11 @@ export class RequestsController {
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateRequestDto,
   ): Promise<RequestResponseDto> {
-    if (user.role !== 'client') {
-      throw new ForbiddenException('Access denied');
-    }
-
     const created = await this.requests.createForClient(dto, user.userId);
+    if (dto.publishNow) {
+      const published = await this.requests.publishForClient(user.userId, created._id.toString());
+      return this.toDto(published);
+    }
     return this.toDto(created);
   }
 
@@ -391,7 +387,7 @@ export class RequestsController {
       },
     },
   })
-  @ApiOperation({ summary: 'Client: upload request photos' })
+  @ApiOperation({ summary: 'User: upload request photos' })
   @ApiOkResponse({ type: RequestPhotosUploadResponseDto })
   @ApiErrors()
   @UseInterceptors(FileFieldsInterceptor([{ name: 'photos', maxCount: 8 }], IMAGE_MULTER_OPTIONS))
@@ -399,7 +395,6 @@ export class RequestsController {
     @CurrentUser() user: CurrentUserPayload,
     @UploadedFiles() files?: { photos?: Express.Multer.File[] },
   ): Promise<RequestPhotosUploadResponseDto> {
-    if (user.role !== 'client') throw new ForbiddenException('Access denied');
     const photos = files?.photos ?? [];
     if (photos.length === 0) return { urls: [] };
 
@@ -415,7 +410,7 @@ export class RequestsController {
   @UseGuards(JwtAuthGuard)
   @Post('my/:requestId/publish')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Client: publish my draft request' })
+  @ApiOperation({ summary: 'User: publish my draft request' })
   @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
   @ApiExtraModels(RequestResponseDto)
   @ApiOkResponse({
@@ -455,10 +450,6 @@ export class RequestsController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('requestId') requestId: string,
   ): Promise<RequestResponseDto> {
-    if (user.role !== 'client') {
-      throw new ForbiddenException('Access denied');
-    }
-
     const updated = await this.requests.publishForClient(user.userId, requestId);
     return this.toDto(updated);
   }

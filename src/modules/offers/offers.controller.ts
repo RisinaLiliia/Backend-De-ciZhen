@@ -155,17 +155,13 @@ export class OffersController {
   @UseGuards(JwtAuthGuard)
   @Get('my-client')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Client: list my offers (all requests)' })
+  @ApiOperation({ summary: 'User: list my offers (all requests)' })
   @ApiOkResponse({ type: OfferDto, isArray: true })
   @ApiErrors({ conflict: false, notFound: false })
   async myClient(
     @CurrentUser() user: CurrentUserPayload,
     @Query() q: OffersQueryDto,
   ): Promise<OfferDto[]> {
-    if (user.role !== 'client') {
-      throw new ForbiddenException('Access denied');
-    }
-
     const items = await this.offers.listMyClient(user.userId, { status: q.status });
     return items.map((o: any) => this.toDto(o, user));
   }
@@ -173,7 +169,7 @@ export class OffersController {
   @UseGuards(JwtAuthGuard)
   @Get('by-request/:requestId')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Client: list offers for my request (UI)' })
+  @ApiOperation({ summary: 'User: list offers for my request (UI)' })
   @ApiParam({ name: 'requestId', required: true })
   @ApiOkResponse({ type: OfferDto, isArray: true })
   @ApiErrors({ conflict: false })
@@ -182,10 +178,6 @@ export class OffersController {
     @Param('requestId') requestId: string,
     @Query() q: OffersQueryDto,
   ): Promise<OfferDto[]> {
-    if (user.role !== 'client' && user.role !== 'admin') {
-      throw new ForbiddenException('Access denied');
-    }
-
     const items = await this.offers.listByRequestForClient(user.userId, requestId, { status: q.status });
     return items.map((o: any) => this.toDto(o, user));
   }
@@ -193,15 +185,11 @@ export class OffersController {
   @UseGuards(JwtAuthGuard)
   @Patch('actions/:id/accept')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Client: accept provider offer (match)' })
+  @ApiOperation({ summary: 'User: accept provider offer (match)' })
   @ApiParam({ name: 'id', required: true })
   @ApiOkResponse({ type: AcceptOfferResultDto })
   @ApiErrors({ conflict: false })
   async accept(@CurrentUser() user: CurrentUserPayload, @Param('id') offerId: string): Promise<AcceptOfferResultDto> {
-    if (user.role !== 'client' && user.role !== 'admin') {
-      throw new ForbiddenException('Access denied');
-    }
-
     await this.offers.acceptForClient(user.userId, offerId);
     return { ok: true, acceptedOfferId: offerId };
   }
@@ -209,15 +197,11 @@ export class OffersController {
   @UseGuards(JwtAuthGuard)
   @Patch('actions/:id/decline')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Client: decline provider offer' })
+  @ApiOperation({ summary: 'User: decline provider offer' })
   @ApiParam({ name: 'id', required: true })
   @ApiOkResponse({ type: RejectOfferResultDto })
   @ApiErrors({ conflict: false })
   async decline(@CurrentUser() user: CurrentUserPayload, @Param('id') offerId: string): Promise<RejectOfferResultDto> {
-    if (user.role !== 'client' && user.role !== 'admin') {
-      throw new ForbiddenException('Access denied');
-    }
-
     await this.offers.declineForClient(user.userId, offerId);
     return { ok: true, rejectedOfferId: offerId };
   }

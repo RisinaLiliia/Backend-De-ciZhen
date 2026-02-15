@@ -85,6 +85,14 @@ describe('OffersController (unit)', () => {
     expect(res[0]).toEqual(expect.objectContaining({ id: 'offer1', status: 'sent' }));
   });
 
+  it('provider role can access myClient list in dual-role flow', async () => {
+    svcMock.listMyClient.mockResolvedValue([]);
+
+    await controller.myClient({ userId: 'p1', role: 'provider' } as any, { status: 'sent' } as any);
+
+    expect(svcMock.listMyClient).toHaveBeenCalledWith('p1', { status: 'sent' });
+  });
+
   it('update returns dto', async () => {
     svcMock.updateForProvider.mockResolvedValue({
       offer: {
@@ -178,6 +186,14 @@ describe('OffersController (unit)', () => {
     expect(res).toEqual({ ok: true, acceptedOfferId: 'offer4' });
   });
 
+  it('accept allows provider role in dual-role flow (ownership checked in service)', async () => {
+    svcMock.acceptForClient.mockResolvedValue(undefined);
+
+    await controller.accept({ userId: 'p1', role: 'provider' } as any, 'offer4');
+
+    expect(svcMock.acceptForClient).toHaveBeenCalledWith('p1', 'offer4');
+  });
+
   it('decline calls service and returns ok', async () => {
     svcMock.declineForClient.mockResolvedValue(undefined);
 
@@ -185,5 +201,13 @@ describe('OffersController (unit)', () => {
 
     expect(svcMock.declineForClient).toHaveBeenCalledWith('c1', 'offer5');
     expect(res).toEqual({ ok: true, rejectedOfferId: 'offer5' });
+  });
+
+  it('decline allows provider role in dual-role flow (ownership checked in service)', async () => {
+    svcMock.declineForClient.mockResolvedValue(undefined);
+
+    await controller.decline({ userId: 'p1', role: 'provider' } as any, 'offer5');
+
+    expect(svcMock.declineForClient).toHaveBeenCalledWith('p1', 'offer5');
   });
 });

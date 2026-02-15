@@ -18,6 +18,15 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreateRequestDto {
+  @ApiPropertyOptional({
+    example: false,
+    description: 'If true, request is published immediately after creation',
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  publishNow?: boolean;
+
   @ApiProperty({ example: 'Zwei IKEA Pax Schränke aufbauen' })
   @IsString()
   @MaxLength(120)
