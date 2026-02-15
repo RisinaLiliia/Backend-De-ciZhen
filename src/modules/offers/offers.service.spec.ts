@@ -163,6 +163,29 @@ describe('OffersService', () => {
     );
   });
 
+  it('createForProvider allows offer even when provider city differs from request city', async () => {
+    providerModelMock.findOne
+      .mockReturnValueOnce(execWrap({ _id: 'prov1', userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }))
+      .mockReturnValueOnce(execWrap({ _id: 'prov1', userId: 'p1', isBlocked: false, status: 'active', serviceKeys: ['home_cleaning'], cityId: 'Berlin' }));
+    requestModelMock.findById.mockReturnValue(
+      execWrap({ _id: '507f1f77bcf86cd799439011', clientId: 'c1', status: 'published', cityId: 'Munich', serviceKey: 'home_cleaning' }),
+    );
+    offerModelMock.create.mockResolvedValue({
+      _id: 'x',
+      requestId: '507f1f77bcf86cd799439011',
+      providerUserId: 'p1',
+      clientUserId: 'c1',
+      status: 'sent',
+    });
+
+    const res: any = await service.createForProvider('p1', {
+      requestId: '507f1f77bcf86cd799439011',
+      amount: 120,
+    });
+
+    expect(res.offer.status).toBe('sent');
+  });
+
   it('createForProvider requires positive amount', async () => {
     await expect(service.createForProvider('p1', { requestId: '507f1f77bcf86cd799439011', amount: 0 })).rejects.toBeInstanceOf(
       BadRequestException,

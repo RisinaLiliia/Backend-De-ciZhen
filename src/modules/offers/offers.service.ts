@@ -125,10 +125,6 @@ export class OffersService {
       .updateOne({ _id: providerUserId, role: { $ne: 'admin' } }, { $set: { role: 'provider' } })
       .exec();
 
-    if (providerDoc?.cityId && req.cityId && providerDoc.cityId !== req.cityId) {
-      throw new ForbiddenException('Provider city does not match request city');
-    }
-
     try {
       const offer = await this.offerModel.create({
         requestId: rid,
