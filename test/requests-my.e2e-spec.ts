@@ -128,13 +128,61 @@ describe('v6.2 requests /my publish flow (e2e)', () => {
     expect(myPublished.body.find((x: any) => x.id === requestId)).toBeTruthy();
   });
 
-  it('POST /requests/my/:id/publish rejects non-client role', async () => {
+  it('POST /requests/my with publishNow=true publishes immediately', async () => {
+    const client = await registerAndGetToken(app, 'client', 'client-req-now@test.local', 'Client Now');
+
+    const createRes = await request(app.getHttpServer())
+      .post('/requests/my')
+      .set('Authorization', `Bearer ${client.accessToken}`)
+      .send({
+        title: 'Immediate publish request',
+        serviceKey,
+        cityId,
+        propertyType: 'apartment',
+        area: 60,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+        publishNow: true,
+      })
+      .expect(201);
+
+    const requestId = createRes.body?.id;
+    expect(requestId).toBeTruthy();
+    expect(createRes.body?.status).toBe('published');
+
+    const publicAfter = await request(app.getHttpServer())
+      .get('/requests/public')
+      .query({ cityId, serviceKey })
+      .expect(200);
+
+    expect(publicAfter.body.items.find((x: any) => x.id === requestId)).toBeTruthy();
+  });
+
+  it('POST /requests/my/:id/publish allows provider to publish own draft (dual-role)', async () => {
     const provider = await registerAndGetToken(app, 'provider', 'provider-req1@test.local', 'Provider One');
 
-    await request(app.getHttpServer())
-      .post('/requests/my/r1/publish')
+    const created = await request(app.getHttpServer())
+      .post('/requests/my')
       .set('Authorization', `Bearer ${provider.accessToken}`)
-      .expect(403);
+      .send({
+        title: 'Provider draft request',
+        serviceKey,
+        cityId,
+        propertyType: 'apartment',
+        area: 45,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+      })
+      .expect(201);
+
+    const requestId = created.body?.id;
+    expect(requestId).toBeTruthy();
+    expect(created.body?.status).toBe('draft');
+
+    await request(app.getHttpServer())
+      .post(`/requests/my/${requestId}/publish`)
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .expect(200);
   });
 
   it('POST /requests/my/:id/publish returns 404 for чужой запрос', async () => {
