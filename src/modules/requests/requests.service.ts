@@ -5,6 +5,7 @@ import type { Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { Request, RequestDocument, RequestStatus } from './schemas/request.schema';
 import type { CreateRequestDto } from './dto/create-request.dto';
+import type { UpdateMyRequestDto } from './dto/update-my-request.dto';
 import { CatalogServicesService } from '../catalog/services/services.service';
 import { CitiesService } from '../catalog/cities/cities.service';
 
@@ -458,5 +459,87 @@ export class RequestsService {
     const offset = Math.max(filters?.offset ?? 0, 0);
 
     return this.model.find(q).sort({ createdAt: -1 }).skip(offset).limit(limit).exec();
+  }
+
+  async updateMyClientRequest(
+    clientId: string,
+    requestId: string,
+    dto: UpdateMyRequestDto,
+  ): Promise<RequestDocument> {
+    const rid = String(requestId ?? '').trim();
+    if (!rid) throw new BadRequestException('requestId is required');
+    this.ensureObjectId(rid, 'requestId');
+
+    const existing = await this.model.findById(rid).exec();
+    if (!existing || String(existing.clientId) !== clientId) {
+      throw new NotFoundException('Request not found');
+    }
+    if (existing.status === 'matched' || existing.status === 'closed' || existing.status === 'cancelled') {
+      throw new ConflictException('Only draft, published or paused requests can be updated');
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (typeof dto.title === 'string') patch.title = dto.title.trim();
+    if (dto.propertyType !== undefined) patch.propertyType = dto.propertyType;
+    if (typeof dto.area === 'number') patch.area = dto.area;
+    if (typeof dto.price === 'number') patch.price = dto.price;
+    if (typeof dto.preferredDate === 'string') patch.preferredDate = new Date(dto.preferredDate);
+    if (typeof dto.isRecurring === 'boolean') patch.isRecurring = dto.isRecurring;
+    if (typeof dto.comment === 'string') patch.comment = dto.comment.trim();
+    if (typeof dto.description === 'string') patch.description = dto.description.trim();
+    if (Array.isArray(dto.photos)) {
+      const photos = dto.photos.map((x) => String(x).trim()).filter((x) => x.length > 0);
+      patch.photos = photos;
+      patch.imageUrl = photos[0] ?? null;
+    }
+    if (Array.isArray(dto.tags)) {
+      patch.tags = dto.tags
+        .map((x) => String(x).trim().toLowerCase())
+        .filter((x) => x.length > 0);
+    }
+
+    const nextTitle = (patch.title as string | undefined) ?? existing.title;
+    const nextDescription =
+      (patch.description as string | undefined) ??
+      (typeof existing.description === 'string' ? existing.description : '');
+    const nextTags = (patch.tags as string[] | undefined) ?? (Array.isArray(existing.tags) ? existing.tags : []);
+
+    patch.searchText = [
+      nextTitle,
+      nextDescription,
+      nextTags.join(' '),
+      existing.cityName,
+      existing.categoryName,
+      existing.subcategoryName,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const updated = await this.model
+      .findOneAndUpdate({ _id: rid, clientId }, { $set: patch }, { new: true })
+      .exec();
+    if (!updated) throw new NotFoundException('Request not found');
+    return updated;
+  }
+
+  async deleteMyClientRequest(
+    clientId: string,
+    requestId: string,
+  ): Promise<{ ok: true; deletedRequestId: string }> {
+    const rid = String(requestId ?? '').trim();
+    if (!rid) throw new BadRequestException('requestId is required');
+    this.ensureObjectId(rid, 'requestId');
+
+    const existing = await this.model.findById(rid).exec();
+    if (!existing || String(existing.clientId) !== clientId) {
+      throw new NotFoundException('Request not found');
+    }
+    if (existing.status === 'matched' || existing.status === 'closed') {
+      throw new ConflictException('Matched or closed requests cannot be deleted');
+    }
+
+    await this.model.deleteOne({ _id: rid, clientId }).exec();
+    return { ok: true as const, deletedRequestId: rid };
   }
 }
