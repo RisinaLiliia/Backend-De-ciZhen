@@ -1,5 +1,5 @@
 // src/modules/requests/requests.controller.ts
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -28,6 +28,8 @@ import { IMAGE_MULTER_OPTIONS } from '../uploads/multer.options';
 import { UploadsService } from '../uploads/uploads.service';
 import { RequestPhotosUploadResponseDto } from './dto/request-photos-upload-response.dto';
 import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
+import { UpdateMyRequestDto } from './dto/update-my-request.dto';
+import { DeleteMyRequestResponseDto } from './dto/delete-my-request-response.dto';
 import { UsersService } from '../users/users.service';
 import { ClientProfilesService } from '../users/client-profiles.service';
 import { RequestPublicDto } from './dto/request-public.dto';
@@ -452,5 +454,35 @@ export class RequestsController {
   ): Promise<RequestResponseDto> {
     const updated = await this.requests.publishForClient(user.userId, requestId);
     return this.toDto(updated);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('my/:requestId')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'User: update my request' })
+  @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @ApiOkResponse({ type: RequestResponseDto })
+  @ApiErrors()
+  async updateMy(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('requestId') requestId: string,
+    @Body() dto: UpdateMyRequestDto,
+  ): Promise<RequestResponseDto> {
+    const updated = await this.requests.updateMyClientRequest(user.userId, requestId, dto);
+    return this.toDto(updated);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('my/:requestId')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'User: delete my request' })
+  @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @ApiOkResponse({ type: DeleteMyRequestResponseDto })
+  @ApiErrors()
+  async deleteMy(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('requestId') requestId: string,
+  ): Promise<DeleteMyRequestResponseDto> {
+    return this.requests.deleteMyClientRequest(user.userId, requestId);
   }
 }
