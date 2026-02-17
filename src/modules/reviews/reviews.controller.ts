@@ -41,10 +41,59 @@ class ReviewsQueryDto {
   offset?: number;
 }
 
+class ReviewsMyQueryDto {
+  @ApiPropertyOptional({ enum: ['all', 'client', 'provider'], example: 'all' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['all', 'client', 'provider'])
+  role?: 'all' | 'client' | 'provider';
+
+  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 0, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number;
+}
+
 @ApiTags('reviews')
 @Controller('reviews')
 export class ReviewsController {
   constructor(private readonly reviews: ReviewsService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List my received reviews (workspace)' })
+  @ApiOkResponse({ type: ReviewPublicDto, isArray: true })
+  @ApiErrors({ conflict: false, notFound: false })
+  async listMy(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query() q: ReviewsMyQueryDto,
+  ): Promise<ReviewPublicDto[]> {
+    const items = await this.reviews.listMyReceived(
+      user.userId,
+      q.role ?? 'all',
+      q.limit,
+      q.offset,
+    );
+
+    return items.map((r) => ({
+      id: r._id.toString(),
+      targetRole: r.targetRole,
+      rating: r.rating,
+      text: r.text ?? null,
+      createdAt: r.createdAt,
+    }));
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post('client')
