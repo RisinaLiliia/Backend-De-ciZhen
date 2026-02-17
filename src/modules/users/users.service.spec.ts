@@ -1,14 +1,16 @@
 // src/modules/users/users.service.spec.ts
 import { Test } from "@nestjs/testing";
 import { getModelToken } from "@nestjs/mongoose";
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { User } from "./schemas/user.schema";
 import { ClientProfilesService } from "./client-profiles.service";
 
 jest.mock("../../utils/password", () => ({
   hashPassword: jest.fn(async () => "HASHED_PASSWORD"),
+  comparePassword: jest.fn(async () => true),
 }));
+import { comparePassword } from "../../utils/password";
 
 describe("UsersService", () => {
   let service: UsersService;
@@ -136,5 +138,56 @@ describe("UsersService", () => {
     await expect(service.blockUser("u1")).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it("changePassword updates hash when current password is valid", async () => {
+    modelMock.findById.mockReturnValue({
+      select: jest.fn().mockReturnValue(
+        execWrap({ _id: "u1", passwordHash: "OLD_HASH" }),
+      ),
+    });
+    modelMock.findByIdAndUpdate.mockReturnValue(execWrap({ _id: "u1" }));
+
+    (comparePassword as jest.Mock)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+
+    await expect(
+      service.changePassword("u1", "CurrentPass123!", "NewSecurePass456!"),
+    ).resolves.toBeUndefined();
+
+    expect(modelMock.findByIdAndUpdate).toHaveBeenCalledWith(
+      "u1",
+      { $set: { passwordHash: "HASHED_PASSWORD" } },
+      { new: false },
+    );
+  });
+
+  it("changePassword throws Unauthorized when current password is invalid", async () => {
+    modelMock.findById.mockReturnValue({
+      select: jest.fn().mockReturnValue(
+        execWrap({ _id: "u1", passwordHash: "OLD_HASH" }),
+      ),
+    });
+    (comparePassword as jest.Mock).mockResolvedValueOnce(false);
+
+    await expect(
+      service.changePassword("u1", "WrongPass123!", "NewSecurePass456!"),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("changePassword throws BadRequest when new password matches current", async () => {
+    modelMock.findById.mockReturnValue({
+      select: jest.fn().mockReturnValue(
+        execWrap({ _id: "u1", passwordHash: "OLD_HASH" }),
+      ),
+    });
+    (comparePassword as jest.Mock)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true);
+
+    await expect(
+      service.changePassword("u1", "CurrentPass123!", "CurrentPass123!"),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

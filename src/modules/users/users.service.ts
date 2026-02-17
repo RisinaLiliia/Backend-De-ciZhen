@@ -3,11 +3,13 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { User, UserDocument, AppRole } from "./schemas/user.schema";
-import { hashPassword } from "../../utils/password";
+import { comparePassword, hashPassword } from "../../utils/password";
 import { ClientProfilesService } from "./client-profiles.service";
 
 type CreateUserInput = {
@@ -123,6 +125,33 @@ export class UsersService {
 
     if (!user) throw new NotFoundException("User not found");
     return user;
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.userModel
+      .findById(userId)
+      .select("+passwordHash")
+      .exec();
+    if (!user) throw new NotFoundException("User not found");
+
+    const isCurrentValid = await comparePassword(currentPassword, user.passwordHash);
+    if (!isCurrentValid) {
+      throw new UnauthorizedException("Current password is invalid");
+    }
+
+    const isSameAsCurrent = await comparePassword(newPassword, user.passwordHash);
+    if (isSameAsCurrent) {
+      throw new BadRequestException("New password must be different from current password");
+    }
+
+    const nextHash = await hashPassword(newPassword);
+    await this.userModel
+      .findByIdAndUpdate(userId, { $set: { passwordHash: nextHash } }, { new: false })
+      .exec();
   }
 
   async touchLastSeen(userId: string): Promise<void> {

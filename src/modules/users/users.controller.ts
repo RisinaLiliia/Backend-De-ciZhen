@@ -12,6 +12,7 @@ import { UsersService } from "./users.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { UpdateMeDto } from "./dto/update-me.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 import type { AppRole } from "./schemas/user.schema";
 import { MeResponseDto } from "./dto/me-response.dto";
 import { ApiMeErrors } from "../../common/swagger/api-errors.decorator";
@@ -119,5 +120,23 @@ export class UsersController {
   ): Promise<MeResponseDto> {
     const updated = await this.usersService.updateMe(user.userId, dto);
     return this.toMeResponse(updated);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("me/password")
+  @ApiBearerAuth("access-token")
+  @ApiOperation({ summary: "Change current user password" })
+  @ApiOkResponse({ schema: { example: { ok: true } } })
+  @ApiMeErrors()
+  async changePassword(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ ok: true }> {
+    await this.usersService.changePassword(
+      user.userId,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+    return { ok: true };
   }
 }
