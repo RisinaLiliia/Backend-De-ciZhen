@@ -38,6 +38,9 @@ export class User {
   @Prop({ trim: true, maxlength: 10 })
   language?: string;
 
+  @Prop({ trim: true, maxlength: 2000 })
+  bio?: string;
+
   @Prop({ required: true, default: false })
   acceptedPrivacyPolicy: boolean;
 

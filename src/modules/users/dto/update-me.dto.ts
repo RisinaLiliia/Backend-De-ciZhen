@@ -29,6 +29,12 @@ export class UpdateMeDto {
   @MaxLength(10)
   language?: string;
 
+  @ApiPropertyOptional({ example: "Ich arbeite sauber und puenktlich." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  bio?: string;
+
   @ApiPropertyOptional({ example: "+49123456789" })
   @IsOptional()
   @IsString()
