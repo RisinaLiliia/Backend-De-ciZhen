@@ -9,6 +9,7 @@ describe("UsersController (unit)", () => {
   const usersServiceMock = {
     findById: jest.fn(),
     updateMe: jest.fn(),
+    changePassword: jest.fn(),
   };
 
   const uploadsMock = {
@@ -149,6 +150,24 @@ describe("UsersController (unit)", () => {
         avatarUrl: "https://cdn.example.com/u/1.png",
       });
       expect(res.avatar?.url).toBe("https://cdn.example.com/u/1.png");
+    });
+  });
+
+  describe("changePassword", () => {
+    it("calls UsersService.changePassword and returns ok", async () => {
+      usersServiceMock.changePassword.mockResolvedValue(undefined);
+
+      const res = await controller.changePassword(
+        { userId: "userId1", role: "client" } as any,
+        { currentPassword: "CurrentPass123!", newPassword: "NewSecurePass456!" },
+      );
+
+      expect(usersServiceMock.changePassword).toHaveBeenCalledWith(
+        "userId1",
+        "CurrentPass123!",
+        "NewSecurePass456!",
+      );
+      expect(res).toEqual({ ok: true });
     });
   });
 });
