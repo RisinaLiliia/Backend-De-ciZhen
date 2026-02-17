@@ -22,7 +22,7 @@ type CreateUserInput = {
 };
 
 type UpdateMeInput = Partial<
-  Pick<User, "name" | "city" | "language" | "phone">
+  Pick<User, "name" | "city" | "language" | "phone" | "bio">
 > & {
   avatarUrl?: string;
 };
@@ -111,6 +111,7 @@ export class UsersService {
     if (updates.city !== undefined) payload.city = updates.city;
     if (updates.language !== undefined) payload.language = updates.language;
     if (updates.phone !== undefined) payload.phone = updates.phone;
+    if (updates.bio !== undefined) payload.bio = updates.bio;
 
     if (updates.avatarUrl !== undefined) {
       payload.avatar = { url: updates.avatarUrl, isDefault: false };

@@ -42,6 +42,7 @@ export class UsersController {
       city: u.city,
       language: u.language,
       phone: u.phone,
+      bio: u.bio,
       avatar: u.avatar,
 
       acceptedPrivacyPolicy: u.acceptedPrivacyPolicy,

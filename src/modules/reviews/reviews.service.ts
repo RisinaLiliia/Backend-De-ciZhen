@@ -139,4 +139,27 @@ export class ReviewsService {
       .limit(safeLimit)
       .exec();
   }
+
+  async listMyReceived(
+    userId: string,
+    role: 'all' | 'client' | 'provider' = 'all',
+    limit?: number,
+    offset?: number,
+  ): Promise<ReviewDocument[]> {
+    const id = String(userId ?? '').trim();
+    if (!id) throw new BadRequestException('userId is required');
+
+    const q: Record<string, unknown> = { targetUserId: id };
+    if (role !== 'all') q.targetRole = role;
+
+    const safeLimit = Math.min(Math.max(limit ?? 20, 1), 100);
+    const safeOffset = Math.max(offset ?? 0, 0);
+
+    return this.reviewModel
+      .find(q)
+      .sort({ createdAt: -1 })
+      .skip(safeOffset)
+      .limit(safeLimit)
+      .exec();
+  }
 }

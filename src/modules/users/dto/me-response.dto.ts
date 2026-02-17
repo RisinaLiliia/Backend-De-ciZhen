@@ -31,6 +31,9 @@ export class MeResponseDto {
   @ApiPropertyOptional({ example: '+49123456789' })
   phone?: string;
 
+  @ApiPropertyOptional({ example: 'Ich arbeite sauber und puenktlich.' })
+  bio?: string;
+
   @ApiPropertyOptional({ type: AvatarDto })
   avatar?: AvatarDto;
 
