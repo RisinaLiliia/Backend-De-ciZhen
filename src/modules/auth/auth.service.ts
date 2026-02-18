@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { randomUUID } from "crypto";
+import { ConfigService } from "@nestjs/config";
 import { UsersService } from "../users/users.service";
 import { comparePassword, hashPassword } from "../../utils/password";
 import { RegisterDto } from "./dto/register.dto";
@@ -16,6 +17,9 @@ import type { UserDocument } from "../users/schemas/user.schema";
 import { ProvidersService } from "../providers/providers.service";
 
 type SocialProvider = "google" | "apple";
+type SocialAuthResult =
+  | { kind: "authenticated"; tokens: TokenResponse }
+  | { kind: "consent_required"; signupToken: string };
 
 @Injectable()
 export class AuthService {
@@ -24,7 +28,12 @@ export class AuthService {
     private usersService: UsersService,
     private redisService: RedisService,
     private providersService: ProvidersService,
+    private config: ConfigService,
   ) {}
+
+  private getCurrentPolicyVersion(): string {
+    return this.config.get<string>("app.privacyPolicyVersion") ?? "2026-02-18";
+  }
 
   async register(data: RegisterDto): Promise<TokenResponse> {
     if (!data.acceptPrivacyPolicy) {
@@ -43,6 +52,7 @@ export class AuthService {
       role,
       acceptedPrivacyPolicy: true,
       acceptedPrivacyPolicyAt: new Date(),
+      acceptedPrivacyPolicyVersion: this.getCurrentPolicyVersion(),
       ...(data.city ? { city: data.city } : {}),
       ...(data.language ? { language: data.language } : {}),
     });
@@ -197,12 +207,68 @@ export class AuthService {
     }
   }
 
-  async loginOrRegisterSocial(params: {
+  private createOauthSignupToken(params: {
     provider: SocialProvider;
     email: string;
     name?: string;
     avatarUrl?: string;
-  }): Promise<TokenResponse> {
+  }): string {
+    return this.jwt.sign(
+      {
+        type: "oauth_signup",
+        provider: params.provider,
+        email: params.email,
+        name: params.name,
+        avatarUrl: params.avatarUrl,
+      },
+      { expiresIn: "15m" },
+    );
+  }
+
+  private consumeOauthSignupToken(token: string): {
+    provider: SocialProvider;
+    email: string;
+    name?: string;
+    avatarUrl?: string;
+  } {
+    try {
+      const payload = this.jwt.verify(token) as {
+        type?: string;
+        provider?: SocialProvider;
+        email?: string;
+        name?: string;
+        avatarUrl?: string;
+      };
+      if (
+        payload?.type !== "oauth_signup" ||
+        !payload.email ||
+        (payload.provider !== "google" && payload.provider !== "apple")
+      ) {
+        throw new ForbiddenException({
+          message: "Invalid oauth signup token",
+          errorCode: "AUTH_OAUTH_SIGNUP_TOKEN_INVALID",
+        });
+      }
+      return {
+        provider: payload.provider,
+        email: String(payload.email).trim().toLowerCase(),
+        name: payload.name,
+        avatarUrl: payload.avatarUrl,
+      };
+    } catch {
+      throw new ForbiddenException({
+        message: "Invalid oauth signup token",
+        errorCode: "AUTH_OAUTH_SIGNUP_TOKEN_INVALID",
+      });
+    }
+  }
+
+  async resolveSocialAuth(params: {
+    provider: SocialProvider;
+    email: string;
+    name?: string;
+    avatarUrl?: string;
+  }): Promise<SocialAuthResult> {
     const email = params.email.trim().toLowerCase();
     if (!email) {
       throw new BadRequestException({
@@ -219,15 +285,55 @@ export class AuthService {
       });
     }
 
+    if (user?.acceptedPrivacyPolicy) {
+      return { kind: "authenticated", tokens: await this.generateTokens(user as UserDocument) };
+    }
+
+    return {
+      kind: "consent_required",
+      signupToken: this.createOauthSignupToken({
+        provider: params.provider,
+        email,
+        name: params.name,
+        avatarUrl: params.avatarUrl,
+      }),
+    };
+  }
+
+  async completeOauthSignup(params: {
+    signupToken: string;
+    acceptPrivacyPolicy: boolean;
+  }): Promise<TokenResponse> {
+    if (!params.acceptPrivacyPolicy) {
+      throw new BadRequestException({
+        message: "Privacy policy must be accepted",
+        errorCode: "AUTH_PRIVACY_NOT_ACCEPTED",
+      });
+    }
+
+    const payload = this.consumeOauthSignupToken(params.signupToken);
+    const policyVersion = this.getCurrentPolicyVersion();
+
+    let user = await this.usersService.findByEmail(payload.email);
+    if (user && (user as any).isBlocked) {
+      throw new UnauthorizedException({
+        message: "User blocked",
+        errorCode: "AUTH_USER_BLOCKED",
+      });
+    }
+
     if (!user) {
       user = await this.usersService.create({
-        name: params.name?.trim() || email.split("@")[0] || "User",
-        email,
+        name: payload.name?.trim() || payload.email.split("@")[0] || "User",
+        email: payload.email,
         password: randomUUID(),
         role: "client",
-        acceptedPrivacyPolicy: false,
-        acceptedPrivacyPolicyAt: null,
+        acceptedPrivacyPolicy: true,
+        acceptedPrivacyPolicyAt: new Date(),
+        acceptedPrivacyPolicyVersion: policyVersion,
       });
+    } else if (!user.acceptedPrivacyPolicy) {
+      user = await this.usersService.acceptPrivacyPolicy(user._id.toString(), policyVersion);
     }
 
     return this.generateTokens(user as UserDocument);

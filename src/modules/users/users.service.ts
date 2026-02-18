@@ -19,6 +19,7 @@ type CreateUserInput = {
   role: AppRole;
   acceptedPrivacyPolicy: boolean;
   acceptedPrivacyPolicyAt?: Date | null;
+  acceptedPrivacyPolicyVersion?: string | null;
   city?: string;
   language?: string;
 };
@@ -93,6 +94,9 @@ export class UsersService {
       role: input.role,
       acceptedPrivacyPolicy: input.acceptedPrivacyPolicy,
       acceptedPrivacyPolicyAt: input.acceptedPrivacyPolicy ? (input.acceptedPrivacyPolicyAt ?? new Date()) : null,
+      acceptedPrivacyPolicyVersion: input.acceptedPrivacyPolicy
+        ? (input.acceptedPrivacyPolicyVersion ?? null)
+        : null,
       city: input.city,
       language: input.language,
       avatar: { url: "/avatars/default.png", isDefault: true },
@@ -165,6 +169,26 @@ export class UsersService {
     await this.userModel
       .findByIdAndUpdate(id, { $set: { lastSeenAt: new Date() } })
       .exec();
+  }
+
+  async acceptPrivacyPolicy(
+    userId: string,
+    version: string,
+  ): Promise<UserDocument> {
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          acceptedPrivacyPolicy: true,
+          acceptedPrivacyPolicyAt: new Date(),
+          acceptedPrivacyPolicyVersion: version,
+        },
+        { new: true },
+      )
+      .exec();
+
+    if (!user) throw new NotFoundException("User not found");
+    return user;
   }
 
   async blockUser(userId: string): Promise<void> {

@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { UsersService } from "../users/users.service";
 import { RedisService } from "../../infra/redis.service";
@@ -44,6 +45,12 @@ describe("AuthService", () => {
     activateIfComplete: jest.fn(),
   };
 
+  const configServiceMock = {
+    get: jest.fn((key: string) =>
+      key === "app.privacyPolicyVersion" ? "2026-02-18" : undefined,
+    ),
+  };
+
   const makeUser = (overrides: Partial<any> = {}): UserDocument =>
     ({
       _id: { toString: () => overrides.id ?? "userId1" },
@@ -70,6 +77,7 @@ describe("AuthService", () => {
         { provide: UsersService, useValue: usersServiceMock },
         { provide: RedisService, useValue: redisServiceMock },
         { provide: ProvidersService, useValue: providersServiceMock },
+        { provide: ConfigService, useValue: configServiceMock },
       ],
     }).compile();
 

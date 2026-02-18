@@ -10,6 +10,7 @@ export default registerAs("app", () => ({
 
   jwtSecret: process.env.JWT_SECRET,
   frontendUrl: process.env.FRONTEND_URL,
+  privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? "2026-02-18",
   googleOauthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
   googleOauthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
   googleOauthRedirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI,

@@ -25,6 +25,7 @@ import { ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
+import { OauthCompleteRegisterDto } from "./dto/oauth-complete-register.dto";
 import { AuthResponseDto } from "./dto/auth-response.dto";
 import { RefreshResponseDto } from "./dto/refresh-response.dto";
 import { LogoutResponseDto } from "./dto/logout-response.dto";
@@ -76,6 +77,15 @@ export class AuthController {
       base ?? "http://localhost",
     );
     url.searchParams.set("error", errorCode);
+    return base ? url.toString() : `${url.pathname}${url.search}`;
+  }
+
+  private buildOauthConsentRedirect(nextPath: string, signupToken: string): string {
+    const base = this.getFrontendBaseUrl();
+    const url = new URL("/auth/register", base ?? "http://localhost");
+    url.searchParams.set("next", nextPath);
+    url.searchParams.set("error", "oauth_consent_required");
+    url.searchParams.set("signupToken", signupToken);
     return base ? url.toString() : `${url.pathname}${url.search}`;
   }
 
@@ -369,15 +379,17 @@ export class AuthController {
       }
       nextPath = this.authService.consumeOauthState(state, "google");
       const profile = await this.exchangeGoogleCode(code);
-      const { refreshToken } = await this.authService.loginOrRegisterSocial({
+      const result = await this.authService.resolveSocialAuth({
         provider: "google",
         email: profile.email,
         name: profile.name,
       });
-      this.setRefreshCookie(res, refreshToken);
-      res.redirect(
-        this.buildFrontendRedirect(`${nextPath}${nextPath.includes("?") ? "&" : "?"}oauth=ok`),
-      );
+      if (result.kind === "consent_required") {
+        res.redirect(this.buildOauthConsentRedirect(nextPath, result.signupToken));
+        return;
+      }
+      this.setRefreshCookie(res, result.tokens.refreshToken);
+      res.redirect(this.buildFrontendRedirect(`${nextPath}${nextPath.includes("?") ? "&" : "?"}oauth=ok`));
       return;
     } catch (error) {
       const status = error instanceof ServiceUnavailableException ? "oauth_unavailable" : "oauth_failed";
@@ -412,15 +424,17 @@ export class AuthController {
       }
       nextPath = this.authService.consumeOauthState(state, "apple");
       const profile = await this.exchangeAppleCode(code);
-      const { refreshToken } = await this.authService.loginOrRegisterSocial({
+      const result = await this.authService.resolveSocialAuth({
         provider: "apple",
         email: profile.email,
         name: profile.name,
       });
-      this.setRefreshCookie(res, refreshToken);
-      res.redirect(
-        this.buildFrontendRedirect(`${nextPath}${nextPath.includes("?") ? "&" : "?"}oauth=ok`),
-      );
+      if (result.kind === "consent_required") {
+        res.redirect(this.buildOauthConsentRedirect(nextPath, result.signupToken));
+        return;
+      }
+      this.setRefreshCookie(res, result.tokens.refreshToken);
+      res.redirect(this.buildFrontendRedirect(`${nextPath}${nextPath.includes("?") ? "&" : "?"}oauth=ok`));
       return;
     } catch (error) {
       const status = error instanceof ServiceUnavailableException ? "oauth_unavailable" : "oauth_failed";
@@ -442,6 +456,25 @@ export class AuthController {
   ): Promise<AuthResponseDto> {
     const { user, accessToken, refreshToken, expiresIn } =
       await this.authService.register(dto);
+
+    this.setRefreshCookie(res, refreshToken);
+    return { user, accessToken, expiresIn };
+  }
+
+  @Post("oauth/complete-register")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Complete OAuth registration after explicit consent" })
+  @ApiOkResponse({
+    description: "OAuth registration completed. Refresh token is set in httpOnly cookie.",
+    type: AuthResponseDto,
+  })
+  @ApiPublicErrors()
+  async completeOauthRegister(
+    @Body() dto: OauthCompleteRegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    const { user, accessToken, refreshToken, expiresIn } =
+      await this.authService.completeOauthSignup(dto);
 
     this.setRefreshCookie(res, refreshToken);
     return { user, accessToken, expiresIn };
