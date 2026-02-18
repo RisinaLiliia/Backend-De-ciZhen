@@ -18,16 +18,24 @@ export const envValidationSchema = Joi.object({
   APPLE_OAUTH_REDIRECT_URI: Joi.string().uri().optional(),
 
   REDIS_URL: Joi.string().uri().optional(),
-  REDIS_HOST: Joi.string().when(Joi.ref("REDIS_DISABLED"), {
-  is: true,
-  then: Joi.optional(),
-  otherwise: Joi.when("REDIS_URL", { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
-}),
-REDIS_PORT: Joi.number().when(Joi.ref("REDIS_DISABLED"), {
-  is: true,
-  then: Joi.optional(),
-  otherwise: Joi.when("REDIS_URL", { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
-}),
+  REDIS_HOST: Joi.string().when("REDIS_DISABLED", {
+    is: "true",
+    then: Joi.optional(),
+    otherwise: Joi.when("REDIS_URL", {
+      is: Joi.exist(),
+      then: Joi.optional(),
+      otherwise: Joi.required(),
+    }),
+  }),
+  REDIS_PORT: Joi.number().when("REDIS_DISABLED", {
+    is: "true",
+    then: Joi.optional(),
+    otherwise: Joi.when("REDIS_URL", {
+      is: Joi.exist(),
+      then: Joi.optional(),
+      otherwise: Joi.required(),
+    }),
+  }),
 
   REDIS_PASSWORD: Joi.string().allow("").optional(),
   REDIS_DISABLED: Joi.string().valid("true", "false").optional(),
