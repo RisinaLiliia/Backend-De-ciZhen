@@ -43,6 +43,9 @@ export class MeResponseDto {
   @ApiPropertyOptional({ example: '2025-01-01T12:00:00.000Z' })
   acceptedPrivacyPolicyAt: Date | null;
 
+  @ApiPropertyOptional({ example: '2026-02-18' })
+  acceptedPrivacyPolicyVersion?: string | null;
+
   @ApiProperty({ example: false })
   isBlocked: boolean;
 

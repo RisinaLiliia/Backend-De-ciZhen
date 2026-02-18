@@ -48,6 +48,7 @@ export class UsersController {
 
       acceptedPrivacyPolicy: u.acceptedPrivacyPolicy,
       acceptedPrivacyPolicyAt: u.acceptedPrivacyPolicyAt,
+      acceptedPrivacyPolicyVersion: u.acceptedPrivacyPolicyVersion ?? null,
 
       isBlocked: u.isBlocked,
       blockedAt: u.blockedAt,

@@ -47,6 +47,9 @@ export class User {
   @Prop({ type: Date, default: null })
   acceptedPrivacyPolicyAt: Date | null;
 
+  @Prop({ trim: true, maxlength: 32, default: null })
+  acceptedPrivacyPolicyVersion: string | null;
+
   @Prop({
     type: {
       url: { type: String, default: "/avatars/default.png" },
