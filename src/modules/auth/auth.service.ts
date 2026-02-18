@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { randomUUID } from "crypto";
@@ -13,6 +14,8 @@ import { RedisService } from "../../infra/redis.service";
 import { JwtPayload, TokenResponse, SafeUser, AppRole } from "./auth.types";
 import type { UserDocument } from "../users/schemas/user.schema";
 import { ProvidersService } from "../providers/providers.service";
+
+type SocialProvider = "google" | "apple";
 
 @Injectable()
 export class AuthService {
@@ -25,7 +28,10 @@ export class AuthService {
 
   async register(data: RegisterDto): Promise<TokenResponse> {
     if (!data.acceptPrivacyPolicy) {
-      throw new BadRequestException("Privacy policy must be accepted");
+      throw new BadRequestException({
+        message: "Privacy policy must be accepted",
+        errorCode: "AUTH_PRIVACY_NOT_ACCEPTED",
+      });
     }
 
     const role: AppRole = data.role ?? "client";
@@ -53,14 +59,27 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<TokenResponse> {
     const user = await this.usersService.findAuthUserByEmail(email);
-    if (!user) throw new UnauthorizedException("Invalid credentials");
+    if (!user) {
+      throw new UnauthorizedException({
+        message: "Invalid credentials",
+        errorCode: "AUTH_INVALID_CREDENTIALS",
+      });
+    }
 
     if ((user as any).isBlocked) {
-      throw new UnauthorizedException("User blocked");
+      throw new UnauthorizedException({
+        message: "User blocked",
+        errorCode: "AUTH_USER_BLOCKED",
+      });
     }
 
     const ok = await comparePassword(password, user.passwordHash);
-    if (!ok) throw new UnauthorizedException("Invalid credentials");
+    if (!ok) {
+      throw new UnauthorizedException({
+        message: "Invalid credentials",
+        errorCode: "AUTH_INVALID_CREDENTIALS",
+      });
+    }
 
     if (user.role === "provider") {
       try {
@@ -77,32 +96,56 @@ export class AuthService {
   ): Promise<
     Pick<TokenResponse, "accessToken" | "refreshToken" | "expiresIn">
   > {
-    if (!refreshToken) throw new UnauthorizedException("Missing refresh token");
+    if (!refreshToken) {
+      throw new UnauthorizedException({
+        message: "Missing refresh token",
+        errorCode: "AUTH_REFRESH_TOKEN_MISSING",
+      });
+    }
 
     let payload: JwtPayload;
     try {
       payload = this.jwt.verify(refreshToken) as JwtPayload;
     } catch {
-      throw new UnauthorizedException("Invalid refresh token");
+      throw new UnauthorizedException({
+        message: "Invalid refresh token",
+        errorCode: "AUTH_REFRESH_TOKEN_INVALID",
+      });
     }
 
     let user: UserDocument;
     try {
       user = await this.usersService.findById(payload.sub);
     } catch {
-      throw new UnauthorizedException("User not found");
+      throw new UnauthorizedException({
+        message: "User not found",
+        errorCode: "AUTH_USER_NOT_FOUND",
+      });
     }
 
     if ((user as any).isBlocked) {
-      throw new UnauthorizedException("User blocked");
+      throw new UnauthorizedException({
+        message: "User blocked",
+        errorCode: "AUTH_USER_BLOCKED",
+      });
     }
 
     const key = `refresh:${payload.sub}:${payload.sessionId}`;
     const redisHash = await this.redisService.get(key);
-    if (!redisHash) throw new UnauthorizedException("Session expired");
+    if (!redisHash) {
+      throw new UnauthorizedException({
+        message: "Session expired",
+        errorCode: "AUTH_SESSION_EXPIRED",
+      });
+    }
 
     const ok = await comparePassword(refreshToken, redisHash);
-    if (!ok) throw new UnauthorizedException("Invalid refresh token");
+    if (!ok) {
+      throw new UnauthorizedException({
+        message: "Invalid refresh token",
+        errorCode: "AUTH_REFRESH_TOKEN_INVALID",
+      });
+    }
 
     await this.redisService.del(key);
     return this.generateTokens(user);
@@ -118,6 +161,76 @@ export class AuthService {
       );
     } catch {
     }
+  }
+
+  createOauthState(provider: SocialProvider, nextPath: string): string {
+    return this.jwt.sign(
+      {
+        type: "oauth_state",
+        provider,
+        nextPath,
+      },
+      { expiresIn: "10m" },
+    );
+  }
+
+  consumeOauthState(stateToken: string, provider: SocialProvider): string {
+    try {
+      const payload = this.jwt.verify(stateToken) as {
+        type?: string;
+        provider?: SocialProvider;
+        nextPath?: string;
+      };
+      if (payload?.type !== "oauth_state" || payload?.provider !== provider) {
+        throw new ForbiddenException({
+          message: "Invalid oauth state",
+          errorCode: "AUTH_OAUTH_STATE_INVALID",
+        });
+      }
+      const nextPath = String(payload.nextPath ?? "/orders?tab=my-requests");
+      return nextPath.startsWith("/") ? nextPath : "/orders?tab=my-requests";
+    } catch {
+      throw new ForbiddenException({
+        message: "Invalid oauth state",
+        errorCode: "AUTH_OAUTH_STATE_INVALID",
+      });
+    }
+  }
+
+  async loginOrRegisterSocial(params: {
+    provider: SocialProvider;
+    email: string;
+    name?: string;
+    avatarUrl?: string;
+  }): Promise<TokenResponse> {
+    const email = params.email.trim().toLowerCase();
+    if (!email) {
+      throw new BadRequestException({
+        message: "Social account email is required",
+        errorCode: "AUTH_SOCIAL_EMAIL_MISSING",
+      });
+    }
+
+    let user = await this.usersService.findByEmail(email);
+    if (user && (user as any).isBlocked) {
+      throw new UnauthorizedException({
+        message: "User blocked",
+        errorCode: "AUTH_USER_BLOCKED",
+      });
+    }
+
+    if (!user) {
+      user = await this.usersService.create({
+        name: params.name?.trim() || email.split("@")[0] || "User",
+        email,
+        password: randomUUID(),
+        role: "client",
+        acceptedPrivacyPolicy: false,
+        acceptedPrivacyPolicyAt: null,
+      });
+    }
+
+    return this.generateTokens(user as UserDocument);
   }
 
   private async generateTokens(user: UserDocument): Promise<TokenResponse> {

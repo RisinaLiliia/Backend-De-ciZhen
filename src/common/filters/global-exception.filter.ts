@@ -15,6 +15,7 @@ type HttpExceptionResponse =
       statusCode?: number;
       message?: string | string[];
       error?: string;
+      errorCode?: string;
     };
 
 @Catch()
@@ -33,6 +34,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = "Internal Server Error";
     let error = "Internal Server Error";
+    let errorCode: string | undefined;
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
@@ -46,6 +48,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           response.message ??
           (typeof exception.message === "string" ? exception.message : "Error");
         error = response.error ?? exception.name;
+        errorCode = response.errorCode;
       }
     } else if (exception instanceof Error) {
       if (this.isDev) {
@@ -58,6 +61,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode,
       message,
       error,
+      ...(errorCode ? { errorCode } : {}),
       timestamp,
       path,
       ...(requestId ? { requestId } : {}),

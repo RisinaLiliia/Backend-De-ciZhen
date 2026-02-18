@@ -20,6 +20,12 @@ export class HttpErrorDto {
   @ApiProperty({ example: "Unauthorized" })
   error: string;
 
+  @ApiPropertyOptional({
+    example: "AUTH_INVALID_CREDENTIALS",
+    description: "Stable machine-readable error code",
+  })
+  errorCode?: string;
+
   @ApiProperty({ example: "2026-01-27T10:20:30.123Z" })
   timestamp: string;
 
