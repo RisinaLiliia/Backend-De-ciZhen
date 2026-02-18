@@ -1,131 +1,96 @@
 # De’ciZhen Backend API
 
-Production‑grade REST API built with NestJS, MongoDB (Mongoose), Redis, and Swagger.
+NestJS backend for De’ciZhen marketplace/workspace.
 
-**Stack**
-- `NestJS` (HTTP, DI, validation)
-- `MongoDB + Mongoose` (persistence)
-- `Redis` (sessions, caching, rate limiting)
-- `Swagger` (OpenAPI docs)
+## Stack
+- NestJS 10
+- MongoDB + Mongoose
+- Redis (sessions / refresh flow / caching)
+- Swagger (`/docs`)
 
-**Key Modules**
-- `auth` (register/login/refresh/logout)
-- `users` (profile + avatar)
-- `requests` (public + client flows)
-- `responses` (provider responses + client decisions)
-- `bookings` (create, cancel, reschedule, history)
-- `availability` (slots + blackouts)
-- `providers` (profile + public list)
-- `catalog` (cities + service categories)
-- `reviews` (client/provider reviews)
-- `geo` (autocomplete)
+## Core Modules
+- `auth` (email/password auth, OAuth Google/Apple, refresh sessions)
+- `users` (me/profile/avatar/password)
+- `requests`, `offers`, `contracts`, `favorites`, `reviews`
+- `chats`, `presence`
+- `catalog`, `providers`, `geo`
+- `legal` (privacy/cookies text endpoints)
+- `uploads` (avatar/image upload)
 
-## Getting Started
+## Auth & Consent (current behavior)
+- Register requires explicit `acceptPrivacyPolicy=true`.
+- `acceptedPrivacyPolicyAt` is stored.
+- `acceptedPrivacyPolicyVersion` is stored (`PRIVACY_POLICY_VERSION` from env).
+- OAuth (Google/Apple):
+1. Existing user with accepted policy -> login.
+2. New/social user without consent -> consent-required flow.
+3. Completion via `POST /auth/oauth/complete-register`.
 
-**Prerequisites**
+## Legal Endpoints
+- `GET /legal/privacy`
+- `GET /legal/cookies`
+
+Sources:
+- `legal/privacy-policy.md`
+- `legal/cookie-notice.md`
+
+## Quick Start
+Prerequisites:
 - Node.js 18+
-- MongoDB (local or Atlas)
+- MongoDB
 - Redis
 
-**Install**
+Install:
 ```bash
 npm install
 ```
 
-**Environment**
-Copy `.env.example` to `.env` and fill values:
+Configure env:
 ```bash
 cp .env.example .env
 ```
 
-Required values (minimum for local dev):
+Minimum required:
 - `MONGO_URI`
 - `JWT_SECRET`
 - `REDIS_HOST`
 - `REDIS_PORT`
+- `FRONTEND_URL`
 
-Optional:
-- `CLOUDINARY_*` for avatar/photos upload
-- `GOOGLE_AUTH_*` if Google auth is used
+Important optional:
+- `PRIVACY_POLICY_VERSION` (default `2026-02-18`)
+- `GOOGLE_OAUTH_*`
+- `APPLE_OAUTH_*`
+- `CLOUDINARY_*`
 
-**Run**
+Run:
 ```bash
-npm run start
+npm run start:dev
 ```
 
 ## API Docs
-
-Swagger is available at:
-- `https://backend-de-cizhen.onrender.com/docs`
-
-You can also generate a static spec:
+- Local/remote Swagger: `/docs`
+- Static spec generation:
 ```bash
 npm run swagger
 ```
-This writes `swagger.json` in the project root. The generator uses a Swagger-only app that stubs Mongo/Redis, so no external services are required.
 
-## Legal
-
-Privacy Policy:
-- `https://backend-de-cizhen.onrender.com/legal/privacy`
-
-Cookie Notice:
-- `https://backend-de-cizhen.onrender.com/legal/cookies`
-
-## Testing
-
-**Unit tests**
-```bash
-npm test
-```
-
-**E2E tests**
-```bash
-npm run test:e2e
-```
-
-## Project Structure
-
-```
-src/
-  app.module.ts
-  common/
-  infra/
-  modules/
-    auth/
-    users/
-    requests/
-    responses/
-    bookings/
-    availability/
-    providers/
-    catalog/
-  reviews/
-  geo/
-  swagger.ts
-  swagger/
-
-test/
-  *.e2e-spec.ts
-```
+## Scripts
+- `npm run start`
+- `npm run start:dev`
+- `npm run build`
+- `npm test`
+- `npm run test:e2e`
+- `npm run swagger`
+- `npm run seed:cities`
+- `npm run seed:services`
+- `npm run seed:demo`
 
 ## Security Notes
-
-- Do not commit `.env` with secrets.
-- Use strong `JWT_SECRET` values.
-- Rotate cloud credentials if ever exposed.
-- Public endpoints use privacy‑safe DTOs to reduce data leakage.
-
-## Common Scripts
-
-- `npm run start` — start API
-- `npm run start:dev` — watch mode
-- `npm run build` — build
-- `npm test` — unit tests
-- `npm run test:e2e` — e2e tests
-- `npm run swagger` — generate OpenAPI spec (no Mongo/Redis needed)
+- Do not commit `.env`.
+- Use strong `JWT_SECRET`.
+- Keep OAuth secrets private.
+- Rotate compromised credentials immediately.
 
 ## License
-
-Copyright (c) 2026 Liliia Risina.
-All rights reserved. See `LICENSE`.
+See `LICENSE`.
