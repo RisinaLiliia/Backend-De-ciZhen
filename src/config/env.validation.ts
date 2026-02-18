@@ -9,6 +9,13 @@ export const envValidationSchema = Joi.object({
   MONGO_DB_NAME: Joi.string().default("decizhen"),
 
   JWT_SECRET: Joi.string().min(32).required(),
+  FRONTEND_URL: Joi.string().uri().optional(),
+  GOOGLE_OAUTH_CLIENT_ID: Joi.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: Joi.string().optional(),
+  GOOGLE_OAUTH_REDIRECT_URI: Joi.string().uri().optional(),
+  APPLE_OAUTH_CLIENT_ID: Joi.string().optional(),
+  APPLE_OAUTH_CLIENT_SECRET: Joi.string().optional(),
+  APPLE_OAUTH_REDIRECT_URI: Joi.string().uri().optional(),
 
   REDIS_URL: Joi.string().uri().optional(),
   REDIS_HOST: Joi.string().when(Joi.ref("REDIS_DISABLED"), {

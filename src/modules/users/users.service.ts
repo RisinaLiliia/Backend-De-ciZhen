@@ -18,7 +18,7 @@ type CreateUserInput = {
   password: string;
   role: AppRole;
   acceptedPrivacyPolicy: boolean;
-  acceptedPrivacyPolicyAt: Date;
+  acceptedPrivacyPolicyAt?: Date | null;
   city?: string;
   language?: string;
 };
@@ -77,7 +77,12 @@ export class UsersService {
   async create(input: CreateUserInput): Promise<UserDocument> {
     const email = this.normalizeEmail(input.email);
     const exists = await this.userModel.findOne({ email }).exec();
-    if (exists) throw new ConflictException("Email already in use");
+    if (exists) {
+      throw new ConflictException({
+        message: "Email already in use",
+        errorCode: "AUTH_EMAIL_EXISTS",
+      });
+    }
 
     const passwordHash = await hashPassword(input.password);
 
@@ -87,7 +92,7 @@ export class UsersService {
       passwordHash,
       role: input.role,
       acceptedPrivacyPolicy: input.acceptedPrivacyPolicy,
-      acceptedPrivacyPolicyAt: input.acceptedPrivacyPolicyAt,
+      acceptedPrivacyPolicyAt: input.acceptedPrivacyPolicy ? (input.acceptedPrivacyPolicyAt ?? new Date()) : null,
       city: input.city,
       language: input.language,
       avatar: { url: "/avatars/default.png", isDefault: true },
