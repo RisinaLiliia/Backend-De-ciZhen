@@ -70,7 +70,7 @@ describe("AuthController (unit)", () => {
         "REFRESH",
         expect.objectContaining({
           httpOnly: true,
-          path: "/auth",
+          path: "/",
           maxAge: 7 * 24 * 60 * 60 * 1000,
         }),
       );
@@ -105,7 +105,7 @@ describe("AuthController (unit)", () => {
         "REFRESH",
         expect.objectContaining({
           httpOnly: true,
-          path: "/auth",
+          path: "/",
           maxAge: 7 * 24 * 60 * 60 * 1000,
         }),
       );
@@ -138,7 +138,7 @@ describe("AuthController (unit)", () => {
         "NEW_REFRESH",
         expect.objectContaining({
           httpOnly: true,
-          path: "/auth",
+          path: "/",
           maxAge: 7 * 24 * 60 * 60 * 1000,
         }),
       );
@@ -173,7 +173,7 @@ describe("AuthController (unit)", () => {
 
       expect(authServiceMock.logout).toHaveBeenCalledWith("REFRESH");
       expect(res.clearCookie).toHaveBeenCalledWith("refreshToken", {
-        path: "/auth",
+        path: "/",
       });
       expect(result).toEqual({ ok: true });
     });
@@ -188,7 +188,7 @@ describe("AuthController (unit)", () => {
 
       expect(authServiceMock.logout).toHaveBeenCalledWith(undefined);
       expect(res.clearCookie).toHaveBeenCalledWith("refreshToken", {
-        path: "/auth",
+        path: "/",
       });
     });
   });

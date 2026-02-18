@@ -28,6 +28,8 @@ import { ApiErrors, ApiAuthErrors, ApiPublicErrors } from "../../common/swagger/
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
+  private static readonly REFRESH_COOKIE_PATH = "/";
+
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
@@ -41,7 +43,7 @@ export class AuthController {
       httpOnly: true,
       secure: isProd,
       sameSite: isProd ? "none" : "lax",
-      path: "/auth",
+      path: AuthController.REFRESH_COOKIE_PATH,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
   }
@@ -134,7 +136,9 @@ export class AuthController {
 
     await this.authService.logout(refreshToken);
 
-    res.clearCookie("refreshToken", { path: "/auth" });
+    res.clearCookie("refreshToken", {
+      path: AuthController.REFRESH_COOKIE_PATH,
+    });
     return { ok: true };
   }
 }
