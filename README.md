@@ -2,13 +2,45 @@
 
 NestJS backend for De’ciZhen marketplace/workspace.
 
+## System Overview
+
+De’ciZhen Backend is a modular NestJS API that powers marketplace
+business logic, authentication, and workspace flows.
+
+It handles:
+- user authentication and session management
+- request / offer / contract lifecycle
+- role-based access control
+- real-time chat and presence
+- legal consent tracking
+
+The API is designed with modular domain boundaries and production-style structure.
+
 ## Stack
-- NestJS 10
-- MongoDB + Mongoose
-- Redis (sessions / refresh flow / caching)
+- NestJS
+- MongoDB (Mongoose ODM)
+- Redis (session & refresh flow management)
 - Swagger (`/docs`)
 
+## Architecture Overview
+
+The backend follows a modular domain-driven structure.
+
+Each module encapsulates:
+- controller
+- service
+- schema (Mongoose)
+- DTO validation layer
+
+Cross-cutting concerns (auth, guards, consent tracking, sessions)
+are isolated from domain logic.
+Validation is handled via DTOs and class-validator.
+
+Redis is used for session and refresh flow management.
+MongoDB handles primary data storage.
+
 ## Core Modules
+Domain modules are organized by business responsibility:
 - `auth` (email/password auth, OAuth Google/Apple, refresh sessions)
 - `users` (me/profile/avatar/password)
 - `requests`, `offers`, `contracts`, `favorites`, `reviews`
@@ -17,14 +49,17 @@ NestJS backend for De’ciZhen marketplace/workspace.
 - `legal` (privacy/cookies text endpoints)
 - `uploads` (avatar/image upload)
 
-## Auth & Consent (current behavior)
-- Register requires explicit `acceptPrivacyPolicy=true`.
-- `acceptedPrivacyPolicyAt` is stored.
-- `acceptedPrivacyPolicyVersion` is stored (`PRIVACY_POLICY_VERSION` from env).
-- OAuth (Google/Apple):
-1. Existing user with accepted policy -> login.
-2. New/social user without consent -> consent-required flow.
-3. Completion via `POST /auth/oauth/complete-register`.
+## Auth & Consent Flow
+
+Registration:
+- explicit privacy consent required (`acceptPrivacyPolicy=true`)
+- consent timestamp stored (`acceptedPrivacyPolicyAt`)
+- consent version stored from env (`acceptedPrivacyPolicyVersion`, `PRIVACY_POLICY_VERSION`)
+
+OAuth (Google/Apple):
+1. Existing user with accepted policy -> login
+2. New/social user without consent -> consent-required flow
+3. Completion via `POST /auth/oauth/complete-register`
 
 ## Legal Endpoints
 - `GET /legal/privacy`
@@ -75,6 +110,10 @@ npm run start:dev
 npm run swagger
 ```
 
+## Testing
+- Unit tests (Jest)
+- E2E tests for auth and critical business flows
+
 ## Scripts
 - `npm run start`
 - `npm run start:dev`
@@ -90,6 +129,7 @@ npm run swagger
 - Do not commit `.env`.
 - Use strong `JWT_SECRET`.
 - Keep OAuth secrets private.
+- Refresh flow uses `httpOnly` cookie (`refreshToken`).
 - Rotate compromised credentials immediately.
 
 ## License
