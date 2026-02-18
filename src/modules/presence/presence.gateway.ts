@@ -11,10 +11,19 @@ type JwtPayload = {
   sessionId?: string;
 };
 
+const wsAllowedOrigins = Array.from(
+  new Set(
+    [
+      ...(process.env.ALLOWED_ORIGINS ?? '').split(',').map((value) => value.trim()),
+      process.env.FRONTEND_URL?.trim() ?? '',
+    ].filter(Boolean),
+  ),
+);
+
 @WebSocketGateway({
   namespace: '/presence',
   cors: {
-    origin: true,
+    origin: wsAllowedOrigins.length > 0 ? wsAllowedOrigins : true,
     credentials: true,
   },
 })

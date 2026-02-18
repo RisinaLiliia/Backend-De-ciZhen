@@ -23,10 +23,20 @@ async function bootstrap() {
   app.use(helmet());
   app.use(cookieParser());
 
-  const origins = (config.get<string[]>("app.allowedOrigins") ?? []).filter(Boolean);
+  const configuredOrigins = (config.get<string[]>("app.allowedOrigins") ?? []).filter(Boolean);
+  const frontendUrl = config.get<string>("app.frontendUrl");
+  const origins = Array.from(
+    new Set([...(configuredOrigins ?? []), ...(frontendUrl ? [frontendUrl] : [])]),
+  );
 
   app.enableCors({
-    origin: origins,
+    origin: (origin, callback) => {
+      if (!origin || origins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
     credentials: true,
   });
 
