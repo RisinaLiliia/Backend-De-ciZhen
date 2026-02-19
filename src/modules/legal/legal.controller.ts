@@ -8,8 +8,12 @@ import { resolve } from 'path';
 @ApiTags('legal')
 @Controller('legal')
 export class LegalController {
+  private getLegalDocsDir(): string {
+    return process.env.LEGAL_DOCS_DIR?.trim() || resolve(process.cwd(), 'legal');
+  }
+
   private readDoc(filename: string): string {
-    const p = resolve(process.cwd(), 'legal', filename);
+    const p = resolve(this.getLegalDocsDir(), filename);
     return readFileSync(p, 'utf8');
   }
 

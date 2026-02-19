@@ -163,6 +163,15 @@ export class UsersService {
       .exec();
   }
 
+  async setPasswordByUserId(userId: string, password: string): Promise<void> {
+    const nextHash = await hashPassword(password);
+    const updated = await this.userModel
+      .findByIdAndUpdate(userId, { $set: { passwordHash: nextHash } }, { new: false })
+      .exec();
+
+    if (!updated) throw new NotFoundException("User not found");
+  }
+
   async touchLastSeen(userId: string): Promise<void> {
     const id = String(userId ?? "").trim();
     if (!id) return;

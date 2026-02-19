@@ -627,6 +627,165 @@
         ]
       }
     },
+    "/users/me/password": {
+      "post": {
+        "operationId": "UsersController_changePassword",
+        "summary": "Change current user password",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "ok": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/auth/oauth/google/start": {
+      "get": {
+        "operationId": "AuthController_googleOauthStart",
+        "summary": "Start Google OAuth login/register flow",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/oauth/google/callback": {
+      "get": {
+        "operationId": "AuthController_googleOauthCallback",
+        "summary": "Google OAuth callback",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/oauth/apple/start": {
+      "get": {
+        "operationId": "AuthController_appleOauthStart",
+        "summary": "Start Apple OAuth login/register flow",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/oauth/apple/callback": {
+      "get": {
+        "operationId": "AuthController_appleOauthCallback",
+        "summary": "Apple OAuth callback",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/auth/register": {
       "post": {
         "operationId": "AuthController_register",
@@ -645,6 +804,78 @@
         "responses": {
           "201": {
             "description": "User registered. Refresh token is set in httpOnly cookie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/oauth/complete-register": {
+      "post": {
+        "operationId": "AuthController_completeOauthRegister",
+        "summary": "Complete OAuth registration after explicit consent",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OauthCompleteRegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OAuth registration completed. Refresh token is set in httpOnly cookie.",
             "content": {
               "application/json": {
                 "schema": {
@@ -747,6 +978,150 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "summary": "Request password reset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Always returns ok=true. resetUrl is returned only when PASSWORD_RESET_RETURN_LINK=true.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgotPasswordResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "summary": "Reset password with token from forgot-password flow",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -1607,7 +1982,7 @@
     "/requests/my": {
       "get": {
         "operationId": "RequestsController_my",
-        "summary": "Client: list my requests",
+        "summary": "User: list my requests",
         "parameters": [
           {
             "name": "status",
@@ -1742,8 +2117,8 @@
       },
       "post": {
         "operationId": "RequestsController_createMy",
-        "summary": "Client: create my request (draft)",
-        "description": "Creates a request for an authenticated client. Default status: draft.",
+        "summary": "User: create my request (draft)",
+        "description": "Creates a request for an authenticated user. Default status: draft.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1883,7 +2258,7 @@
     "/requests/my/photos": {
       "post": {
         "operationId": "RequestsController_uploadMyPhotos",
-        "summary": "Client: upload request photos",
+        "summary": "User: upload request photos",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -2000,7 +2375,7 @@
     "/requests/my/{requestId}/publish": {
       "post": {
         "operationId": "RequestsController_publishMy",
-        "summary": "Client: publish my draft request",
+        "summary": "User: publish my draft request",
         "parameters": [
           {
             "name": "requestId",
@@ -2052,6 +2427,228 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/requests/my/{requestId}": {
+      "patch": {
+        "operationId": "RequestsController_updateMy",
+        "summary": "User: update my request",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMyRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "RequestsController_deleteMy",
+        "summary": "User: delete my request",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteMyRequestResponseDto"
                 }
               }
             }
@@ -2544,7 +3141,7 @@
     "/offers/my-client": {
       "get": {
         "operationId": "OffersController_myClient",
-        "summary": "Client: list my offers (all requests)",
+        "summary": "User: list my offers (all requests)",
         "parameters": [
           {
             "name": "status",
@@ -2641,7 +3238,7 @@
     "/offers/by-request/{requestId}": {
       "get": {
         "operationId": "OffersController_listForRequest",
-        "summary": "Client: list offers for my request (UI)",
+        "summary": "User: list offers for my request (UI)",
         "parameters": [
           {
             "name": "requestId",
@@ -2756,7 +3353,7 @@
     "/offers/actions/{id}/accept": {
       "patch": {
         "operationId": "OffersController_accept",
-        "summary": "Client: accept provider offer (match)",
+        "summary": "User: accept provider offer (match)",
         "parameters": [
           {
             "name": "id",
@@ -2852,7 +3449,7 @@
     "/offers/actions/{id}/decline": {
       "patch": {
         "operationId": "OffersController_decline",
-        "summary": "Client: decline provider offer",
+        "summary": "User: decline provider offer",
         "parameters": [
           {
             "name": "id",
@@ -4739,6 +5336,122 @@
         ]
       }
     },
+    "/reviews/my": {
+      "get": {
+        "operationId": "ReviewsController_listMy",
+        "summary": "List my received reviews (workspace)",
+        "parameters": [
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "all",
+              "enum": [
+                "all",
+                "client",
+                "provider"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewPublicDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/reviews/client": {
       "post": {
         "operationId": "ReviewsController_createClientReview",
@@ -6049,6 +6762,11 @@
             "type": "string",
             "example": "Unauthorized"
           },
+          "errorCode": {
+            "type": "string",
+            "example": "AUTH_INVALID_CREDENTIALS",
+            "description": "Stable machine-readable error code"
+          },
           "timestamp": {
             "type": "string",
             "example": "2026-01-27T10:20:30.123Z"
@@ -6249,6 +6967,10 @@
             "type": "string",
             "example": "+49123456789"
           },
+          "bio": {
+            "type": "string",
+            "example": "Ich arbeite sauber und puenktlich."
+          },
           "avatar": {
             "$ref": "#/components/schemas/AvatarDto"
           },
@@ -6259,6 +6981,10 @@
           "acceptedPrivacyPolicyAt": {
             "type": "object",
             "example": "2025-01-01T12:00:00.000Z"
+          },
+          "acceptedPrivacyPolicyVersion": {
+            "type": "object",
+            "example": "2026-02-18"
           },
           "isBlocked": {
             "type": "boolean",
@@ -6309,6 +7035,10 @@
             "type": "string",
             "example": "de"
           },
+          "bio": {
+            "type": "string",
+            "example": "Ich arbeite sauber und puenktlich."
+          },
           "phone": {
             "type": "string",
             "example": "+49123456789"
@@ -6318,6 +7048,23 @@
             "example": "https://cdn.example.com/u/1.png"
           }
         }
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "example": "CurrentPass123!"
+          },
+          "newPassword": {
+            "type": "string",
+            "example": "NewSecurePass456!"
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
       },
       "RegisterDto": {
         "type": "object",
@@ -6432,6 +7179,24 @@
           "expiresIn"
         ]
       },
+      "OauthCompleteRegisterDto": {
+        "type": "object",
+        "properties": {
+          "signupToken": {
+            "type": "string",
+            "description": "Short-lived token returned by OAuth callback when consent is required"
+          },
+          "acceptPrivacyPolicy": {
+            "type": "boolean",
+            "example": true,
+            "description": "Accept privacy policy"
+          }
+        },
+        "required": [
+          "signupToken",
+          "acceptPrivacyPolicy"
+        ]
+      },
       "LoginDto": {
         "type": "object",
         "properties": {
@@ -6447,6 +7212,64 @@
         "required": [
           "email",
           "password"
+        ]
+      },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ForgotPasswordResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          },
+          "resetUrl": {
+            "type": "string",
+            "example": "https://frontend.example.com/auth/reset-password?token=...",
+            "description": "Reset link is returned only when PASSWORD_RESET_RETURN_LINK=true."
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "password": {
+            "type": "string",
+            "example": "Password1!"
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ]
+      },
+      "LogoutResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "ok"
         ]
       },
       "RefreshResponseDto": {
@@ -6465,18 +7288,6 @@
         "required": [
           "accessToken",
           "expiresIn"
-        ]
-      },
-      "LogoutResponseDto": {
-        "type": "object",
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "example": true
-          }
-        },
-        "required": [
-          "ok"
         ]
       },
       "ProviderProfileDto": {
@@ -6666,6 +7477,11 @@
       "CreateRequestDto": {
         "type": "object",
         "properties": {
+          "publishNow": {
+            "type": "boolean",
+            "example": false,
+            "description": "If true, request is published immediately after creation"
+          },
           "title": {
             "type": "string",
             "example": "Zwei IKEA Pax Schränke aufbauen"
@@ -7161,6 +7977,89 @@
         },
         "required": [
           "urls"
+        ]
+      },
+      "UpdateMyRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Zwei IKEA Pax Schränke aufbauen"
+          },
+          "propertyType": {
+            "type": "string",
+            "example": "apartment",
+            "enum": [
+              "apartment",
+              "house"
+            ]
+          },
+          "area": {
+            "type": "number",
+            "example": 55,
+            "description": "Area in m²"
+          },
+          "price": {
+            "type": "number",
+            "example": 120,
+            "description": "Optional price in EUR"
+          },
+          "preferredDate": {
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          },
+          "isRecurring": {
+            "type": "boolean",
+            "example": false
+          },
+          "comment": {
+            "type": "string",
+            "example": "Need eco products, please",
+            "maxLength": 1000
+          },
+          "description": {
+            "type": "string",
+            "example": "Assemble two wardrobes, tools available",
+            "maxLength": 2000
+          },
+          "photos": {
+            "example": [
+              "https://cdn.example.com/req/1.jpg"
+            ],
+            "description": "Optional photos for the request card",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "example": [
+              "ikea",
+              "assembly"
+            ],
+            "description": "Optional tags for search",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeleteMyRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          },
+          "deletedRequestId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          }
+        },
+        "required": [
+          "ok",
+          "deletedRequestId"
         ]
       },
       "CreateOfferDto": {
@@ -7962,6 +8861,43 @@
           "items"
         ]
       },
+      "ReviewPublicDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "targetRole": {
+            "type": "string",
+            "example": "client",
+            "enum": [
+              "client",
+              "provider"
+            ]
+          },
+          "rating": {
+            "type": "number",
+            "example": 5
+          },
+          "text": {
+            "type": "object",
+            "example": "Great client, on time",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "targetRole",
+          "rating",
+          "createdAt"
+        ]
+      },
       "CreateReviewDto": {
         "type": "object",
         "properties": {
@@ -8033,43 +8969,6 @@
           "bookingId",
           "authorUserId",
           "targetUserId",
-          "targetRole",
-          "rating",
-          "createdAt"
-        ]
-      },
-      "ReviewPublicDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
-          },
-          "targetRole": {
-            "type": "string",
-            "example": "client",
-            "enum": [
-              "client",
-              "provider"
-            ]
-          },
-          "rating": {
-            "type": "number",
-            "example": 5
-          },
-          "text": {
-            "type": "object",
-            "example": "Great client, on time",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string",
-            "example": "2026-02-01T10:00:00.000Z"
-          }
-        },
-        "required": [
-          "id",
           "targetRole",
           "rating",
           "createdAt"

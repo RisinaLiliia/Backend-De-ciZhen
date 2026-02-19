@@ -1,39 +1,15 @@
-# Cookie-Richtlinie
+# Cookie Notice
 
-Stand: 18. Februar 2026
+De’ciZhen uses strictly necessary cookies for authentication and session continuity.
 
-## 1. Was sind Cookies?
+## Cookies We Use
+- `refreshToken` (httpOnly): keeps a signed-in session active securely.
 
-Cookies sind kleine Textdateien, die auf Ihrem Endgerät gespeichert werden und bestimmte Informationen enthalten.
+## Purpose
+These cookies are required for core functionality such as login, protected routes, and account security.
 
-## 2. Welche Cookies wir einsetzen
+## Third-Party Cookies
+We do not use optional marketing cookies in the core product flow by default.
 
-Aktuell verwenden wir auf De'ciZhen nur technisch notwendige Cookies, insbesondere für:
-
-- Sitzungsverwaltung und Login-Status
-- Sicherheitsfunktionen (z. B. Schutz vor Missbrauch)
-- notwendige Einstellungen für die Funktionsfähigkeit der Plattform
-
-Diese Cookies sind erforderlich, damit zentrale Funktionen (Login, geschützte Bereiche, Navigation) korrekt arbeiten.
-
-## 3. Rechtsgrundlage
-
-Technisch notwendige Cookies werden auf Grundlage von § 25 Abs. 2 TDDDG sowie Art. 6 Abs. 1 lit. f DSGVO eingesetzt.
-
-## 4. Speicherdauer
-
-Je nach Zweck werden Cookies als:
-
-- Session-Cookies (Löschung beim Schließen des Browsers) oder
-- persistente Cookies (Löschung nach definierter Laufzeit)
-
-gesetzt.
-
-## 5. Cookie-Verwaltung im Browser
-
-Sie können Cookies in den Einstellungen Ihres Browsers löschen oder blockieren.  
-Bitte beachten Sie: Das Blockieren notwendiger Cookies kann die Funktionsfähigkeit der Plattform einschränken.
-
-## 6. Änderungen dieser Cookie-Richtlinie
-
-Wir können diese Richtlinie anpassen, wenn sich technische oder rechtliche Anforderungen ändern.
+## Updates
+This notice may be updated when authentication or legal requirements change.

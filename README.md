@@ -61,6 +61,11 @@ OAuth (Google/Apple):
 2. New/social user without consent -> consent-required flow
 3. Completion via `POST /auth/oauth/complete-register`
 
+Password reset:
+- Request reset via `POST /auth/forgot-password` (always returns `ok: true`)
+- Complete reset via `POST /auth/reset-password` with token + new password
+- Reset tokens are short-lived and validated via Redis session keys
+
 ## Legal Endpoints
 - `GET /legal/privacy`
 - `GET /legal/cookies`
@@ -94,6 +99,9 @@ Minimum required:
 
 Important optional:
 - `PRIVACY_POLICY_VERSION` (default `2026-02-18`)
+- `PASSWORD_RESET_TTL_MINUTES` (default `30`)
+- `PASSWORD_RESET_PATH` (default `/auth/reset-password`)
+- `PASSWORD_RESET_RETURN_LINK` (default `false`, enable only for local/dev)
 - `GOOGLE_OAUTH_*`
 - `APPLE_OAUTH_*`
 - `CLOUDINARY_*`
