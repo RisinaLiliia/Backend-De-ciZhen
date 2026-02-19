@@ -13,6 +13,7 @@ import { UsersService } from "../users/users.service";
 import { RedisService } from "../../infra/redis.service";
 import type { UserDocument } from "../users/schemas/user.schema";
 import { ProvidersService } from "../providers/providers.service";
+import { PasswordResetDeliveryService } from "./password-reset-delivery.service";
 
 jest.mock("../../utils/password", () => ({
   hashPassword: jest.fn(async () => "HASHED_REFRESH"),
@@ -41,10 +42,15 @@ describe("AuthService", () => {
     set: jest.fn(),
     get: jest.fn(),
     del: jest.fn(),
+    deleteByPattern: jest.fn(),
   };
 
   const providersServiceMock = {
     activateIfComplete: jest.fn(),
+  };
+
+  const passwordResetDeliveryMock = {
+    sendResetLink: jest.fn(),
   };
 
   const configServiceMock = {
@@ -79,6 +85,7 @@ describe("AuthService", () => {
         { provide: UsersService, useValue: usersServiceMock },
         { provide: RedisService, useValue: redisServiceMock },
         { provide: ProvidersService, useValue: providersServiceMock },
+        { provide: PasswordResetDeliveryService, useValue: passwordResetDeliveryMock },
         { provide: ConfigService, useValue: configServiceMock },
       ],
     }).compile();
@@ -397,10 +404,11 @@ describe("AuthService", () => {
       usersServiceMock.findByEmail.mockResolvedValue(makeUser());
       jwtServiceMock.sign.mockReturnValueOnce("RESET_TOKEN");
 
-      const res = await authService.forgotPassword("liliia@test.com");
+      const res = await authService.forgotPassword("liliia@test.com", "/orders?tab=my-requests");
 
       expect(res.ok).toBe(true);
       expect(res.resetUrl).toContain("/auth/reset-password?token=RESET_TOKEN");
+      expect(res.resetUrl).toContain("next=%2Forders%3Ftab%3Dmy-requests");
       expect(redisServiceMock.set).toHaveBeenCalledTimes(1);
     });
   });

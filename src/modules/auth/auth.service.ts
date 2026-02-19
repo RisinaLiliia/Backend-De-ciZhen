@@ -15,6 +15,7 @@ import { RedisService } from "../../infra/redis.service";
 import { JwtPayload, TokenResponse, SafeUser, AppRole } from "./auth.types";
 import type { UserDocument } from "../users/schemas/user.schema";
 import { ProvidersService } from "../providers/providers.service";
+import { PasswordResetDeliveryService } from "./password-reset-delivery.service";
 
 type SocialProvider = "google" | "apple";
 type SocialAuthResult =
@@ -29,6 +30,7 @@ export class AuthService {
     private redisService: RedisService,
     private providersService: ProvidersService,
     private config: ConfigService,
+    private passwordResetDelivery: PasswordResetDeliveryService,
   ) {}
 
   private getCurrentPolicyVersion(): string {
@@ -47,6 +49,14 @@ export class AuthService {
   private getPasswordResetPath(): string {
     const raw = String(this.config.get<string>("app.passwordResetPath") ?? "/auth/reset-password");
     return raw.startsWith("/") ? raw : "/auth/reset-password";
+  }
+
+  private sanitizeRelativePath(input?: string): string | undefined {
+    if (!input) return undefined;
+    const value = String(input).trim();
+    if (!value.startsWith("/")) return undefined;
+    if (/[\r\n]/.test(value)) return undefined;
+    return value;
   }
 
   async register(data: RegisterDto): Promise<TokenResponse> {
@@ -353,7 +363,7 @@ export class AuthService {
     return this.generateTokens(user as UserDocument);
   }
 
-  async forgotPassword(email: string): Promise<{ ok: true; resetUrl?: string }> {
+  async forgotPassword(email: string, nextPath?: string): Promise<{ ok: true; resetUrl?: string }> {
     const normalized = String(email ?? "").trim().toLowerCase();
     if (!normalized) return { ok: true };
 
@@ -375,15 +385,25 @@ export class AuthService {
       this.getPasswordResetTtlSeconds(),
     );
 
-    if (!this.shouldReturnPasswordResetLink()) {
-      return { ok: true };
-    }
-
     const frontendUrl = this.config.get<string>("app.frontendUrl");
     const url = new URL(this.getPasswordResetPath(), frontendUrl ?? "http://localhost");
     url.searchParams.set("token", resetToken);
+    const safeNext = this.sanitizeRelativePath(nextPath);
+    if (safeNext) {
+      url.searchParams.set("next", safeNext);
+    }
     const resetUrl = frontendUrl ? url.toString() : `${url.pathname}${url.search}`;
-    return { ok: true, resetUrl };
+
+    try {
+      await this.passwordResetDelivery.sendResetLink(normalized, resetUrl);
+    } catch {
+    }
+
+    if (this.shouldReturnPasswordResetLink()) {
+      return { ok: true, resetUrl };
+    }
+
+    return { ok: true };
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
@@ -439,6 +459,7 @@ export class AuthService {
 
     await this.usersService.setPasswordByUserId(payload.sub, newPassword);
     await this.redisService.del(key);
+    await this.redisService.deleteByPattern(`refresh:${payload.sub}:*`);
   }
 
   private async generateTokens(user: UserDocument): Promise<TokenResponse> {

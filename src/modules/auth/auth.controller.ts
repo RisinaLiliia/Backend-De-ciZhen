@@ -514,7 +514,7 @@ export class AuthController {
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
   ): Promise<ForgotPasswordResponseDto> {
-    return this.authService.forgotPassword(dto.email);
+    return this.authService.forgotPassword(dto.email, dto.nextPath);
   }
 
   @Post("reset-password")

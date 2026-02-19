@@ -175,7 +175,7 @@ describe("AuthController (unit)", () => {
         email: "a@b.com",
       } as any);
 
-      expect(authServiceMock.forgotPassword).toHaveBeenCalledWith("a@b.com");
+      expect(authServiceMock.forgotPassword).toHaveBeenCalledWith("a@b.com", undefined);
       expect(result).toEqual({
         ok: true,
         resetUrl: "http://localhost:3000/auth/reset-password?token=abc",

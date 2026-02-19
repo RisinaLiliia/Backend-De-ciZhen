@@ -4,7 +4,8 @@ type SimpleRedisClient = {
   setEx(key: string, seconds: number, value: string): Promise<unknown>;
   set(key: string, value: string): Promise<unknown>;
   get(key: string): Promise<string | null | Buffer>;
-  del(key: string): Promise<unknown>;
+  del(...keys: string[]): Promise<unknown>;
+  keys?(pattern: string): Promise<string[]>;
 };
 
 type RedisClient = SimpleRedisClient;
@@ -53,6 +54,22 @@ export class RedisService {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Failed to delete key "${key}": ${message}`);
+    }
+  }
+
+  async deleteByPattern(pattern: string): Promise<number> {
+    const keysFn = this.redisClient.keys;
+    if (!keysFn) return 0;
+
+    try {
+      const keys = await keysFn(pattern);
+      if (!keys.length) return 0;
+      await this.redisClient.del(...keys);
+      return keys.length;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to delete keys by pattern "${pattern}": ${message}`);
+      return 0;
     }
   }
 }

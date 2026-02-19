@@ -14,6 +14,16 @@ export default registerAs("app", () => ({
   passwordResetTtlMinutes: Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 30),
   passwordResetPath: process.env.PASSWORD_RESET_PATH ?? "/auth/reset-password",
   passwordResetReturnLink: process.env.PASSWORD_RESET_RETURN_LINK === "true",
+  passwordResetEmailMode: process.env.PASSWORD_RESET_EMAIL_MODE ?? "disabled",
+  passwordResetEmailWebhookUrl: process.env.PASSWORD_RESET_EMAIL_WEBHOOK_URL,
+  passwordResetEmailWebhookBearer: process.env.PASSWORD_RESET_EMAIL_WEBHOOK_BEARER,
+  passwordResetEmailFrom: process.env.PASSWORD_RESET_EMAIL_FROM,
+  passwordResetEmailFromName: process.env.PASSWORD_RESET_EMAIL_FROM_NAME ?? "De'ciZhen",
+  passwordResetEmailSubject:
+    process.env.PASSWORD_RESET_EMAIL_SUBJECT ?? "Reset your De'ciZhen password",
+  passwordResetBrevoApiUrl:
+    process.env.PASSWORD_RESET_BREVO_API_URL ?? "https://api.brevo.com/v3/smtp/email",
+  passwordResetBrevoApiKey: process.env.PASSWORD_RESET_BREVO_API_KEY,
   googleOauthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
   googleOauthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
   googleOauthRedirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI,
