@@ -8,6 +8,7 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
 import { PassportModule } from "@nestjs/passport";
 import { PresenceModule } from "../presence/presence.module";
 import { ProvidersModule } from "../providers/providers.module";
+import { PasswordResetDeliveryService } from "./password-reset-delivery.service";
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { ProvidersModule } from "../providers/providers.module";
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, PasswordResetDeliveryService],
   controllers: [AuthController],
   exports: [AuthService],
 })

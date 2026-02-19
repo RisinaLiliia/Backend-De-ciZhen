@@ -27,6 +27,13 @@ describe('auth (e2e)', () => {
       del: async (key: string) => {
         store.delete(key);
       },
+      deleteByPattern: async (pattern: string) => {
+        const normalized = pattern.replace(/\*/g, "");
+        for (const key of Array.from(store.keys())) {
+          if (key.startsWith(normalized)) store.delete(key);
+        }
+        return 0;
+      },
     };
 
     ctx = await setupTestApp({

@@ -65,6 +65,8 @@ Password reset:
 - Request reset via `POST /auth/forgot-password` (always returns `ok: true`)
 - Complete reset via `POST /auth/reset-password` with token + new password
 - Reset tokens are short-lived and validated via Redis session keys
+- All active refresh sessions are invalidated after successful reset
+- Reset link can be delivered via webhook-based email provider integration
 
 ## Legal Endpoints
 - `GET /legal/privacy`
@@ -102,6 +104,14 @@ Important optional:
 - `PASSWORD_RESET_TTL_MINUTES` (default `30`)
 - `PASSWORD_RESET_PATH` (default `/auth/reset-password`)
 - `PASSWORD_RESET_RETURN_LINK` (default `false`, enable only for local/dev)
+- `PASSWORD_RESET_EMAIL_MODE` (`disabled|log|webhook`)
+- `PASSWORD_RESET_EMAIL_WEBHOOK_URL` (required for `webhook` mode)
+- `PASSWORD_RESET_EMAIL_WEBHOOK_BEARER` (optional)
+- `PASSWORD_RESET_EMAIL_FROM` (optional sender id)
+- `PASSWORD_RESET_EMAIL_FROM_NAME` (optional sender name)
+- `PASSWORD_RESET_EMAIL_SUBJECT` (optional subject override)
+- `PASSWORD_RESET_BREVO_API_URL` (default Brevo SMTP API endpoint)
+- `PASSWORD_RESET_BREVO_API_KEY` (required for `brevo` mode)
 - `GOOGLE_OAUTH_*`
 - `APPLE_OAUTH_*`
 - `CLOUDINARY_*`

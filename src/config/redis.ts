@@ -8,7 +8,8 @@ type SimpleRedisClient = {
   setEx?(key: string, seconds: number, value: string): Promise<unknown>;
   set?(key: string, value: string): Promise<unknown>;
   get?(key: string): Promise<string | null | Buffer>;
-  del?(key: string): Promise<unknown>;
+  del?(...keys: string[]): Promise<unknown>;
+  keys?(pattern: string): Promise<string[]>;
   on(event: "error", listener: (err: unknown) => void): void;
   connect(): Promise<void>;
 };
@@ -33,6 +34,9 @@ type RedisClient = SimpleRedisClient;
               return null;
             },
             async del() {},
+            async keys() {
+              return [];
+            },
           };
         }
 
