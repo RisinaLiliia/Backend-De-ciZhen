@@ -10,6 +10,10 @@ type SimpleRedisClient = {
   get?(key: string): Promise<string | null | Buffer>;
   del?(...keys: string[]): Promise<unknown>;
   keys?(pattern: string): Promise<string[]>;
+  scan?(
+    cursor: string,
+    options: { MATCH?: string; COUNT?: number },
+  ): Promise<{ cursor: string; keys: string[] } | [string, string[]]>;
   on(event: "error", listener: (err: unknown) => void): void;
   connect(): Promise<void>;
 };
@@ -36,6 +40,9 @@ type RedisClient = SimpleRedisClient;
             async del() {},
             async keys() {
               return [];
+            },
+            async scan() {
+              return { cursor: "0", keys: [] };
             },
           };
         }

@@ -6,6 +6,10 @@ type SimpleRedisClient = {
   get(key: string): Promise<string | null | Buffer>;
   del(...keys: string[]): Promise<unknown>;
   keys?(pattern: string): Promise<string[]>;
+  scan?(
+    cursor: string,
+    options: { MATCH?: string; COUNT?: number },
+  ): Promise<{ cursor: string; keys: string[] } | [string, string[]]>;
 };
 
 type RedisClient = SimpleRedisClient;
@@ -58,14 +62,31 @@ export class RedisService {
   }
 
   async deleteByPattern(pattern: string): Promise<number> {
-    const keysFn = this.redisClient.keys;
-    if (!keysFn) return 0;
-
     try {
-      const keys = await keysFn(pattern);
-      if (!keys.length) return 0;
-      await this.redisClient.del(...keys);
-      return keys.length;
+      const scanFn = this.redisClient.scan;
+      if (!scanFn) {
+        const keysFn = this.redisClient.keys;
+        if (!keysFn) return 0;
+        const keys = await keysFn(pattern);
+        if (!keys.length) return 0;
+        await this.redisClient.del(...keys);
+        return keys.length;
+      }
+
+      let cursor = "0";
+      let deleted = 0;
+      do {
+        const result = await scanFn(cursor, { MATCH: pattern, COUNT: 200 });
+        const nextCursor = Array.isArray(result) ? result[0] : result.cursor;
+        const keys = Array.isArray(result) ? result[1] : result.keys;
+        cursor = nextCursor;
+        if (keys.length) {
+          await this.redisClient.del(...keys);
+          deleted += keys.length;
+        }
+      } while (cursor !== "0");
+
+      return deleted;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Failed to delete keys by pattern "${pattern}": ${message}`);

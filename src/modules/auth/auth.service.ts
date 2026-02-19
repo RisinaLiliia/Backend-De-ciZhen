@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { randomUUID } from "crypto";
@@ -24,6 +25,8 @@ type SocialAuthResult =
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private jwt: JwtService,
     private usersService: UsersService,
@@ -394,10 +397,12 @@ export class AuthService {
     }
     const resetUrl = frontendUrl ? url.toString() : `${url.pathname}${url.search}`;
 
-    try {
-      await this.passwordResetDelivery.sendResetLink(normalized, resetUrl);
-    } catch {
-    }
+    void Promise.resolve(
+      this.passwordResetDelivery.sendResetLink(normalized, resetUrl),
+    ).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Password reset email scheduling failed: ${message}`);
+    });
 
     if (this.shouldReturnPasswordResetLink()) {
       return { ok: true, resetUrl };
