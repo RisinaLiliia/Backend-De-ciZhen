@@ -10,6 +10,8 @@ describe("AuthController (unit)", () => {
   const authServiceMock = {
     register: jest.fn(),
     login: jest.fn(),
+    forgotPassword: jest.fn(),
+    resetPassword: jest.fn(),
     refresh: jest.fn(),
     logout: jest.fn(),
   };
@@ -159,6 +161,42 @@ describe("AuthController (unit)", () => {
       await controller.refresh(req, res);
 
       expect(authServiceMock.refresh).toHaveBeenCalledWith(undefined);
+    });
+  });
+
+  describe("forgotPassword", () => {
+    it("calls AuthService.forgotPassword and returns response", async () => {
+      authServiceMock.forgotPassword.mockResolvedValue({
+        ok: true,
+        resetUrl: "http://localhost:3000/auth/reset-password?token=abc",
+      });
+
+      const result = await controller.forgotPassword({
+        email: "a@b.com",
+      } as any);
+
+      expect(authServiceMock.forgotPassword).toHaveBeenCalledWith("a@b.com");
+      expect(result).toEqual({
+        ok: true,
+        resetUrl: "http://localhost:3000/auth/reset-password?token=abc",
+      });
+    });
+  });
+
+  describe("resetPassword", () => {
+    it("calls AuthService.resetPassword and returns ok", async () => {
+      authServiceMock.resetPassword.mockResolvedValue(undefined);
+
+      const result = await controller.resetPassword({
+        token: "TOKEN",
+        password: "Password1!",
+      } as any);
+
+      expect(authServiceMock.resetPassword).toHaveBeenCalledWith(
+        "TOKEN",
+        "Password1!",
+      );
+      expect(result).toEqual({ ok: true });
     });
   });
 

@@ -26,9 +26,12 @@ import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { OauthCompleteRegisterDto } from "./dto/oauth-complete-register.dto";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { AuthResponseDto } from "./dto/auth-response.dto";
 import { RefreshResponseDto } from "./dto/refresh-response.dto";
 import { LogoutResponseDto } from "./dto/logout-response.dto";
+import { ForgotPasswordResponseDto } from "./dto/forgot-password-response.dto";
 import { ApiErrors, ApiAuthErrors, ApiPublicErrors } from "../../common/swagger/api-errors.decorator";
 
 @ApiTags("auth")
@@ -497,6 +500,34 @@ export class AuthController {
 
     this.setRefreshCookie(res, refreshToken);
     return { user, accessToken, expiresIn };
+  }
+
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Request password reset" })
+  @ApiOkResponse({
+    description:
+      "Always returns ok=true. resetUrl is returned only when PASSWORD_RESET_RETURN_LINK=true.",
+    type: ForgotPasswordResponseDto,
+  })
+  @ApiPublicErrors()
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<ForgotPasswordResponseDto> {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Reset password with token from forgot-password flow" })
+  @ApiOkResponse({
+    description: "Password changed successfully.",
+    type: LogoutResponseDto,
+  })
+  @ApiPublicErrors()
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<LogoutResponseDto> {
+    await this.authService.resetPassword(dto.token, dto.password);
+    return { ok: true };
   }
 
   @Post("refresh")

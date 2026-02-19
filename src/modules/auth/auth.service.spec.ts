@@ -32,7 +32,9 @@ describe("AuthService", () => {
   const usersServiceMock = {
     create: jest.fn(),
     findAuthUserByEmail: jest.fn(),
+    findByEmail: jest.fn(),
     findById: jest.fn(),
+    setPasswordByUserId: jest.fn(),
   };
 
   const redisServiceMock = {
@@ -369,6 +371,81 @@ describe("AuthService", () => {
       expect(redisServiceMock.del).toHaveBeenCalledWith(
         "refresh:userId1:sess1",
       );
+    });
+  });
+
+  describe("forgotPassword", () => {
+    it("returns ok=true for unknown email without token generation", async () => {
+      usersServiceMock.findByEmail.mockResolvedValue(null);
+
+      const res = await authService.forgotPassword("missing@test.com");
+
+      expect(res).toEqual({ ok: true });
+      expect(jwtServiceMock.sign).not.toHaveBeenCalled();
+      expect(redisServiceMock.set).not.toHaveBeenCalled();
+    });
+
+    it("returns resetUrl when enabled in config", async () => {
+      configServiceMock.get.mockImplementation((key: string) => {
+        if (key === "app.privacyPolicyVersion") return "2026-02-18";
+        if (key === "app.passwordResetReturnLink") return true;
+        if (key === "app.passwordResetPath") return "/auth/reset-password";
+        if (key === "app.frontendUrl") return "http://localhost:3000";
+        if (key === "app.passwordResetTtlMinutes") return 30;
+        return undefined;
+      });
+      usersServiceMock.findByEmail.mockResolvedValue(makeUser());
+      jwtServiceMock.sign.mockReturnValueOnce("RESET_TOKEN");
+
+      const res = await authService.forgotPassword("liliia@test.com");
+
+      expect(res.ok).toBe(true);
+      expect(res.resetUrl).toContain("/auth/reset-password?token=RESET_TOKEN");
+      expect(redisServiceMock.set).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("resetPassword", () => {
+    it("throws Unauthorized for invalid token", async () => {
+      jwtServiceMock.verify.mockImplementation(() => {
+        throw new Error("bad token");
+      });
+
+      await expect(
+        authService.resetPassword("BAD_TOKEN", "Password1!"),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it("throws Unauthorized when reset token is expired in redis", async () => {
+      jwtServiceMock.verify.mockReturnValue({
+        type: "password_reset",
+        sub: "userId1",
+        resetId: "rid1",
+      });
+      redisServiceMock.get.mockResolvedValue(null);
+
+      await expect(
+        authService.resetPassword("RESET_TOKEN", "Password1!"),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it("sets new password and deletes reset session for valid token", async () => {
+      jwtServiceMock.verify.mockReturnValue({
+        type: "password_reset",
+        sub: "userId1",
+        resetId: "rid1",
+      });
+      redisServiceMock.get.mockResolvedValue("HASH_FROM_REDIS");
+      (comparePassword as jest.Mock).mockResolvedValueOnce(true);
+      usersServiceMock.findById.mockResolvedValue(makeUser());
+
+      await authService.resetPassword("RESET_TOKEN", "Password1!");
+
+      expect(usersServiceMock.setPasswordByUserId).toHaveBeenCalledWith(
+        "userId1",
+        "Password1!",
+      );
+      expect(redisServiceMock.del).toHaveBeenCalledWith("pwdreset:userId1:rid1");
     });
   });
 });

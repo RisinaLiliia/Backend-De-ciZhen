@@ -35,6 +35,20 @@ export class AuthService {
     return this.config.get<string>("app.privacyPolicyVersion") ?? "2026-02-18";
   }
 
+  private getPasswordResetTtlSeconds(): number {
+    const minutes = Number(this.config.get<number>("app.passwordResetTtlMinutes") ?? 30);
+    return Number.isFinite(minutes) && minutes > 0 ? Math.floor(minutes * 60) : 1800;
+  }
+
+  private shouldReturnPasswordResetLink(): boolean {
+    return Boolean(this.config.get<boolean>("app.passwordResetReturnLink") ?? false);
+  }
+
+  private getPasswordResetPath(): string {
+    const raw = String(this.config.get<string>("app.passwordResetPath") ?? "/auth/reset-password");
+    return raw.startsWith("/") ? raw : "/auth/reset-password";
+  }
+
   async register(data: RegisterDto): Promise<TokenResponse> {
     if (!data.acceptPrivacyPolicy) {
       throw new BadRequestException({
@@ -337,6 +351,94 @@ export class AuthService {
     }
 
     return this.generateTokens(user as UserDocument);
+  }
+
+  async forgotPassword(email: string): Promise<{ ok: true; resetUrl?: string }> {
+    const normalized = String(email ?? "").trim().toLowerCase();
+    if (!normalized) return { ok: true };
+
+    const user = await this.usersService.findByEmail(normalized);
+    if (!user || (user as any).isBlocked) {
+      return { ok: true };
+    }
+
+    const resetId = randomUUID();
+    const resetToken = this.jwt.sign(
+      { type: "password_reset", sub: user._id.toString(), resetId },
+      { expiresIn: `${this.getPasswordResetTtlSeconds()}s` },
+    );
+
+    const resetHash = await hashPassword(resetToken);
+    await this.redisService.set(
+      `pwdreset:${user._id.toString()}:${resetId}`,
+      resetHash,
+      this.getPasswordResetTtlSeconds(),
+    );
+
+    if (!this.shouldReturnPasswordResetLink()) {
+      return { ok: true };
+    }
+
+    const frontendUrl = this.config.get<string>("app.frontendUrl");
+    const url = new URL(this.getPasswordResetPath(), frontendUrl ?? "http://localhost");
+    url.searchParams.set("token", resetToken);
+    const resetUrl = frontendUrl ? url.toString() : `${url.pathname}${url.search}`;
+    return { ok: true, resetUrl };
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    let payload: { type?: string; sub?: string; resetId?: string };
+    try {
+      payload = this.jwt.verify(token) as { type?: string; sub?: string; resetId?: string };
+    } catch {
+      throw new UnauthorizedException({
+        message: "Invalid reset token",
+        errorCode: "AUTH_RESET_TOKEN_INVALID",
+      });
+    }
+
+    if (payload.type !== "password_reset" || !payload.sub || !payload.resetId) {
+      throw new UnauthorizedException({
+        message: "Invalid reset token",
+        errorCode: "AUTH_RESET_TOKEN_INVALID",
+      });
+    }
+
+    const key = `pwdreset:${payload.sub}:${payload.resetId}`;
+    const storedHash = await this.redisService.get(key);
+    if (!storedHash) {
+      throw new UnauthorizedException({
+        message: "Reset token expired",
+        errorCode: "AUTH_RESET_TOKEN_EXPIRED",
+      });
+    }
+
+    const valid = await comparePassword(token, storedHash);
+    if (!valid) {
+      throw new UnauthorizedException({
+        message: "Invalid reset token",
+        errorCode: "AUTH_RESET_TOKEN_INVALID",
+      });
+    }
+
+    let user: UserDocument;
+    try {
+      user = await this.usersService.findById(payload.sub);
+    } catch {
+      throw new UnauthorizedException({
+        message: "Invalid reset token",
+        errorCode: "AUTH_RESET_TOKEN_INVALID",
+      });
+    }
+    if ((user as any).isBlocked) {
+      throw new UnauthorizedException({
+        message: "User blocked",
+        errorCode: "AUTH_USER_BLOCKED",
+      });
+    }
+
+    await this.usersService.setPasswordByUserId(payload.sub, newPassword);
+    await this.redisService.del(key);
   }
 
   private async generateTokens(user: UserDocument): Promise<TokenResponse> {
