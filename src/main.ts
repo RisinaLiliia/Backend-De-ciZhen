@@ -3,7 +3,7 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import { ValidationPipe } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
 import { RolesGuard } from "./modules/auth/guards/roles.guard";
@@ -14,6 +14,7 @@ import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+  const logger = new Logger("Bootstrap");
 
   const isProd = config.get<string>("app.nodeEnv") === "production";
 
@@ -25,8 +26,9 @@ async function bootstrap() {
 
   const configuredOrigins = (config.get<string[]>("app.allowedOrigins") ?? []).filter(Boolean);
   const frontendUrl = config.get<string>("app.frontendUrl");
+  const devLocalOrigins = isProd ? [] : ["http://localhost:3000", "http://127.0.0.1:3000"];
   const origins = Array.from(
-    new Set([...(configuredOrigins ?? []), ...(frontendUrl ? [frontendUrl] : [])]),
+    new Set([...(configuredOrigins ?? []), ...(frontendUrl ? [frontendUrl] : []), ...devLocalOrigins]),
   );
 
   app.enableCors({
@@ -35,7 +37,8 @@ async function bootstrap() {
         callback(null, true);
         return;
       }
-      callback(new Error(`CORS blocked for origin: ${origin}`), false);
+      logger.warn(`CORS blocked for origin: ${origin}`);
+      callback(null, false);
     },
     credentials: true,
   });

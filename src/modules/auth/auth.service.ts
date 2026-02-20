@@ -110,7 +110,23 @@ export class AuthService {
       });
     }
 
-    const ok = await comparePassword(password, user.passwordHash);
+    // Guard against legacy/incomplete records without a usable password hash.
+    if (!user.passwordHash || typeof user.passwordHash !== "string") {
+      throw new UnauthorizedException({
+        message: "Password login is not available for this account",
+        errorCode: "AUTH_PASSWORD_LOGIN_NOT_AVAILABLE",
+      });
+    }
+
+    let ok = false;
+    try {
+      ok = await comparePassword(password, user.passwordHash);
+    } catch {
+      throw new UnauthorizedException({
+        message: "Invalid credentials",
+        errorCode: "AUTH_INVALID_CREDENTIALS",
+      });
+    }
     if (!ok) {
       throw new UnauthorizedException({
         message: "Invalid credentials",
