@@ -7,6 +7,7 @@ export type RequestDocument = Request & Document;
 export type RequestStatus = 'draft' | 'published' | 'paused' | 'matched' | 'closed' | 'cancelled';
 export type PropertyType = 'apartment' | 'house';
 export type GeoPoint = { type: 'Point'; coordinates: [number, number] };
+export type PriceTrend = 'up' | 'down' | null;
 
 @Schema({ timestamps: true, collection: 'requests' })
 export class Request {
@@ -43,6 +44,12 @@ export class Request {
 
   @Prop({ type: Number, min: 0, default: null })
   price: number | null;
+
+  @Prop({ type: Number, min: 0, default: null })
+  previousPrice: number | null;
+
+  @Prop({ type: String, enum: ['up', 'down'], default: null })
+  priceTrend: PriceTrend;
 
   @Prop({ type: Date, required: true })
   preferredDate: Date;

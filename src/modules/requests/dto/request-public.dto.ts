@@ -65,6 +65,12 @@ export class RequestPublicDto {
   @ApiPropertyOptional({ example: 120, nullable: true })
   price: number | null;
 
+  @ApiPropertyOptional({ example: 140, nullable: true })
+  previousPrice: number | null;
+
+  @ApiPropertyOptional({ example: 'down', enum: ['up', 'down'], nullable: true })
+  priceTrend: 'up' | 'down' | null;
+
   @ApiProperty({ example: '2026-02-01T10:00:00.000Z' })
   preferredDate: Date;
 

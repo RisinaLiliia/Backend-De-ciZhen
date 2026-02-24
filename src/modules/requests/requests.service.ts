@@ -482,7 +482,26 @@ export class RequestsService {
     if (typeof dto.title === 'string') patch.title = dto.title.trim();
     if (dto.propertyType !== undefined) patch.propertyType = dto.propertyType;
     if (typeof dto.area === 'number') patch.area = dto.area;
-    if (typeof dto.price === 'number') patch.price = dto.price;
+    if (typeof dto.price === 'number') {
+      const nextPrice = dto.price;
+      const currentPrice = typeof existing.price === 'number' ? existing.price : null;
+
+      patch.price = nextPrice;
+
+      if (currentPrice === null) {
+        patch.previousPrice = null;
+        patch.priceTrend = null;
+      } else if (nextPrice < currentPrice) {
+        patch.previousPrice = currentPrice;
+        patch.priceTrend = 'down';
+      } else if (nextPrice > currentPrice) {
+        patch.previousPrice = currentPrice;
+        patch.priceTrend = 'up';
+      } else {
+        patch.previousPrice = null;
+        patch.priceTrend = null;
+      }
+    }
     if (typeof dto.preferredDate === 'string') patch.preferredDate = new Date(dto.preferredDate);
     if (typeof dto.isRecurring === 'boolean') patch.isRecurring = dto.isRecurring;
     if (typeof dto.comment === 'string') patch.comment = dto.comment.trim();
