@@ -98,6 +98,8 @@ export class FavoritesController {
       propertyType: doc.propertyType,
       area: doc.area,
       price: doc.price ?? null,
+      previousPrice: doc.previousPrice ?? null,
+      priceTrend: doc.priceTrend ?? null,
       preferredDate: doc.preferredDate,
       isRecurring: doc.isRecurring,
       comment: doc.comment ?? null,
