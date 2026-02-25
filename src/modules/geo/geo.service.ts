@@ -1,5 +1,5 @@
 // src/modules/geo/geo.service.ts
-import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../infra/redis.service';
 
@@ -19,6 +19,8 @@ type NominatimItem = {
 
 @Injectable()
 export class GeoService {
+  private readonly logger = new Logger(GeoService.name);
+
   constructor(
     private readonly config: ConfigService,
     private readonly redis: RedisService,
@@ -75,19 +77,22 @@ export class GeoService {
           'Accept-Language': acceptLanguage,
         },
       });
-    } catch (err) {
-      throw new ServiceUnavailableException('geocode provider unreachable');
+    } catch (err: any) {
+      this.logger.warn(`geocode provider unreachable: ${String(err?.message ?? err)}`);
+      return [];
     }
 
     if (!res.ok) {
-      throw new ServiceUnavailableException('geocode provider error');
+      this.logger.warn(`geocode provider error: status=${res.status}`);
+      return [];
     }
 
     let data: NominatimItem[];
     try {
       data = (await res.json()) as NominatimItem[];
     } catch {
-      throw new ServiceUnavailableException('geocode provider response invalid');
+      this.logger.warn('geocode provider response invalid');
+      return [];
     }
 
     const items = data.map((item) => {
