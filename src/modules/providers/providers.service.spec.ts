@@ -141,4 +141,13 @@ describe('ProvidersService', () => {
     });
   });
 
+  it('getPublicById finds active profile by userId', async () => {
+    modelMock.findOne.mockReturnValue(execWrap({ userId: 'u1', status: 'active', isBlocked: false }));
+
+    const res = await service.getPublicById('u1');
+
+    expect(modelMock.findOne).toHaveBeenCalled();
+    expect(res.userId).toBe('u1');
+  });
+
 });

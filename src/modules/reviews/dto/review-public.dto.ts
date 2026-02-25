@@ -14,6 +14,12 @@ export class ReviewPublicDto {
   @ApiPropertyOptional({ example: 'Great client, on time', nullable: true })
   text: string | null;
 
+  @ApiPropertyOptional({ example: 'Anna K.', nullable: true })
+  authorName: string | null;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatars/a.png', nullable: true })
+  authorAvatarUrl: string | null;
+
   @ApiProperty({ example: '2026-02-01T10:00:00.000Z' })
   createdAt: Date;
 }

@@ -125,6 +125,26 @@ export class ProvidersService {
       .exec();
   }
 
+  async getPublicById(id: string): Promise<ProviderProfileDocument> {
+    const value = String(id ?? '').trim();
+    if (!value) throw new NotFoundException('Provider profile not found');
+
+    const byObjectId = Types.ObjectId.isValid(value) ? { _id: value } : null;
+    const byUserId = { userId: value };
+    const or = byObjectId ? [byObjectId, byUserId] : [byUserId];
+
+    const item = await this.model
+      .findOne({
+        status: 'active',
+        isBlocked: false,
+        $or: or,
+      })
+      .exec();
+
+    if (!item) throw new NotFoundException('Provider profile not found');
+    return item;
+  }
+
   private isProfileComplete(profile: ProviderProfile): boolean {
     const displayName = String(profile.displayName ?? '').trim();
     const cityId = String(profile.cityId ?? '').trim();

@@ -69,12 +69,20 @@ export class FavoritesController {
     if (dto.type === 'provider') {
       return (items as any[]).map((p) => ({
         id: p._id?.toString?.() ?? p.id,
+        userId: p.userId ?? p.id ?? p._id?.toString?.(),
         displayName: p.displayName ?? null,
         avatarUrl: p.avatarUrl ?? null,
         ratingAvg: p.ratingAvg ?? 0,
         ratingCount: p.ratingCount ?? 0,
         completedJobs: p.completedJobs ?? 0,
         basePrice: p.basePrice ?? null,
+        cityId: p.cityId ?? null,
+        cityName: p.cityName ?? null,
+        serviceKey:
+          Array.isArray(p.serviceKeys) && p.serviceKeys.length > 0
+            ? p.serviceKeys[0]
+            : (p.serviceKey ?? null),
+        serviceKeys: Array.isArray(p.serviceKeys) ? p.serviceKeys : [],
       }));
     }
     return (items as any[]).map((doc) => ({

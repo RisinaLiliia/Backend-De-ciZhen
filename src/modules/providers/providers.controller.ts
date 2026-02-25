@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -65,14 +65,29 @@ export class ProvidersController {
 private toPublicDto(p: any): ProviderPublicDto {
   return {
     id: p._id.toString(),
+    userId: p.userId,
     displayName: p.displayName ?? null,
     avatarUrl: p.avatarUrl ?? null, 
     ratingAvg: p.ratingAvg ?? 0,
     ratingCount: p.ratingCount ?? 0,
     completedJobs: p.completedJobs ?? 0,
     basePrice: p.basePrice ?? null,
+    cityId: p.cityId ?? null,
+    cityName: p.cityName ?? null,
+    serviceKey: Array.isArray(p.serviceKeys) && p.serviceKeys.length > 0 ? p.serviceKeys[0] : null,
+    serviceKeys: Array.isArray(p.serviceKeys) ? p.serviceKeys : [],
   };
 }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get public provider profile by id (profile id or user id)' })
+  @ApiSecurity({} as any)
+  @ApiOkResponse({ type: ProviderPublicDto })
+  @ApiPublicErrors()
+  async getPublicById(@Param('id') id: string): Promise<ProviderPublicDto> {
+    const item = await this.providers.getPublicById(id);
+    return this.toPublicDto(item);
+  }
 
 
   @Get()
