@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { ReviewsController } from './reviews.controller';
 import { ReviewsService } from './reviews.service';
 import { ForbiddenException } from '@nestjs/common';
+import { UsersService } from '../users/users.service';
 
 describe('ReviewsController (unit)', () => {
   let controller: ReviewsController;
@@ -11,6 +12,11 @@ describe('ReviewsController (unit)', () => {
     createForProvider: jest.fn(),
     createForClient: jest.fn(),
     listByTarget: jest.fn(),
+    listMyReceived: jest.fn(),
+  };
+
+  const usersMock = {
+    findPublicByIds: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -18,7 +24,10 @@ describe('ReviewsController (unit)', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [ReviewsController],
-      providers: [{ provide: ReviewsService, useValue: svcMock }],
+      providers: [
+        { provide: ReviewsService, useValue: svcMock },
+        { provide: UsersService, useValue: usersMock },
+      ],
     }).compile();
 
     controller = moduleRef.get(ReviewsController);
@@ -73,6 +82,9 @@ describe('ReviewsController (unit)', () => {
   });
 
   it('listByTarget maps items', async () => {
+    usersMock.findPublicByIds.mockResolvedValue([
+      { _id: 'p1', name: 'Anna', avatar: { url: '/avatars/a.png' } },
+    ]);
     svcMock.listByTarget.mockResolvedValue([
       {
         _id: { toString: () => 'r3' },
@@ -89,6 +101,12 @@ describe('ReviewsController (unit)', () => {
     const res = await controller.listByTarget({ targetUserId: 'c1', targetRole: 'client', limit: 10, offset: 0 } as any);
 
     expect(svcMock.listByTarget).toHaveBeenCalledWith('c1', 'client', 10, 0);
-    expect(res[0]).toEqual(expect.objectContaining({ id: 'r3', targetRole: 'client', rating: 5 }));
+    expect(res[0]).toEqual(expect.objectContaining({
+      id: 'r3',
+      targetRole: 'client',
+      rating: 5,
+      authorName: 'Anna',
+      authorAvatarUrl: '/avatars/a.png',
+    }));
   });
 });

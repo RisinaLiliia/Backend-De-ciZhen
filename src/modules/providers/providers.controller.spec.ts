@@ -8,6 +8,7 @@ describe('ProvidersController (unit) public list', () => {
 
   const svcMock = {
     listPublic: jest.fn(),
+    getPublicById: jest.fn(),
     getOrCreateMyProfile: jest.fn(),
     updateMyProfile: jest.fn(),
   };
@@ -42,6 +43,7 @@ describe('ProvidersController (unit) public list', () => {
     expect(res[0]).toEqual(
       expect.objectContaining({
         id: 'p1',
+        userId: 'u1',
         displayName: 'Anna',
         ratingAvg: 0,
         ratingCount: 0,
@@ -50,6 +52,34 @@ describe('ProvidersController (unit) public list', () => {
       }),
     );
     expect(res[0].avatarUrl ?? null).toBeNull();
+  });
+
+  it('getPublicById maps dto', async () => {
+    svcMock.getPublicById.mockResolvedValue({
+      _id: { toString: () => 'p2' },
+      userId: 'u2',
+      displayName: 'Max',
+      cityId: 'c2',
+      cityName: 'Berlin',
+      serviceKeys: ['electric'],
+      basePrice: 55,
+      ratingAvg: 4.7,
+      ratingCount: 19,
+      completedJobs: 33,
+    });
+
+    const res = await controller.getPublicById('p2');
+
+    expect(svcMock.getPublicById).toHaveBeenCalledWith('p2');
+    expect(res).toEqual(
+      expect.objectContaining({
+        id: 'p2',
+        userId: 'u2',
+        cityId: 'c2',
+        cityName: 'Berlin',
+        serviceKey: 'electric',
+      }),
+    );
   });
 
   it('myProfile returns dto for any authenticated user', async () => {

@@ -111,4 +111,35 @@ describe('providers profile (e2e)', () => {
     expect(res.body.length).toBe(1);
     expect(res.body[0]).toMatchObject({ basePrice: 35 });
   });
+
+  it('GET /providers/:id returns single public profile', async () => {
+    const created = await providerProfileModel.create({
+      userId: 'prov-public-2',
+      status: 'active',
+      isBlocked: false,
+      cityId: 'c2',
+      cityName: 'Berlin',
+      serviceKeys: ['electric'],
+      basePrice: 49,
+      ratingAvg: 4.9,
+      ratingCount: 12,
+    });
+
+    const byProfileId = await request(app.getHttpServer())
+      .get(`/providers/${created._id.toString()}`)
+      .expect(200);
+    expect(byProfileId.body).toMatchObject({
+      id: created._id.toString(),
+      userId: 'prov-public-2',
+      serviceKey: 'electric',
+    });
+
+    const byUserId = await request(app.getHttpServer())
+      .get('/providers/prov-public-2')
+      .expect(200);
+    expect(byUserId.body).toMatchObject({
+      userId: 'prov-public-2',
+      basePrice: 49,
+    });
+  });
 });
