@@ -97,4 +97,15 @@ describe('Geo autocomplete (e2e)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(redis.set).toHaveBeenCalledTimes(1);
   });
+
+  it('GET /geo/autocomplete returns empty list when provider is unavailable', async () => {
+    (global as any).fetch = jest.fn().mockRejectedValue(new Error('provider offline'));
+
+    const res = await request(app.getHttpServer())
+      .get('/geo/autocomplete')
+      .query({ query: 'Kassel', countryCode: 'DE', limit: 1 })
+      .expect(200);
+
+    expect(res.body.items).toEqual([]);
+  });
 });
