@@ -10,6 +10,7 @@ import {
 } from '../../modules/providers/schemas/provider-profile.schema';
 import { Request, RequestDocument } from '../../modules/requests/schemas/request.schema';
 import { Offer, OfferDocument } from '../../modules/offers/schemas/offer.schema';
+import { City, CityDocument } from '../../modules/catalog/cities/schemas/city.schema';
 
 import { User, UserDocument } from '../../modules/users/schemas/user.schema';
 import { hashPassword } from '../../utils/password';
@@ -21,9 +22,18 @@ const DEMO = {
   provider1Email: 'demo-provider-1@test.com',
   provider2Email: 'demo-provider-2@test.com',
 
-  cityId: 'Berlin',
+  cityKey: 'berlin',
   serviceKey: 'home_cleaning',
 };
+
+function pickCityName(city: CityDocument): string {
+  const i18n = (city as any).i18n as Record<string, string> | undefined;
+  const byDe = i18n?.de?.trim();
+  const byEn = i18n?.en?.trim();
+  const byName = (city as any).name ? String((city as any).name).trim() : '';
+  const byKey = (city as any).key ? String((city as any).key).trim() : '';
+  return byDe || byEn || byName || byKey || 'Berlin';
+}
 
 async function bootstrap() {
   process.env.REDIS_DISABLED = 'true';
@@ -34,8 +44,22 @@ async function bootstrap() {
   const providerModel = app.get<Model<ProviderProfileDocument>>(getModelToken(ProviderProfile.name));
   const requestModel = app.get<Model<RequestDocument>>(getModelToken(Request.name));
   const offerModel = app.get<Model<OfferDocument>>(getModelToken(Offer.name));
+  const cityModel = app.get<Model<CityDocument>>(getModelToken(City.name));
 
   console.log('🌱 Seeding demo marketplace...');
+
+  const city = await cityModel
+    .findOne({
+      $or: [{ key: DEMO.cityKey }, { name: /^Berlin$/i }],
+    })
+    .exec();
+
+  if (!city) {
+    throw new Error('Demo city not found. Run `npm run seed:cities` first.');
+  }
+
+  const cityId = String((city as any)._id ?? (city as any).id);
+  const cityName = pickCityName(city);
 
   const ensureUser = async (email: string, role: 'client' | 'provider') => {
     const existing = await userModel.findOne({ email }).exec();
@@ -77,7 +101,7 @@ async function bootstrap() {
               status: 'active',
               isBlocked: false,
               blockedAt: null,
-              cityId: existing.cityId ?? DEMO.cityId,
+              cityId,
             },
             $addToSet: { serviceKeys: DEMO.serviceKey },
             $setOnInsert: { metadata: {} },
@@ -91,7 +115,7 @@ async function bootstrap() {
       userId,
       displayName,
       legalType: 'individual',
-      cityId: DEMO.cityId,
+      cityId,
       serviceKeys: [DEMO.serviceKey],
       basePrice,
       status: 'active',
@@ -113,10 +137,22 @@ async function bootstrap() {
   console.log('✓ provider profiles ready');
 
   let req = await requestModel
-    .findOne({ clientId, cityId: DEMO.cityId, serviceKey: DEMO.serviceKey })
+    .findOne({ clientId, cityId, serviceKey: DEMO.serviceKey })
     .exec();
 
   if (req) {
+    await requestModel
+      .updateOne(
+        { _id: (req as any)._id },
+        {
+          $set: {
+            title: (req as any).title || 'Apartment cleaning in Berlin',
+            cityName: (req as any).cityName || cityName,
+          },
+        },
+      )
+      .exec();
+
     const status = String((req as any).status ?? '');
     if (status !== 'published') {
       await requestModel
@@ -128,7 +164,6 @@ async function bootstrap() {
               matchedProviderUserId: null,
               matchedAt: null,
             },
-            $setOnInsert: {},
           },
         )
         .exec();
@@ -139,8 +174,10 @@ async function bootstrap() {
     console.log(`↺ request exists: ${String((req as any)?._id)}`);
   } else {
     req = await requestModel.create({
+      title: 'Apartment cleaning in Berlin',
       clientId,
-      cityId: DEMO.cityId,
+      cityId,
+      cityName,
       serviceKey: DEMO.serviceKey,
 
       propertyType: 'apartment',
