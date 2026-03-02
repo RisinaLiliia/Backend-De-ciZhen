@@ -69,8 +69,23 @@ async function main() {
 
     { name: 'idx_booking_chain', key: { requestId: 1, offerId: 1, providerUserId: 1, clientId: 1 }, options: { background: true } },
 
-    { name: 'uniq_rescheduled_from', key: { rescheduledFromId: 1 }, options: { unique: true, sparse: true, background: true } },
-    { name: 'idx_rescheduled_to', key: { rescheduledToId: 1 }, options: { sparse: true, background: true } },
+    {
+      name: 'uniq_rescheduled_from',
+      key: { rescheduledFromId: 1 },
+      options: {
+        unique: true,
+        background: true,
+        partialFilterExpression: { rescheduledFromId: { $type: 'string' } },
+      },
+    },
+    {
+      name: 'idx_rescheduled_to',
+      key: { rescheduledToId: 1 },
+      options: {
+        background: true,
+        partialFilterExpression: { rescheduledToId: { $type: 'string' } },
+      },
+    },
 
     { name: 'idx_status_endAt', key: { status: 1, endAt: 1 }, options: { background: true } },
   ];
