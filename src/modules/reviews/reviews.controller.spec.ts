@@ -98,9 +98,15 @@ describe('ReviewsController (unit)', () => {
       },
     ]);
 
-    const res = await controller.listByTarget({ targetUserId: 'c1', targetRole: 'client', limit: 10, offset: 0 } as any);
+    const res = await controller.listByTarget({
+      targetUserId: 'c1',
+      targetRole: 'client',
+      limit: 10,
+      offset: 0,
+      sort: 'created_desc',
+    } as any);
 
-    expect(svcMock.listByTarget).toHaveBeenCalledWith('c1', 'client', 10, 0);
+    expect(svcMock.listByTarget).toHaveBeenCalledWith('c1', 'client', 10, 0, 'created_desc');
     expect(res[0]).toEqual(expect.objectContaining({
       id: 'r3',
       targetRole: 'client',
