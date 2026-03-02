@@ -23,6 +23,7 @@ import { LegalModule } from './modules/legal/legal.module';
 import { PresenceModule } from './modules/presence/presence.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ChatsModule } from './modules/chats/chats.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { ChatsModule } from './modules/chats/chats.module';
     PresenceModule,
     FavoritesModule,
     ChatsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
