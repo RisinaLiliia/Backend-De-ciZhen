@@ -86,6 +86,53 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
+async function ensureBookingRescheduleIndexes(bookingModel: Model<BookingDocument>) {
+  const col = bookingModel.collection;
+  const indexes = await col.indexes();
+
+  const byName = (name: string) => indexes.find((idx: any) => idx.name === name);
+
+  const hasStringPartial = (idx: any, field: 'rescheduledFromId' | 'rescheduledToId') =>
+    Boolean(
+      idx?.partialFilterExpression
+      && idx.partialFilterExpression[field]
+      && idx.partialFilterExpression[field].$type === 'string',
+    );
+
+  const fromIdx = byName('uniq_rescheduled_from');
+  if (!hasStringPartial(fromIdx, 'rescheduledFromId')) {
+    if (fromIdx?.name) {
+      await col.dropIndex(fromIdx.name).catch(() => undefined);
+    }
+    await col.createIndex(
+      { rescheduledFromId: 1 },
+      {
+        name: 'uniq_rescheduled_from',
+        unique: true,
+        background: true,
+        partialFilterExpression: { rescheduledFromId: { $type: 'string' } },
+      },
+    );
+    console.log('↺ fixed index uniq_rescheduled_from (partial string)');
+  }
+
+  const toIdx = byName('idx_rescheduled_to');
+  if (!hasStringPartial(toIdx, 'rescheduledToId')) {
+    if (toIdx?.name) {
+      await col.dropIndex(toIdx.name).catch(() => undefined);
+    }
+    await col.createIndex(
+      { rescheduledToId: 1 },
+      {
+        name: 'idx_rescheduled_to',
+        background: true,
+        partialFilterExpression: { rescheduledToId: { $type: 'string' } },
+      },
+    );
+    console.log('↺ fixed index idx_rescheduled_to (partial string)');
+  }
+}
+
 async function bootstrap() {
   process.env.REDIS_DISABLED = process.env.REDIS_DISABLED ?? 'true';
 
@@ -96,6 +143,8 @@ async function bootstrap() {
   const bookingModel = app.get<Model<BookingDocument>>(getModelToken(Booking.name));
   const reviewModel = app.get<Model<ReviewDocument>>(getModelToken(Review.name));
   const clientProfileModel = app.get<Model<ClientProfileDocument>>(getModelToken(ClientProfile.name));
+
+  await ensureBookingRescheduleIndexes(bookingModel);
 
   const clientPoolSize = readPositiveInt(process.env.SEED_REVIEW_CLIENT_POOL, DEFAULT_CLIENT_POOL);
   const maxReviewsPerProvider = readPositiveInt(

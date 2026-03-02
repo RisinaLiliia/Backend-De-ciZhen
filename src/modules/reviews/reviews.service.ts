@@ -122,6 +122,7 @@ export class ReviewsService {
     targetRole?: 'client' | 'provider',
     limit?: number,
     offset?: number,
+    sort: 'created_desc' | 'rating_desc' = 'created_desc',
   ): Promise<ReviewDocument[]> {
     const id = String(targetUserId ?? '').trim();
     if (!id) throw new BadRequestException('targetUserId is required');
@@ -132,9 +133,16 @@ export class ReviewsService {
     const safeLimit = Math.min(Math.max(limit ?? 20, 1), 100);
     const safeOffset = Math.max(offset ?? 0, 0);
 
+    let sortBy: Record<string, 1 | -1>;
+    if (sort === 'rating_desc') {
+      sortBy = { rating: -1, createdAt: -1 };
+    } else {
+      sortBy = { createdAt: -1 };
+    }
+
     return this.reviewModel
       .find(q)
-      .sort({ createdAt: -1 })
+      .sort(sortBy)
       .skip(safeOffset)
       .limit(safeLimit)
       .exec();

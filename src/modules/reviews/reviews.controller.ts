@@ -26,6 +26,12 @@ class ReviewsQueryDto {
   @IsIn(['client', 'provider'])
   targetRole?: 'client' | 'provider';
 
+  @ApiPropertyOptional({ enum: ['created_desc', 'rating_desc'], example: 'created_desc' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['created_desc', 'rating_desc'])
+  sort?: 'created_desc' | 'rating_desc';
+
   @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100 })
   @IsOptional()
   @Type(() => Number)
@@ -163,7 +169,7 @@ export class ReviewsController {
   @ApiOkResponse({ type: ReviewPublicDto, isArray: true })
   @ApiPublicErrors()
   async listByTarget(@Query() q: ReviewsQueryDto): Promise<ReviewPublicDto[]> {
-    const items = await this.reviews.listByTarget(q.targetUserId, q.targetRole, q.limit, q.offset);
+    const items = await this.reviews.listByTarget(q.targetUserId, q.targetRole, q.limit, q.offset, q.sort);
     const authorIds = Array.from(
       new Set(
         items
