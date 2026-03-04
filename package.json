@@ -15,6 +15,7 @@
     "test:watch": "jest -c jest.config.ts --watch",
     "test:cov": "jest -c jest.config.ts --coverage",
     "test:e2e": "jest -c test/jest-e2e.json --runInBand",
+    "test:e2e:smoke": "jest -c test/jest-e2e.json --runInBand test/auth.e2e-spec.ts test/workspace.e2e-spec.ts test/reviews.e2e-spec.ts",
     "swagger": "ts-node -r tsconfig-paths/register src/swagger.ts",
     "seed:cities": "ts-node -r tsconfig-paths/register src/database/seeds/seed-cities.ts",
     "seed:services": "ts-node -r tsconfig-paths/register src/database/seeds/seed-services.ts",

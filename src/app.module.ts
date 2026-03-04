@@ -1,11 +1,12 @@
 // src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import appConfig from './config/env';
 import { envValidationSchema } from './config/env.validation';
 import { DatabaseModule } from './config/database';
 import { RedisModule } from './config/redis';
-import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './modules/users/users.module';
@@ -43,7 +44,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
         const options: ThrottlerModuleOptions = {
           throttlers: [
             {
-              ttl: Math.ceil(windowMs / 1000),
+              ttl: windowMs,
               limit,
             },
           ],
@@ -74,6 +75,12 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     WorkspaceModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

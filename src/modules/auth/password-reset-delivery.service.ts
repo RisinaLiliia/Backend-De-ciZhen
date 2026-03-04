@@ -23,7 +23,7 @@ export class PasswordResetDeliveryService {
     if (mode === "disabled") return;
 
     if (mode === "log") {
-      this.logger.log(`Password reset link for ${email}: ${resetUrl}`);
+      this.logger.log(`Password reset requested for ${email} (log mode, URL redacted)`);
       return;
     }
 

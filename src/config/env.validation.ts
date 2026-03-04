@@ -10,6 +10,7 @@ export const envValidationSchema = Joi.object({
 
   JWT_SECRET: Joi.string().min(32).required(),
   FRONTEND_URL: Joi.string().uri().optional(),
+  TRUST_PROXY: Joi.alternatives().try(Joi.string(), Joi.number(), Joi.boolean()).optional(),
   GOOGLE_OAUTH_CLIENT_ID: Joi.string().optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: Joi.string().optional(),
   GOOGLE_OAUTH_REDIRECT_URI: Joi.string().uri().optional(),

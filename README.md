@@ -86,10 +86,16 @@ Password reset:
 - Reset tokens are short-lived and validated via Redis session keys
 - All active refresh sessions are invalidated after successful reset
 - Reset link can be delivered via webhook-based email provider integration
+- In `PASSWORD_RESET_EMAIL_MODE=log`, reset URLs are redacted from logs
 
 ## Legal Endpoints
 - `GET /legal/privacy`
 - `GET /legal/cookies`
+
+## Health Endpoints
+- `GET /health` (basic compatibility check)
+- `GET /health/live` (liveness probe)
+- `GET /health/ready` (readiness probe with Mongo + Redis status)
 
 Sources:
 - `legal/privacy-policy.md`
@@ -134,6 +140,8 @@ Important optional:
 - `GOOGLE_OAUTH_*`
 - `APPLE_OAUTH_*`
 - `CLOUDINARY_*`
+- `REDIS_DISABLED=true` (enables in-memory fallback cache/session store for local/dev)
+- `TRUST_PROXY` (`0` by default; set `1` or `true` when running behind reverse proxy)
 
 Run:
 ```bash
@@ -157,6 +165,7 @@ npm run swagger
 - `npm run build`
 - `npm test`
 - `npm run test:e2e`
+- `npm run test:e2e:smoke`
 - `npm run swagger`
 - `npm run seed:cities`
 - `npm run seed:services`
