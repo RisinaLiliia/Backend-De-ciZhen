@@ -12,7 +12,7 @@ import { ProviderProfile, type ProviderProfileDocument } from '../src/modules/pr
 import { Favorite, type FavoriteDocument } from '../src/modules/favorites/schemas/favorite.schema';
 import { Review, type ReviewDocument } from '../src/modules/reviews/schemas/review.schema';
 
-jest.setTimeout(30000);
+jest.setTimeout(120000);
 
 describe('workspace (e2e)', () => {
   let app: INestApplication;

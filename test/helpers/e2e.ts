@@ -4,8 +4,6 @@ import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import request from 'supertest';
 import cookieParser from 'cookie-parser';
 
-import { AppModule } from '../../src/app.module';
-
 export type E2EContext = {
   app: INestApplication;
   moduleRef: TestingModule;
@@ -25,10 +23,20 @@ export async function setupTestApp(opts?: {
 
   const uri = replSet.getUri();
   process.env.NODE_ENV = 'test';
+  process.env.PORT = process.env.PORT ?? '3001';
   process.env.MONGO_URI = uri;
   process.env.MONGODB_URI = uri;
   process.env.DATABASE_URI = uri;
   process.env.DATABASE_URL = uri;
+  process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'test_jwt_secret_min_32_chars_value';
+  process.env.REDIS_DISABLED = 'true';
+  process.env.ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000';
+  process.env.FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+
+  // AppModule contains ConfigModule.forRoot(...validationSchema) at declaration time.
+  // Requiring it only after env is prepared avoids CI bootstrap failures.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { AppModule } = require('../../src/app.module');
 
   const moduleBuilder = Test.createTestingModule({
     imports: [AppModule],
