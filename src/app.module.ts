@@ -1,16 +1,16 @@
 // src/app.module.ts
-import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import appConfig from "./config/env";
-import { envValidationSchema } from "./config/env.validation";
-import { DatabaseModule } from "./config/database";
-import { RedisModule } from "./config/redis";
-import { ThrottlerModule, ThrottlerModuleOptions } from "@nestjs/throttler";
-import { AppController } from "./app.controller";
-import { AppService } from "./app.service";
-import { UsersModule } from "./modules/users/users.module";
-import { AuthModule } from "./modules/auth/auth.module";
-import { CatalogModule } from "./modules/catalog/catalog.module";
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import appConfig from './config/env';
+import { envValidationSchema } from './config/env.validation';
+import { DatabaseModule } from './config/database';
+import { RedisModule } from './config/redis';
+import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { RequestsModule } from './modules/requests/requests.module';
 import { OffersModule } from './modules/offers/offers.module';
@@ -24,6 +24,7 @@ import { PresenceModule } from './modules/presence/presence.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ChatsModule } from './modules/chats/chats.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { WorkspaceModule } from './modules/workspace/workspace.module';
 
 @Module({
   imports: [
@@ -36,8 +37,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const windowMs = Number(config.get("app.rateLimitWindowMs") ?? 60000);
-        const limit = Number(config.get("app.rateLimitMax") ?? 100);
+        const windowMs = Number(config.get('app.rateLimitWindowMs') ?? 60000);
+        const limit = Number(config.get('app.rateLimitMax') ?? 100);
 
         const options: ThrottlerModuleOptions = {
           throttlers: [
@@ -70,6 +71,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     FavoritesModule,
     ChatsModule,
     AnalyticsModule,
+    WorkspaceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

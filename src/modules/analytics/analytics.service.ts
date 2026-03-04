@@ -4,8 +4,8 @@ import type { Model } from 'mongoose';
 import { Request, RequestDocument } from '../requests/schemas/request.schema';
 import { Offer, OfferDocument } from '../offers/schemas/offer.schema';
 
-type PlatformActivityRange = '24h' | '7d' | '30d';
-type PlatformActivityInterval = 'hour' | 'day';
+export type PlatformActivityRange = '24h' | '7d' | '30d';
+export type PlatformActivityInterval = 'hour' | 'day';
 
 type PlatformActivityPoint = {
   timestamp: string;
