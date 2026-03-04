@@ -5,10 +5,6 @@ import type { Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { ProviderProfile, ProviderProfileDocument } from './schemas/provider-profile.schema';
 
-type CreateProfileInput = {
-  userId: string;
-};
-
 @Injectable()
 export class ProvidersService {
   constructor(

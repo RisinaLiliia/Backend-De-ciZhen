@@ -14,10 +14,6 @@ function stableKeyString(key: Record<string, any>): string {
     .join(',');
 }
 
-function keysEqual(a: any, b: any): boolean {
-  return stableKeyString(a) === stableKeyString(b);
-}
-
 async function main() {
   const uri = process.env.MONGO_URI;
   if (!uri) {

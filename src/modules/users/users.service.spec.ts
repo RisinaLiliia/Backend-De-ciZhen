@@ -31,7 +31,6 @@ describe("UsersService", () => {
   const execWrap = (value: any) => ({
     exec: jest.fn().mockResolvedValue(value),
   });
-  const execReject = (err: any) => ({ exec: jest.fn().mockRejectedValue(err) });
   const clientProfilesMock = {
     getOrCreateByUserId: jest.fn(),
   };

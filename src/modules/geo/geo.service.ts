@@ -17,6 +17,15 @@ type NominatimItem = {
   };
 };
 
+type GeoAutocompleteItem = {
+  displayName: string;
+  lat: number;
+  lng: number;
+  city: string | null;
+  postalCode: string | null;
+  countryCode: string | null;
+};
+
 @Injectable()
 export class GeoService {
   private readonly logger = new Logger(GeoService.name);
@@ -33,7 +42,7 @@ export class GeoService {
     return `geo:autocomplete:v1:q=${encodeURIComponent(query)}:cc=${country}:limit=${limit}`;
   }
 
-  async autocomplete(input: { query: string; countryCode?: string; limit?: number }) {
+  async autocomplete(input: { query: string; countryCode?: string; limit?: number }): Promise<GeoAutocompleteItem[]> {
     const query = (input.query ?? '').trim();
     if (!query) throw new BadRequestException('query is required');
 
@@ -46,7 +55,7 @@ export class GeoService {
       const cached = await this.redis.get(cacheKey);
       if (cached) {
         try {
-          const parsed = JSON.parse(cached) as ReturnType<GeoService['autocomplete']>;
+          const parsed = JSON.parse(cached) as GeoAutocompleteItem[];
           return parsed;
         } catch {
           // ignore invalid cache
@@ -77,8 +86,9 @@ export class GeoService {
           'Accept-Language': acceptLanguage,
         },
       });
-    } catch (err: any) {
-      this.logger.warn(`geocode provider unreachable: ${String(err?.message ?? err)}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`geocode provider unreachable: ${message}`);
       return [];
     }
 
@@ -95,7 +105,7 @@ export class GeoService {
       return [];
     }
 
-    const items = data.map((item) => {
+    const items: GeoAutocompleteItem[] = data.map((item) => {
       const address = item.address ?? {};
       const city =
         address.city ?? address.town ?? address.village ?? address.hamlet ?? null;

@@ -156,7 +156,7 @@ describe('BookingsService (unit)', () => {
       save: jest.fn().mockResolvedValue(undefined),
     };
 
-    bookingModelMock.findById.mockImplementation((id: any) => {
+    bookingModelMock.findById.mockImplementation(() => {
       return {
         exec: jest.fn().mockResolvedValue(oldDoc),
         session: jest.fn().mockReturnValue({
