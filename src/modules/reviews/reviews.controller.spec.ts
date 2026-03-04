@@ -13,6 +13,8 @@ describe('ReviewsController (unit)', () => {
     createForClient: jest.fn(),
     listByTarget: jest.fn(),
     listMyReceived: jest.fn(),
+    getSummaryByTarget: jest.fn(),
+    getOverviewByTarget: jest.fn(),
   };
 
   const usersMock = {
@@ -114,5 +116,90 @@ describe('ReviewsController (unit)', () => {
       authorName: 'Anna',
       authorAvatarUrl: '/avatars/a.png',
     }));
+  });
+
+  it('summaryByTarget maps summary payload', async () => {
+    svcMock.getSummaryByTarget.mockResolvedValue({
+      total: 7,
+      averageRating: 4.3,
+      distribution: {
+        '1': 0,
+        '2': 1,
+        '3': 1,
+        '4': 2,
+        '5': 3,
+      },
+    });
+
+    const res = await controller.summaryByTarget({
+      targetUserId: 'p1',
+      targetRole: 'provider',
+    } as any);
+
+    expect(svcMock.getSummaryByTarget).toHaveBeenCalledWith('p1', 'provider');
+    expect(res).toEqual({
+      targetUserId: 'p1',
+      targetRole: 'provider',
+      total: 7,
+      averageRating: 4.3,
+      distribution: {
+        '1': 0,
+        '2': 1,
+        '3': 1,
+        '4': 2,
+        '5': 3,
+      },
+    });
+  });
+
+  it('overviewByTarget maps page + summary payload', async () => {
+    usersMock.findPublicByIds.mockResolvedValue([
+      { _id: 'p1', name: 'Anna', avatar: { url: '/avatars/a.png' } },
+    ]);
+    svcMock.getOverviewByTarget.mockResolvedValue({
+      items: [
+        {
+          _id: { toString: () => 'r10' },
+          targetRole: 'provider',
+          rating: 5,
+          text: 'great',
+          createdAt: new Date('2026-03-01T10:00:00.000Z'),
+          authorUserId: 'p1',
+        },
+      ],
+      total: 11,
+      limit: 4,
+      offset: 0,
+      summary: {
+        total: 11,
+        averageRating: 4.5,
+        distribution: {
+          '1': 0,
+          '2': 1,
+          '3': 1,
+          '4': 2,
+          '5': 7,
+        },
+      },
+    });
+
+    const res = await controller.overviewByTarget({
+      targetUserId: 'provider-1',
+      targetRole: 'provider',
+      limit: 4,
+      offset: 0,
+      sort: 'created_desc',
+    } as any);
+
+    expect(svcMock.getOverviewByTarget).toHaveBeenCalledWith('provider-1', 'provider', 4, 0, 'created_desc');
+    expect(res.total).toBe(11);
+    expect(res.summary.averageRating).toBe(4.5);
+    expect(res.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'r10',
+        authorName: 'Anna',
+        authorAvatarUrl: '/avatars/a.png',
+      }),
+    );
   });
 });
