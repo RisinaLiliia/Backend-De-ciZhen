@@ -14,5 +14,6 @@ import { Offer, OfferSchema } from '../offers/schemas/offer.schema';
   ],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],
+  exports: [AnalyticsService],
 })
 export class AnalyticsModule {}

@@ -88,6 +88,7 @@ export class AuthService {
       try {
         await this.providersService.activateIfComplete(user._id.toString());
       } catch {
+        // Ignore profile activation race/validation issues during sign-up.
       }
     }
 
@@ -138,6 +139,7 @@ export class AuthService {
       try {
         await this.providersService.activateIfComplete(user._id.toString());
       } catch {
+        // Ignore profile activation issues; login should still succeed.
       }
     }
 
@@ -213,6 +215,7 @@ export class AuthService {
         `refresh:${payload.sub}:${payload.sessionId}`,
       );
     } catch {
+      // Best-effort logout: invalid/expired token can be safely ignored.
     }
   }
 

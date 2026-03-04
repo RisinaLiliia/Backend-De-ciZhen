@@ -29,15 +29,6 @@ type Actor =
 type ListFilters = { status?: BookingStatus; from?: Date; to?: Date };
 type ListPagination = { limit?: number; offset?: number };
 type BookingOwnership = { clientId: string; providerUserId: string };
-type BookingHistoryItem = {
-  _id: unknown;
-  requestId: string;
-  offerId: string;
-  providerUserId: string;
-  clientId: string;
-  rescheduledFromId?: unknown | null;
-  rescheduledToId?: unknown | null;
-};
 
 @Injectable()
 export class BookingsService {

@@ -2,6 +2,28 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
+import type {
+  UploadApiErrorResponse,
+  UploadApiResponse,
+  UploadStream,
+} from 'cloudinary';
+
+type CloudinaryUploader = {
+  upload_stream: (
+    options: Record<string, unknown>,
+    callback: (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => void,
+  ) => UploadStream;
+};
+
+type CloudinaryInstance = {
+  config: (options: {
+    cloud_name?: string;
+    api_key?: string;
+    api_secret?: string;
+    secure?: boolean;
+  }) => void;
+  uploader: CloudinaryUploader;
+};
 
 export type UploadImageResult = {
   url: string;
@@ -26,10 +48,10 @@ export class UploadsService {
     }
   }
 
-  private getCloudinary(): any | null {
+  private getCloudinary(): CloudinaryInstance | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = require('cloudinary');
+      const mod = require('cloudinary') as { v2?: CloudinaryInstance };
       return mod?.v2 ?? null;
     } catch {
       return null;
@@ -65,16 +87,17 @@ export class UploadsService {
     const publicId = `${publicIdPrefix}_${randomUUID()}`;
 
     try {
-      const res = await new Promise<any>((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
+      const res = await new Promise<UploadApiResponse>((resolve, reject) => {
+        const stream: UploadStream = cloudinary.uploader.upload_stream(
           {
             folder: opts.folder,
             public_id: publicId,
             resource_type: 'image',
             tags: opts.tags,
           },
-          (error, result) => {
+          (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
             if (error) return reject(error);
+            if (!result) return reject(new Error('Cloudinary did not return upload result'));
             resolve(result);
           },
         );
@@ -89,8 +112,9 @@ export class UploadsService {
         format: res.format,
         bytes: res.bytes,
       };
-    } catch (e: any) {
-      throw new InternalServerErrorException(`Cloudinary upload failed: ${e?.message ?? e}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      throw new InternalServerErrorException(`Cloudinary upload failed: ${message}`);
     }
   }
 

@@ -46,8 +46,27 @@ Domain modules are organized by business responsibility:
 - `requests`, `offers`, `contracts`, `favorites`, `reviews`
 - `chats`, `presence`
 - `catalog`, `providers`, `geo`
+- `workspace` (BFF-style aggregated workspace view-model endpoints)
 - `legal` (privacy/cookies text endpoints)
 - `uploads` (avatar/image upload)
+
+## Workspace BFF Endpoints
+- `GET /workspace/public`
+  Returns one aggregated payload for public workspace:
+  request page, platform counters, city demand map points, and activity chart.
+- `POST /workspace/public/requests-batch`
+  Batch-resolves public request details by ids (N+1 elimination endpoint).
+- `GET /workspace/private` (Bearer auth)
+  Returns personalized counters/KPIs/series for private workspace dashboard.
+
+## Reviews BFF Endpoint
+- `GET /reviews/overview`
+  Single public endpoint for provider/client reviews UI.
+  Returns paged `items` and aggregated `summary` (`total`, `averageRating`, `distribution` 1..5) in one response.
+
+Notes:
+- Legacy public reads `GET /reviews` and `GET /reviews/summary` were removed in favor of `GET /reviews/overview`.
+- Authenticated endpoint `GET /reviews/my` remains for workspace/private flows.
 
 ## Auth & Consent Flow
 

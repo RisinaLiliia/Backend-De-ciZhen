@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ProvidersService } from './providers.service';
 import { ProviderProfile } from './schemas/provider-profile.schema';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('ProvidersService', () => {
   let service: ProvidersService;

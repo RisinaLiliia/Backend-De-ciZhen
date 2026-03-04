@@ -8,6 +8,7 @@ import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReviewResponseDto } from './dto/review-response.dto';
 import { ReviewPublicDto } from './dto/review-public.dto';
+import { ReviewOverviewDto } from './dto/review-overview.dto';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
@@ -78,6 +79,40 @@ export class ReviewsController {
     private readonly reviews: ReviewsService,
     private readonly users: UsersService,
   ) {}
+
+  private mapItemsWithAuthors(
+    items: Array<{ _id: { toString(): string } | string; targetRole: 'client' | 'provider'; rating: number; text?: string | null; createdAt: Date; authorUserId?: string | null }>,
+    authorById: Map<string, { name: string | null; avatarUrl: string | null }>,
+  ): ReviewPublicDto[] {
+    return items.map((r) => ({
+      id: typeof r._id === 'string' ? r._id : r._id.toString(),
+      targetRole: r.targetRole,
+      rating: r.rating,
+      text: r.text ?? null,
+      authorName: authorById.get(String(r.authorUserId ?? ''))?.name ?? null,
+      authorAvatarUrl: authorById.get(String(r.authorUserId ?? ''))?.avatarUrl ?? null,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  private async buildAuthorMap(items: Array<{ authorUserId?: string | null }>) {
+    const authorIds = Array.from(
+      new Set(
+        items
+          .map((r) => String(r.authorUserId ?? '').trim())
+          .filter((x) => x.length > 0),
+      ),
+    );
+    const users = authorIds.length > 0 ? await this.users.findPublicByIds(authorIds) : [];
+    const authorById = new Map<string, { name: string | null; avatarUrl: string | null }>();
+    for (const u of users as any[]) {
+      authorById.set(String(u._id), {
+        name: u.name ?? null,
+        avatarUrl: u.avatar?.url ?? null,
+      });
+    }
+    return authorById;
+  }
 
   @UseGuards(JwtAuthGuard)
   @Get('my')
@@ -163,37 +198,26 @@ export class ReviewsController {
     };
   }
 
-  @Get()
-  @ApiOperation({ summary: 'List reviews by target user' })
+  @Get('overview')
+  @ApiOperation({ summary: 'Get reviews page + summary by target user (BFF)' })
   @ApiSecurity({} as any)
-  @ApiOkResponse({ type: ReviewPublicDto, isArray: true })
+  @ApiOkResponse({ type: ReviewOverviewDto })
   @ApiPublicErrors()
-  async listByTarget(@Query() q: ReviewsQueryDto): Promise<ReviewPublicDto[]> {
-    const items = await this.reviews.listByTarget(q.targetUserId, q.targetRole, q.limit, q.offset, q.sort);
-    const authorIds = Array.from(
-      new Set(
-        items
-          .map((r: any) => String(r.authorUserId ?? '').trim())
-          .filter((x) => x.length > 0),
-      ),
-    );
-    const users = authorIds.length > 0 ? await this.users.findPublicByIds(authorIds) : [];
-    const authorById = new Map<string, { name: string | null; avatarUrl: string | null }>();
-    for (const u of users as any[]) {
-      authorById.set(String(u._id), {
-        name: u.name ?? null,
-        avatarUrl: u.avatar?.url ?? null,
-      });
-    }
+  async overviewByTarget(@Query() q: ReviewsQueryDto): Promise<ReviewOverviewDto> {
+    const overview = await this.reviews.getOverviewByTarget(q.targetUserId, q.targetRole, q.limit, q.offset, q.sort);
+    const authorById = await this.buildAuthorMap(overview.items as any[]);
+    const items = this.mapItemsWithAuthors(overview.items as any[], authorById);
 
-    return items.map((r) => ({
-      id: r._id.toString(),
-      targetRole: r.targetRole,
-      rating: r.rating,
-      text: r.text ?? null,
-      authorName: authorById.get(String((r as any).authorUserId))?.name ?? null,
-      authorAvatarUrl: authorById.get(String((r as any).authorUserId))?.avatarUrl ?? null,
-      createdAt: r.createdAt,
-    }));
+    return {
+      items,
+      total: overview.total,
+      limit: overview.limit,
+      offset: overview.offset,
+      summary: {
+        total: overview.summary.total,
+        averageRating: overview.summary.averageRating,
+        distribution: overview.summary.distribution,
+      },
+    };
   }
 }

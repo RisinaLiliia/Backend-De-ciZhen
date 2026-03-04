@@ -15,6 +15,7 @@ describe('ReviewsService', () => {
     create: jest.fn(),
     findById: jest.fn(),
     find: jest.fn(),
+    aggregate: jest.fn(),
   };
 
   const bookingModelMock = {
@@ -143,19 +144,58 @@ describe('ReviewsService', () => {
     expect(res._id).toBe('rev2');
   });
 
-  it('listByTarget returns items ordered by createdAt desc', async () => {
-    reviewModelMock.find.mockReturnValue({
-      sort: jest.fn().mockReturnValue({
-        skip: jest.fn().mockReturnValue({
-          limit: jest.fn().mockReturnValue({
-            exec: jest.fn().mockResolvedValue([{ _id: 'r1' }]),
-          }),
-        }),
-      }),
-    });
+  it('getOverviewByTarget returns paged items + summary', async () => {
+    reviewModelMock.aggregate.mockReturnValue(
+      execWrap([
+        {
+          items: [{ _id: 'r1', rating: 5, targetRole: 'provider', authorUserId: 'u9' }],
+          totalCount: [{ value: 9 }],
+          summaryStats: [{ total: 9, averageRating: 4.4444, d1: 0, d2: 1, d3: 1, d4: 2, d5: 5 }],
+        },
+      ]),
+    );
 
-    const res = await service.listByTarget('u1', 'client', 10, 0);
-    expect(res).toEqual([{ _id: 'r1' }]);
-    expect(reviewModelMock.find).toHaveBeenCalledWith({ targetUserId: 'u1', targetRole: 'client' });
+    const res = await service.getOverviewByTarget('u1', 'provider', 4, 0, 'created_desc');
+
+    expect(reviewModelMock.aggregate).toHaveBeenCalled();
+    expect(res.total).toBe(9);
+    expect(res.limit).toBe(4);
+    expect(res.offset).toBe(0);
+    expect(res.items).toHaveLength(1);
+    expect(res.summary).toEqual({
+      total: 9,
+      averageRating: 4.4,
+      distribution: {
+        '1': 0,
+        '2': 1,
+        '3': 1,
+        '4': 2,
+        '5': 5,
+      },
+    });
+  });
+
+  it('getOverviewByTarget returns defaults when facets are empty', async () => {
+    reviewModelMock.aggregate.mockReturnValue(execWrap([]));
+
+    const res = await service.getOverviewByTarget('u1', 'provider', 4, 0, 'created_desc');
+
+    expect(res).toEqual({
+      items: [],
+      total: 0,
+      limit: 4,
+      offset: 0,
+      summary: {
+        total: 0,
+        averageRating: 0,
+        distribution: {
+          '1': 0,
+          '2': 0,
+          '3': 0,
+          '4': 0,
+          '5': 0,
+        },
+      },
+    });
   });
 });

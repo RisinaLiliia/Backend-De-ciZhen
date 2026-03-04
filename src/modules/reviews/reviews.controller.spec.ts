@@ -11,8 +11,8 @@ describe('ReviewsController (unit)', () => {
   const svcMock = {
     createForProvider: jest.fn(),
     createForClient: jest.fn(),
-    listByTarget: jest.fn(),
     listMyReceived: jest.fn(),
+    getOverviewByTarget: jest.fn(),
   };
 
   const usersMock = {
@@ -81,38 +81,54 @@ describe('ReviewsController (unit)', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('listByTarget maps items', async () => {
+  it('overviewByTarget maps page + summary payload', async () => {
     usersMock.findPublicByIds.mockResolvedValue([
       { _id: 'p1', name: 'Anna', avatar: { url: '/avatars/a.png' } },
     ]);
-    svcMock.listByTarget.mockResolvedValue([
-      {
-        _id: { toString: () => 'r3' },
-        bookingId: 'b3',
-        authorUserId: 'p1',
-        targetUserId: 'c1',
-        targetRole: 'client',
-        rating: 5,
-        text: 'ok',
-        createdAt: new Date(),
+    svcMock.getOverviewByTarget.mockResolvedValue({
+      items: [
+        {
+          _id: { toString: () => 'r10' },
+          targetRole: 'provider',
+          rating: 5,
+          text: 'great',
+          createdAt: new Date('2026-03-01T10:00:00.000Z'),
+          authorUserId: 'p1',
+        },
+      ],
+      total: 11,
+      limit: 4,
+      offset: 0,
+      summary: {
+        total: 11,
+        averageRating: 4.5,
+        distribution: {
+          '1': 0,
+          '2': 1,
+          '3': 1,
+          '4': 2,
+          '5': 7,
+        },
       },
-    ]);
+    });
 
-    const res = await controller.listByTarget({
-      targetUserId: 'c1',
-      targetRole: 'client',
-      limit: 10,
+    const res = await controller.overviewByTarget({
+      targetUserId: 'provider-1',
+      targetRole: 'provider',
+      limit: 4,
       offset: 0,
       sort: 'created_desc',
     } as any);
 
-    expect(svcMock.listByTarget).toHaveBeenCalledWith('c1', 'client', 10, 0, 'created_desc');
-    expect(res[0]).toEqual(expect.objectContaining({
-      id: 'r3',
-      targetRole: 'client',
-      rating: 5,
-      authorName: 'Anna',
-      authorAvatarUrl: '/avatars/a.png',
-    }));
+    expect(svcMock.getOverviewByTarget).toHaveBeenCalledWith('provider-1', 'provider', 4, 0, 'created_desc');
+    expect(res.total).toBe(11);
+    expect(res.summary.averageRating).toBe(4.5);
+    expect(res.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'r10',
+        authorName: 'Anna',
+        authorAvatarUrl: '/avatars/a.png',
+      }),
+    );
   });
 });
