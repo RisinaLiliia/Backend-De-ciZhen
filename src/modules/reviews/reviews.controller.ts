@@ -8,7 +8,6 @@ import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReviewResponseDto } from './dto/review-response.dto';
 import { ReviewPublicDto } from './dto/review-public.dto';
-import { ReviewSummaryDto } from './dto/review-summary.dto';
 import { ReviewOverviewDto } from './dto/review-overview.dto';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -71,18 +70,6 @@ class ReviewsMyQueryDto {
   @IsInt()
   @Min(0)
   offset?: number;
-}
-
-class ReviewsSummaryQueryDto {
-  @ApiProperty({ example: '507f1f77bcf86cd799439011' })
-  @IsString()
-  targetUserId: string;
-
-  @ApiPropertyOptional({ enum: ['client', 'provider'], example: 'provider' })
-  @IsOptional()
-  @IsString()
-  @IsIn(['client', 'provider'])
-  targetRole?: 'client' | 'provider';
 }
 
 @ApiTags('reviews')
@@ -211,22 +198,6 @@ export class ReviewsController {
     };
   }
 
-  @Get('summary')
-  @ApiOperation({ summary: 'Get reviews summary by target user' })
-  @ApiSecurity({} as any)
-  @ApiOkResponse({ type: ReviewSummaryDto })
-  @ApiPublicErrors()
-  async summaryByTarget(@Query() q: ReviewsSummaryQueryDto): Promise<ReviewSummaryDto> {
-    const summary = await this.reviews.getSummaryByTarget(q.targetUserId, q.targetRole);
-    return {
-      targetUserId: q.targetUserId,
-      targetRole: q.targetRole ?? null,
-      total: summary.total,
-      averageRating: summary.averageRating,
-      distribution: summary.distribution,
-    };
-  }
-
   @Get('overview')
   @ApiOperation({ summary: 'Get reviews page + summary by target user (BFF)' })
   @ApiSecurity({} as any)
@@ -248,16 +219,5 @@ export class ReviewsController {
         distribution: overview.summary.distribution,
       },
     };
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'List reviews by target user' })
-  @ApiSecurity({} as any)
-  @ApiOkResponse({ type: ReviewPublicDto, isArray: true })
-  @ApiPublicErrors()
-  async listByTarget(@Query() q: ReviewsQueryDto): Promise<ReviewPublicDto[]> {
-    const items = await this.reviews.listByTarget(q.targetUserId, q.targetRole, q.limit, q.offset, q.sort);
-    const authorById = await this.buildAuthorMap(items as any[]);
-    return this.mapItemsWithAuthors(items as any[], authorById);
   }
 }

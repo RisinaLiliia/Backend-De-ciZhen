@@ -1,6 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ReviewPublicDto } from './review-public.dto';
-import { ReviewSummaryDistributionDto } from './review-summary.dto';
+
+export class ReviewOverviewDistributionDto {
+  @ApiProperty({ example: 0 })
+  '1': number;
+
+  @ApiProperty({ example: 1 })
+  '2': number;
+
+  @ApiProperty({ example: 3 })
+  '3': number;
+
+  @ApiProperty({ example: 5 })
+  '4': number;
+
+  @ApiProperty({ example: 12 })
+  '5': number;
+}
 
 export class ReviewOverviewSummaryDto {
   @ApiProperty({ example: 21 })
@@ -9,8 +25,8 @@ export class ReviewOverviewSummaryDto {
   @ApiProperty({ example: 4.4 })
   averageRating: number;
 
-  @ApiProperty({ type: ReviewSummaryDistributionDto })
-  distribution: ReviewSummaryDistributionDto;
+  @ApiProperty({ type: ReviewOverviewDistributionDto })
+  distribution: ReviewOverviewDistributionDto;
 }
 
 export class ReviewOverviewDto {
