@@ -95,7 +95,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-my-1',
       offerId: 'resp-my-1',
       providerUserId,
-      startAt: '2026-03-05T09:00:00.000Z', 
+      startAt: '2030-03-07T09:00:00.000Z',
       durationMin: 60,
       note: 'A',
     });
@@ -104,7 +104,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-my-2',
       offerId: 'resp-my-2',
       providerUserId,
-      startAt: '2026-03-05T10:00:00.000Z', 
+      startAt: '2030-03-07T10:00:00.000Z',
       durationMin: 60,
       note: 'B',
     });
@@ -121,16 +121,16 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-my-2',
       offerId: 'resp-my-2',
       status: 'confirmed',
-      startAt: '2026-03-05T10:00:00.000Z',
-      endAt: '2026-03-05T11:00:00.000Z',
+      startAt: '2030-03-07T10:00:00.000Z',
+      endAt: '2030-03-07T11:00:00.000Z',
     });
 
     expect(myClient.body[1]).toMatchObject({
       requestId: 'req-my-1',
       offerId: 'resp-my-1',
       status: 'confirmed',
-      startAt: '2026-03-05T09:00:00.000Z',
-      endAt: '2026-03-05T10:00:00.000Z',
+      startAt: '2030-03-07T09:00:00.000Z',
+      endAt: '2030-03-07T10:00:00.000Z',
     });
 
     const myProvider0 = await request(app.getHttpServer())
@@ -148,7 +148,7 @@ describe('v6.2 bookings /my (e2e)', () => {
         requestId: 'req-my-3',
         offerId: 'resp-my-3',
         providerUserId: String(provider.userId),
-        startAt: '2026-03-05T09:00:00.000Z', 
+        startAt: '2030-03-07T09:00:00.000Z',
         durationMin: 60,
       });
 
@@ -163,8 +163,8 @@ describe('v6.2 bookings /my (e2e)', () => {
         offerId: 'resp-my-3',
         providerUserId: String(provider.userId),
         status: 'confirmed',
-        startAt: '2026-03-05T09:00:00.000Z',
-        endAt: '2026-03-05T10:00:00.000Z',
+        startAt: '2030-03-07T09:00:00.000Z',
+        endAt: '2030-03-07T10:00:00.000Z',
       });
     }
   });
@@ -176,7 +176,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-f-1',
       offerId: 'resp-f-1',
       providerUserId,
-      startAt: '2026-03-05T09:00:00.000Z',
+      startAt: '2030-03-07T09:00:00.000Z',
       durationMin: 60,
     });
 
@@ -184,7 +184,7 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-f-2',
       offerId: 'resp-f-2',
       providerUserId,
-      startAt: '2026-03-05T10:00:00.000Z',
+      startAt: '2030-03-07T10:00:00.000Z',
       durationMin: 60,
     });
 
@@ -192,15 +192,15 @@ describe('v6.2 bookings /my (e2e)', () => {
       requestId: 'req-f-3',
       offerId: 'resp-f-3',
       providerUserId,
-      startAt: '2026-03-12T09:00:00.000Z',
+      startAt: '2030-03-14T09:00:00.000Z',
       durationMin: 60,
     });
 
     const marchWeek1Only = await request(app.getHttpServer())
       .get('/bookings/my')
       .query({
-        from: '2026-03-01T00:00:00.000Z',
-        to: '2026-03-08T00:00:00.000Z',
+        from: '2030-03-01T00:00:00.000Z',
+        to: '2030-03-08T00:00:00.000Z',
       })
       .set('Authorization', `Bearer ${client.accessToken}`)
       .expect(200);

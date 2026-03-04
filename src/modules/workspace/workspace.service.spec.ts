@@ -19,6 +19,8 @@ describe('WorkspaceService (unit)', () => {
   let service: WorkspaceService;
 
   const requestsMock = {
+    listPublic: jest.fn(),
+    countPublic: jest.fn(),
     listPublicByIds: jest.fn(),
   };
 
@@ -140,5 +142,118 @@ describe('WorkspaceService (unit)', () => {
       }),
     );
     expect(result.missingIds).toEqual(['65f0c1a2b3c4d5e6f7a8b9a2', 'bad-id']);
+  });
+
+  it('getPublicOverview falls back to city coordinates when aggregated coords are 0,0', async () => {
+    requestsMock.listPublic.mockResolvedValue([]);
+    requestsMock.countPublic.mockResolvedValue(0);
+
+    modelMock.countDocuments
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(5) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(44) });
+
+    analyticsMock.getPlatformActivity.mockResolvedValue({
+      range: '30d',
+      interval: 'day',
+      source: 'real',
+      data: [],
+      updatedAt: new Date('2030-03-01T00:00:00.000Z').toISOString(),
+    });
+
+    modelMock.aggregate.mockReturnValueOnce({
+      exec: jest.fn().mockResolvedValue([
+        {
+          _id: { cityName: 'Mannheim', cityId: 'city-mannheim' },
+          count: 5,
+          lat: 0,
+          lng: 0,
+        },
+      ]),
+    });
+
+    const result = await service.getPublicOverview({
+      page: 1,
+      limit: 10,
+      cityActivityLimit: 20,
+      activityRange: '30d',
+    });
+
+    expect(result.cityActivity.totalActiveCities).toBe(1);
+    expect(result.cityActivity.totalActiveRequests).toBe(5);
+    expect(result.cityActivity.items[0]).toMatchObject({
+      cityName: 'Mannheim',
+      requestCount: 5,
+      lat: 49.4875,
+      lng: 8.466,
+    });
+  });
+
+  it('getPublicOverview deduplicates city activity by citySlug and sums counts', async () => {
+    requestsMock.listPublic.mockResolvedValue([]);
+    requestsMock.countPublic.mockResolvedValue(0);
+
+    modelMock.countDocuments
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(6) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(44) });
+
+    analyticsMock.getPlatformActivity.mockResolvedValue({
+      range: '30d',
+      interval: 'day',
+      source: 'real',
+      data: [],
+      updatedAt: new Date('2030-03-01T00:00:00.000Z').toISOString(),
+    });
+
+    modelMock.aggregate.mockReturnValueOnce({
+      exec: jest.fn().mockResolvedValue([
+        {
+          _id: { cityName: 'Berlin', cityId: 'city-berlin-a' },
+          count: 2,
+          lat: 52.52,
+          lng: 13.405,
+        },
+        {
+          _id: { cityName: 'Berlin', cityId: 'city-berlin-b' },
+          count: 1,
+          lat: 0,
+          lng: 0,
+        },
+        {
+          _id: { cityName: 'Mannheim', cityId: 'city-mannheim' },
+          count: 3,
+          lat: 0,
+          lng: 0,
+        },
+      ]),
+    });
+
+    const result = await service.getPublicOverview({
+      page: 1,
+      limit: 10,
+      cityActivityLimit: 20,
+      activityRange: '30d',
+    });
+
+    expect(result.cityActivity.totalActiveCities).toBe(2);
+    expect(result.cityActivity.totalActiveRequests).toBe(6);
+    expect(result.cityActivity.items.map((x) => x.citySlug)).toEqual(['berlin', 'mannheim']);
+
+    expect(result.cityActivity.items[0]).toMatchObject({
+      citySlug: 'berlin',
+      cityName: 'Berlin',
+      requestCount: 3,
+      cityId: null,
+      lat: 52.52,
+      lng: 13.405,
+    });
+
+    expect(result.cityActivity.items[1]).toMatchObject({
+      citySlug: 'mannheim',
+      cityName: 'Mannheim',
+      requestCount: 3,
+      cityId: 'city-mannheim',
+      lat: 49.4875,
+      lng: 8.466,
+    });
   });
 });
