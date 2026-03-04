@@ -15,6 +15,12 @@ export class WorkspacePublicCityActivityItemDto {
 
   @ApiProperty({ example: 42 })
   requestCount: number;
+
+  @ApiProperty({ example: 52.52, nullable: true })
+  lat: number | null;
+
+  @ApiProperty({ example: 13.405, nullable: true })
+  lng: number | null;
 }
 
 export class WorkspacePublicCityActivityDto {
