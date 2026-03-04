@@ -1,10 +1,15 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, OnApplicationShutdown } from "@nestjs/common";
 
 type SimpleRedisClient = {
+  __mode?: "memory" | "redis";
   setEx(key: string, seconds: number, value: string): Promise<unknown>;
   set(key: string, value: string): Promise<unknown>;
   get(key: string): Promise<string | null | Buffer>;
   del(...keys: string[]): Promise<unknown>;
+  ping?(): Promise<unknown>;
+  quit?(): Promise<unknown>;
+  disconnect?(): void;
+  isOpen?: boolean;
   keys?(pattern: string): Promise<string[]>;
   scan?(
     cursor: string,
@@ -14,8 +19,14 @@ type SimpleRedisClient = {
 
 type RedisClient = SimpleRedisClient;
 
+export type RedisHealthStatus = {
+  mode: "memory" | "redis";
+  connected: boolean;
+  degraded: boolean;
+};
+
 @Injectable()
-export class RedisService {
+export class RedisService implements OnApplicationShutdown {
   private readonly logger = new Logger(RedisService.name);
 
   constructor(
@@ -91,6 +102,46 @@ export class RedisService {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Failed to delete keys by pattern "${pattern}": ${message}`);
       return 0;
+    }
+  }
+
+  async getHealthStatus(): Promise<RedisHealthStatus> {
+    const mode = this.redisClient.__mode ?? "redis";
+    if (mode === "memory") {
+      return { mode, connected: false, degraded: true };
+    }
+
+    if (this.redisClient.isOpen === false) {
+      return { mode: "redis", connected: false, degraded: true };
+    }
+
+    if (!this.redisClient.ping) {
+      return { mode: "redis", connected: true, degraded: false };
+    }
+
+    try {
+      await this.redisClient.ping();
+      return { mode: "redis", connected: true, degraded: false };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis ping failed during health check: ${message}`);
+      return { mode: "redis", connected: false, degraded: true };
+    }
+  }
+
+  async onApplicationShutdown(): Promise<void> {
+    try {
+      if (this.redisClient.__mode === "memory") return;
+
+      if (this.redisClient.quit) {
+        await this.redisClient.quit();
+        return;
+      }
+
+      this.redisClient.disconnect?.();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis shutdown cleanup failed: ${message}`);
     }
   }
 }

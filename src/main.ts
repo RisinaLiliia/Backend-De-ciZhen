@@ -1,5 +1,6 @@
 // src/main.ts
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -12,11 +13,23 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.enableShutdownHooks();
   const config = app.get(ConfigService);
   const logger = new Logger("Bootstrap");
 
   const isProd = config.get<string>("app.nodeEnv") === "production";
+  const trustProxyRaw = String(config.get<string | number | boolean>("app.trustProxy") ?? "0").trim();
+  const trustProxyLower = trustProxyRaw.toLowerCase();
+  if (trustProxyLower === "true") {
+    app.set("trust proxy", true);
+  } else if (trustProxyLower === "false") {
+    app.set("trust proxy", false);
+  } else if (/^\d+$/.test(trustProxyRaw)) {
+    app.set("trust proxy", Number(trustProxyRaw));
+  } else {
+    app.set("trust proxy", trustProxyRaw);
+  }
 
   const requestIdMiddlewareInstance = new RequestIdMiddleware();
   app.use(requestIdMiddlewareInstance.use.bind(requestIdMiddlewareInstance));
@@ -79,8 +92,8 @@ async function bootstrap() {
 
 
   const port = Number(process.env.PORT ?? config.get<number>("app.port") ?? 3000);
-await app.listen(port, "0.0.0.0");
-console.log(`🚀 Server running on port ${port}`);
+  await app.listen(port, "0.0.0.0");
+  console.log(`🚀 Server running on port ${port}`);
 
 }
 

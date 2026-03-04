@@ -10,6 +10,7 @@ export default registerAs("app", () => ({
 
   jwtSecret: process.env.JWT_SECRET,
   frontendUrl: process.env.FRONTEND_URL,
+  trustProxy: process.env.TRUST_PROXY ?? "0",
   privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? "2026-02-18",
   passwordResetTtlMinutes: Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 30),
   passwordResetPath: process.env.PASSWORD_RESET_PATH ?? "/auth/reset-password",

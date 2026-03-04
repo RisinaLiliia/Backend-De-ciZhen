@@ -42,7 +42,7 @@ import { RedisStubModule } from "./redis-stub.module";
         const options: ThrottlerModuleOptions = {
           throttlers: [
             {
-              ttl: Math.ceil(windowMs / 1000),
+              ttl: windowMs,
               limit,
             },
           ],

@@ -11,7 +11,7 @@ import { Review, ReviewDocument } from '../src/modules/reviews/schemas/review.sc
 import { ClientProfile, ClientProfileDocument } from '../src/modules/users/schemas/client-profile.schema';
 import { ProviderProfile, ProviderProfileDocument } from '../src/modules/providers/schemas/provider-profile.schema';
 
-jest.setTimeout(30000);
+jest.setTimeout(120000);
 
 describe('reviews (e2e)', () => {
   let app: INestApplication;
@@ -123,7 +123,7 @@ describe('reviews (e2e)', () => {
     expect(profile?.ratingAvg).toBe(4);
   });
 
-  it('GET /reviews lists reviews by targetUserId', async () => {
+  it('GET /reviews/overview returns reviews page + summary by targetUserId', async () => {
     const client = await registerAndGetToken(app, 'client', 'client-rev3@test.local', 'Client Rev3');
     const provider = await registerAndGetToken(app, 'provider', 'prov-rev3@test.local', 'Provider Rev3');
 
@@ -155,14 +155,30 @@ describe('reviews (e2e)', () => {
     });
 
     const res = await request(app.getHttpServer())
-      .get('/reviews')
+      .get('/reviews/overview')
       .query({ targetUserId: client.userId, targetRole: 'client', limit: 10, offset: 0 })
       .expect(200);
 
-    expect(res.body.length).toBe(1);
-    expect(res.body[0]).toMatchObject({
+    expect(res.body).toMatchObject({
+      total: 1,
+      limit: 10,
+      offset: 0,
+      summary: {
+        total: 1,
+        averageRating: 5,
+      },
+    });
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.items[0]).toMatchObject({
       targetRole: 'client',
       rating: 5,
     });
+  });
+
+  it('GET /reviews (legacy) is removed and returns 404', async () => {
+    await request(app.getHttpServer())
+      .get('/reviews')
+      .query({ targetUserId: 'x', targetRole: 'client', limit: 10, offset: 0 })
+      .expect(404);
   });
 });

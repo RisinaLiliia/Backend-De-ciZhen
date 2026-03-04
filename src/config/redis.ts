@@ -1,14 +1,19 @@
 // src/config/redis.ts
-import { Module, Global } from "@nestjs/common";
+import { Module, Global, Logger } from "@nestjs/common";
 import { createClient } from "redis";
 import { ConfigService } from "@nestjs/config";
 import { RedisService } from "../infra/redis.service";
 
 type SimpleRedisClient = {
+  __mode?: "memory" | "redis";
   setEx?(key: string, seconds: number, value: string): Promise<unknown>;
   set?(key: string, value: string): Promise<unknown>;
   get?(key: string): Promise<string | null | Buffer>;
   del?(...keys: string[]): Promise<unknown>;
+  ping?(): Promise<unknown>;
+  quit?(): Promise<unknown>;
+  disconnect?(): void;
+  isOpen?: boolean;
   keys?(pattern: string): Promise<string[]>;
   scan?(
     cursor: string,
@@ -52,8 +57,15 @@ function createInMemoryRedisClient(): RedisClient {
   };
 
   return {
+    __mode: "memory",
+    isOpen: true,
     on() {},
     async connect() {},
+    async ping() {
+      return "PONG";
+    },
+    async quit() {},
+    disconnect() {},
     async setEx(key: string, seconds: number, value: string) {
       const ttlMs = Math.max(0, Math.floor(seconds)) * 1000;
       storage.set(key, {
@@ -98,8 +110,10 @@ function createInMemoryRedisClient(): RedisClient {
       provide: "REDIS_CLIENT",
       inject: [ConfigService],
       useFactory: async (config: ConfigService): Promise<RedisClient> => {
+        const logger = new Logger("RedisModule");
         const redisDisabled = Boolean(config.get<boolean>("app.redisDisabled"));
         if (redisDisabled) {
+          logger.warn("REDIS_DISABLED=true. Using in-memory fallback client.");
           return createInMemoryRedisClient();
         }
 
@@ -114,14 +128,26 @@ function createInMemoryRedisClient(): RedisClient {
               socket: { host, port },
               ...(password ? { password } : {}),
             })) as unknown as RedisClient;
+        client.__mode = "redis";
 
         client.on("error", (err: unknown) => {
           const message = err instanceof Error ? err.message : String(err);
-          console.error("[Redis] Error:", message);
+          logger.error(`Redis error: ${message}`);
         });
 
-        await client.connect();
-        return client;
+        try {
+          await client.connect();
+          return client;
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          logger.warn(`Redis unavailable at startup, using in-memory fallback: ${message}`);
+          try {
+            client.disconnect?.();
+          } catch {
+            // ignore cleanup errors in fallback path
+          }
+          return createInMemoryRedisClient();
+        }
       },
     },
     RedisService,
