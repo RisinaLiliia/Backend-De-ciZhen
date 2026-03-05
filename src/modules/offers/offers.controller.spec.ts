@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { OffersController } from './offers.controller';
 import { OffersService } from './offers.service';
 import { ForbiddenException } from '@nestjs/common';
+import { ProvidersService } from '../providers/providers.service';
 
 describe('OffersController (unit)', () => {
   let controller: OffersController;
@@ -18,12 +19,19 @@ describe('OffersController (unit)', () => {
     declineForClient: jest.fn(),
   };
 
+  const providersMock = {
+    isProfileComplete: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const moduleRef = await Test.createTestingModule({
       controllers: [OffersController],
-      providers: [{ provide: OffersService, useValue: svcMock }],
+      providers: [
+        { provide: OffersService, useValue: svcMock },
+        { provide: ProvidersService, useValue: providersMock },
+      ],
     }).compile();
 
     controller = moduleRef.get(OffersController);
@@ -50,6 +58,7 @@ describe('OffersController (unit)', () => {
         updatedAt: new Date(),
       },
     });
+    providersMock.isProfileComplete.mockReturnValue(true);
 
     const res = await controller.create(
       { userId: 'p1', role: 'provider' } as any,
@@ -57,7 +66,7 @@ describe('OffersController (unit)', () => {
     );
 
     expect(res.offer).toEqual(expect.objectContaining({ id: 'offer1', status: 'sent' }));
-    expect(res.providerProfile).toEqual(expect.objectContaining({ id: 'prof1', userId: 'p1' }));
+    expect(res.providerProfile).toEqual(expect.objectContaining({ id: 'prof1', userId: 'p1', isProfileComplete: true }));
   });
 
   it('forbids wrong role', async () => {
@@ -115,6 +124,7 @@ describe('OffersController (unit)', () => {
         updatedAt: new Date(),
       },
     });
+    providersMock.isProfileComplete.mockReturnValue(false);
 
     const res = await controller.update(
       { userId: 'p1', role: 'provider' } as any,
@@ -124,6 +134,7 @@ describe('OffersController (unit)', () => {
 
     expect(svcMock.updateForProvider).toHaveBeenCalledWith('p1', 'offer1', { amount: 150 });
     expect(res.offer).toEqual(expect.objectContaining({ id: 'offer1', amount: 150 }));
+    expect(res.providerProfile).toEqual(expect.objectContaining({ isProfileComplete: false }));
   });
 
   it('remove calls service and returns ok', async () => {

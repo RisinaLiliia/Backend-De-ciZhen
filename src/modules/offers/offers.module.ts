@@ -8,6 +8,7 @@ import { ProviderProfile, ProviderProfileSchema } from '../providers/schemas/pro
 import { Request, RequestSchema } from '../requests/schemas/request.schema';
 import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
+import { ProvidersService } from '../providers/providers.service';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { User, UserSchema } from '../users/schemas/user.schema';
     ]),
   ],
   controllers: [OffersController],
-  providers: [OffersService],
+  providers: [OffersService, ProvidersService],
   exports: [OffersService],
 })
 export class OffersModule {}
