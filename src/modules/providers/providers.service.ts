@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { ProviderProfile, ProviderProfileDocument } from './schemas/provider-profile.schema';
+import { isProviderProfileComplete } from './provider-profile-completeness';
 
 @Injectable()
 export class ProvidersService {
@@ -45,7 +46,7 @@ export class ProvidersService {
     if (profile.isBlocked) throw new ForbiddenException('Provider profile is blocked');
 
     Object.assign(profile, updates);
-    if (profile.status === 'draft' && !profile.isBlocked && this.isProfileComplete(profile)) {
+    if (profile.status === 'draft' && !profile.isBlocked && isProviderProfileComplete(profile)) {
       profile.status = 'active';
     }
     return profile.save();
@@ -54,7 +55,7 @@ export class ProvidersService {
   async activateIfComplete(userId: string): Promise<void> {
     const profile = await this.getOrCreateMyProfile(userId);
     if (profile.isBlocked) return;
-    if (profile.status === 'draft' && this.isProfileComplete(profile)) {
+    if (profile.status === 'draft' && isProviderProfileComplete(profile)) {
       profile.status = 'active';
       await profile.save();
     }
@@ -91,24 +92,23 @@ export class ProvidersService {
     if (!res) throw new NotFoundException('Provider profile not found');
   }
 
-
   async listPublic(filters: { cityId?: string; serviceKey?: string }): Promise<ProviderProfileDocument[]> {
-  const q: Record<string, unknown> = {
-    status: 'active',
-    isBlocked: false,
-  };
+    const q: Record<string, unknown> = {
+      status: 'active',
+      isBlocked: false,
+    };
 
-  const cityId = (filters.cityId ?? '').trim();
-  if (cityId.length > 0) q.cityId = cityId;
+    const cityId = (filters.cityId ?? '').trim();
+    if (cityId.length > 0) q.cityId = cityId;
 
-  const serviceKey = (filters.serviceKey ?? '').trim().toLowerCase();
-  if (serviceKey.length > 0) q.serviceKeys = { $in: [serviceKey] };
+    const serviceKey = (filters.serviceKey ?? '').trim().toLowerCase();
+    if (serviceKey.length > 0) q.serviceKeys = { $in: [serviceKey] };
 
-  return this.model
-    .find(q)
-    .sort({ ratingAvg: -1, ratingCount: -1, basePrice: 1, updatedAt: -1 })
-    .exec();
-}
+    return this.model
+      .find(q)
+      .sort({ ratingAvg: -1, ratingCount: -1, basePrice: 1, updatedAt: -1 })
+      .exec();
+  }
 
   async listPublicByIds(userIds: string[]): Promise<ProviderProfileDocument[]> {
     const ids = Array.isArray(userIds)
@@ -141,17 +141,8 @@ export class ProvidersService {
     return item;
   }
 
-  private isProfileComplete(profile: ProviderProfile): boolean {
-    const displayName = String(profile.displayName ?? '').trim();
-    const cityId = String(profile.cityId ?? '').trim();
-    const serviceKeys = Array.isArray(profile.serviceKeys) ? profile.serviceKeys.filter(Boolean) : [];
-    const basePrice = profile.basePrice;
-
-    return displayName.length > 0
-      && cityId.length > 0
-      && serviceKeys.length > 0
-      && typeof basePrice === 'number'
-      && !Number.isNaN(basePrice);
+  // Exposed to keep one domain rule for profile readiness checks in controllers/BFF mappings.
+  isProfileComplete(profile: ProviderProfile | null | undefined): boolean {
+    return isProviderProfileComplete(profile);
   }
-
 }

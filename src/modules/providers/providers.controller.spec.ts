@@ -11,6 +11,7 @@ describe('ProvidersController (unit) public list', () => {
     getPublicById: jest.fn(),
     getOrCreateMyProfile: jest.fn(),
     updateMyProfile: jest.fn(),
+    isProfileComplete: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -96,11 +97,13 @@ describe('ProvidersController (unit) public list', () => {
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       updatedAt: new Date('2026-01-02T00:00:00.000Z'),
     });
+    svcMock.isProfileComplete.mockReturnValue(true);
 
     const res = await controller.myProfile({ userId: 'u1', role: 'client' } as any);
 
     expect(svcMock.getOrCreateMyProfile).toHaveBeenCalledWith('u1');
-    expect(res).toEqual(expect.objectContaining({ id: 'p1', userId: 'u1', status: 'active' }));
+    expect(svcMock.isProfileComplete).toHaveBeenCalled();
+    expect(res).toEqual(expect.objectContaining({ id: 'p1', userId: 'u1', status: 'active', isProfileComplete: true }));
   });
 
   it('updateMyProfile updates for any authenticated user', async () => {
@@ -117,12 +120,13 @@ describe('ProvidersController (unit) public list', () => {
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       updatedAt: new Date('2026-01-03T00:00:00.000Z'),
     });
+    svcMock.isProfileComplete.mockReturnValue(true);
 
     const dto = { displayName: 'New Name', cityId: 'c2' } as any;
     const res = await controller.updateMyProfile({ userId: 'u2', role: 'client' } as any, dto);
 
     expect(svcMock.updateMyProfile).toHaveBeenCalledWith('u2', dto);
-    expect(res).toEqual(expect.objectContaining({ id: 'p2', displayName: 'New Name' }));
+    expect(svcMock.isProfileComplete).toHaveBeenCalled();
+    expect(res).toEqual(expect.objectContaining({ id: 'p2', displayName: 'New Name', isProfileComplete: true }));
   });
-
 });

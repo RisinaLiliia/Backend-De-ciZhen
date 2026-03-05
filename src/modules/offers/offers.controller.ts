@@ -15,13 +15,17 @@ import { CreateOfferResponseDto } from './dto/create-offer-response.dto';
 import { ProviderProfileDto } from '../providers/dto/provider-profile.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { DeleteOfferResultDto } from './dto/delete-offer.dto';
+import { ProvidersService } from '../providers/providers.service';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
 @ApiTags('offers')
 @Controller('offers')
 export class OffersController {
-  constructor(private readonly offers: OffersService) {}
+  constructor(
+    private readonly offers: OffersService,
+    private readonly providers: ProvidersService,
+  ) {}
 
   private toProviderProfileDto(p: any): ProviderProfileDto {
     return {
@@ -36,6 +40,7 @@ export class OffersController {
       basePrice: p.basePrice ?? null,
       status: p.status,
       isBlocked: Boolean(p.isBlocked),
+      isProfileComplete: this.providers.isProfileComplete(p),
       blockedAt: p.blockedAt ?? null,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,

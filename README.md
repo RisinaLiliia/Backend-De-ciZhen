@@ -148,6 +148,11 @@ Run:
 npm run start:dev
 ```
 
+## Provider Profile Contract
+- `ProviderProfileDto` now includes server-derived `isProfileComplete`.
+- Returned by `GET /providers/me/profile`, `PATCH /providers/me/profile`, and nested in `POST /offers`/`PATCH /offers/:id` responses.
+- Computed on backend from profile data completeness (`displayName`, `cityId`, `serviceKeys`, `basePrice`) and should be treated as the source of truth for offer-readiness UX.
+
 ## API Docs
 - Local/remote Swagger: `/docs`
 - Static spec generation:

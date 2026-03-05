@@ -10,7 +10,6 @@ import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.deco
 import { ProvidersPublicQueryDto } from './dto/provider-public-query.dto';
 import { ProviderPublicDto } from './dto/provider-public.dto';
 
-
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
 @ApiTags('providers')
@@ -31,6 +30,7 @@ export class ProvidersController {
       basePrice: p.basePrice,
       status: p.status,
       isBlocked: p.isBlocked,
+      isProfileComplete: this.providers.isProfileComplete(p),
       blockedAt: p.blockedAt,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
@@ -62,22 +62,22 @@ export class ProvidersController {
     return this.toDto(updated);
   }
 
-private toPublicDto(p: any): ProviderPublicDto {
-  return {
-    id: p._id.toString(),
-    userId: p.userId,
-    displayName: p.displayName ?? null,
-    avatarUrl: p.avatarUrl ?? null, 
-    ratingAvg: p.ratingAvg ?? 0,
-    ratingCount: p.ratingCount ?? 0,
-    completedJobs: p.completedJobs ?? 0,
-    basePrice: p.basePrice ?? null,
-    cityId: p.cityId ?? null,
-    cityName: p.cityName ?? null,
-    serviceKey: Array.isArray(p.serviceKeys) && p.serviceKeys.length > 0 ? p.serviceKeys[0] : null,
-    serviceKeys: Array.isArray(p.serviceKeys) ? p.serviceKeys : [],
-  };
-}
+  private toPublicDto(p: any): ProviderPublicDto {
+    return {
+      id: p._id.toString(),
+      userId: p.userId,
+      displayName: p.displayName ?? null,
+      avatarUrl: p.avatarUrl ?? null,
+      ratingAvg: p.ratingAvg ?? 0,
+      ratingCount: p.ratingCount ?? 0,
+      completedJobs: p.completedJobs ?? 0,
+      basePrice: p.basePrice ?? null,
+      cityId: p.cityId ?? null,
+      cityName: p.cityName ?? null,
+      serviceKey: Array.isArray(p.serviceKeys) && p.serviceKeys.length > 0 ? p.serviceKeys[0] : null,
+      serviceKeys: Array.isArray(p.serviceKeys) ? p.serviceKeys : [],
+    };
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get public provider profile by id (profile id or user id)' })
@@ -88,7 +88,6 @@ private toPublicDto(p: any): ProviderPublicDto {
     const item = await this.providers.getPublicById(id);
     return this.toPublicDto(item);
   }
-
 
   @Get()
   @ApiOperation({

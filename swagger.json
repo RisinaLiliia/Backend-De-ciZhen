@@ -135,6 +135,152 @@
         ]
       }
     },
+    "/health/live": {
+      "get": {
+        "operationId": "AppController_healthLive",
+        "summary": "Liveness probe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true,
+                    "status": "live"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "system"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "AppController_healthReady",
+        "summary": "Readiness probe (Mongo + Redis status)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true,
+                    "status": "degraded",
+                    "mongo": {
+                      "ready": true
+                    },
+                    "redis": {
+                      "mode": "memory",
+                      "connected": false,
+                      "degraded": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "system"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
     "/catalog/cities": {
       "get": {
         "operationId": "CitiesController_list",
@@ -5720,10 +5866,10 @@
         ]
       }
     },
-    "/reviews": {
+    "/reviews/overview": {
       "get": {
-        "operationId": "ReviewsController_listByTarget",
-        "summary": "List reviews by target user",
+        "operationId": "ReviewsController_overviewByTarget",
+        "summary": "Get reviews page + summary by target user (BFF)",
         "parameters": [
           {
             "name": "targetUserId",
@@ -5788,10 +5934,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ReviewPublicDto"
-                  }
+                  "$ref": "#/components/schemas/ReviewOverviewDto"
                 }
               }
             }
@@ -7439,6 +7582,11 @@
             "type": "boolean",
             "example": false
           },
+          "isProfileComplete": {
+            "type": "boolean",
+            "example": true,
+            "description": "Server-calculated profile readiness flag for offer workflows."
+          },
           "blockedAt": {
             "type": "object",
             "example": null
@@ -7460,6 +7608,7 @@
           "serviceKeys",
           "status",
           "isBlocked",
+          "isProfileComplete",
           "createdAt",
           "updatedAt"
         ]
@@ -9132,6 +9281,92 @@
           "targetRole",
           "rating",
           "createdAt"
+        ]
+      },
+      "ReviewOverviewDistributionDto": {
+        "type": "object",
+        "properties": {
+          "1": {
+            "type": "number",
+            "example": 0
+          },
+          "2": {
+            "type": "number",
+            "example": 1
+          },
+          "3": {
+            "type": "number",
+            "example": 3
+          },
+          "4": {
+            "type": "number",
+            "example": 5
+          },
+          "5": {
+            "type": "number",
+            "example": 12
+          }
+        },
+        "required": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+        ]
+      },
+      "ReviewOverviewSummaryDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "example": 21
+          },
+          "averageRating": {
+            "type": "number",
+            "example": 4.4
+          },
+          "distribution": {
+            "$ref": "#/components/schemas/ReviewOverviewDistributionDto"
+          }
+        },
+        "required": [
+          "total",
+          "averageRating",
+          "distribution"
+        ]
+      },
+      "ReviewOverviewDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewPublicDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "example": 21
+          },
+          "limit": {
+            "type": "number",
+            "example": 4
+          },
+          "offset": {
+            "type": "number",
+            "example": 0
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ReviewOverviewSummaryDto"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "summary"
         ]
       },
       "FavoriteActionDto": {

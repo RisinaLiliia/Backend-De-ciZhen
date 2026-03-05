@@ -35,6 +35,12 @@ export class ProviderProfileDto {
   @ApiProperty({ example: false })
   isBlocked: boolean;
 
+  @ApiProperty({
+    example: true,
+    description: 'Server-calculated profile readiness flag for offer workflows.',
+  })
+  isProfileComplete: boolean;
+
   @ApiPropertyOptional({ example: null })
   blockedAt?: Date | null;
 
