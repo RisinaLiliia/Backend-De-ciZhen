@@ -16,6 +16,18 @@ import { AvailabilityService } from '../src/modules/availability/availability.se
 
 jest.setTimeout(30000);
 
+const nextUtcWeekdayAt = (weekday: number, hour: number): string => {
+  const base = new Date();
+  const target = new Date(
+    Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 0, 0, 0, 0),
+  );
+  let addDays = (weekday - target.getUTCDay() + 7) % 7;
+  if (addDays === 0) addDays = 7;
+  target.setUTCDate(target.getUTCDate() + addDays);
+  target.setUTCHours(hour, 0, 0, 0);
+  return target.toISOString();
+};
+
 describe('contracts (e2e)', () => {
   let app: INestApplication;
   let ctx: E2EContext;
@@ -27,6 +39,8 @@ describe('contracts (e2e)', () => {
   let bookingModel: Model<BookingDocument>;
   let providerAvailabilityModel: Model<any>;
   let availability: AvailabilityService;
+  const slotAt09 = nextUtcWeekdayAt(4, 9);
+  const slotAt10 = nextUtcWeekdayAt(4, 10);
 
   beforeAll(async () => {
     ctx = await setupTestApp({ useValidationPipe: true });
@@ -92,7 +106,7 @@ describe('contracts (e2e)', () => {
       propertyType: 'apartment',
       area: 55,
       price: 120,
-      preferredDate: new Date('2026-03-05T09:00:00.000Z'),
+      preferredDate: new Date(slotAt09),
       isRecurring: false,
       status: 'published',
     });
@@ -151,7 +165,7 @@ describe('contracts (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/contracts/${contract._id.toString()}/confirm`)
       .set('Authorization', `Bearer ${client.accessToken}`)
-      .send({ startAt: '2026-03-05T09:00:00.000Z', durationMin: 60 })
+      .send({ startAt: slotAt09, durationMin: 60 })
       .expect(201)
       .expect((res) => {
         expect(res.body.status).toBe('confirmed');
@@ -214,7 +228,7 @@ describe('contracts (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/contracts/${contract._id.toString()}/confirm`)
       .set('Authorization', `Bearer ${client.accessToken}`)
-      .send({ startAt: '2026-03-05T10:00:00.000Z', durationMin: 60 })
+      .send({ startAt: slotAt10, durationMin: 60 })
       .expect(201);
 
     await request(app.getHttpServer())
