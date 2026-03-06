@@ -198,4 +198,56 @@ describe('ReviewsService', () => {
       },
     });
   });
+
+  it('createPlatformReview stores anonymous review when no actor is provided', async () => {
+    reviewModelMock.create.mockResolvedValue({
+      _id: 'rev-platform-1',
+      targetRole: 'platform',
+      rating: 5,
+      text: 'Great platform',
+      authorName: 'Anonymous',
+      createdAt: new Date(),
+    });
+    reviewModelMock.findById.mockReturnValue(
+      execWrap({
+        _id: 'rev-platform-1',
+        targetRole: 'platform',
+        rating: 5,
+        text: 'Great platform',
+        authorName: 'Anonymous',
+        createdAt: new Date(),
+      }),
+    );
+
+    const res: any = await service.createPlatformReview({ rating: 5, text: 'Great platform' });
+
+    expect(reviewModelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorUserId: null,
+        targetRole: 'platform',
+        rating: 5,
+        authorName: 'Anonymous',
+      }),
+    );
+    expect(res._id).toBe('rev-platform-1');
+  });
+
+  it('getPlatformOverview queries platform-targeted reviews', async () => {
+    reviewModelMock.aggregate.mockReturnValue(
+      execWrap([
+        {
+          items: [{ _id: 'rp1', rating: 4, targetRole: 'platform', authorUserId: null, authorName: 'Anonymous' }],
+          totalCount: [{ value: 1 }],
+          summaryStats: [{ total: 1, averageRating: 4, d1: 0, d2: 0, d3: 0, d4: 1, d5: 0 }],
+        },
+      ]),
+    );
+
+    const res = await service.getPlatformOverview(4, 0, 'created_desc');
+
+    expect(reviewModelMock.aggregate).toHaveBeenCalled();
+    expect(res.total).toBe(1);
+    expect(res.items).toHaveLength(1);
+    expect(res.summary.averageRating).toBe(4);
+  });
 });

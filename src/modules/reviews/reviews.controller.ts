@@ -2,10 +2,12 @@
 import { Body, Controller, ForbiddenException, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiPropertyOptional, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { CreatePlatformReviewDto } from './dto/create-platform-review.dto';
 import { ReviewResponseDto } from './dto/review-response.dto';
 import { ReviewPublicDto } from './dto/review-public.dto';
 import { ReviewOverviewDto } from './dto/review-overview.dto';
@@ -27,6 +29,29 @@ class ReviewsQueryDto {
   @IsIn(['client', 'provider'])
   targetRole?: 'client' | 'provider';
 
+  @ApiPropertyOptional({ enum: ['created_desc', 'rating_desc'], example: 'created_desc' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['created_desc', 'rating_desc'])
+  sort?: 'created_desc' | 'rating_desc';
+
+  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 0, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number;
+}
+
+class PlatformReviewsQueryDto {
   @ApiPropertyOptional({ enum: ['created_desc', 'rating_desc'], example: 'created_desc' })
   @IsOptional()
   @IsString()
@@ -81,7 +106,15 @@ export class ReviewsController {
   ) {}
 
   private mapItemsWithAuthors(
-    items: Array<{ _id: { toString(): string } | string; targetRole: 'client' | 'provider'; rating: number; text?: string | null; createdAt: Date; authorUserId?: string | null }>,
+    items: Array<{
+      _id: { toString(): string } | string;
+      targetRole: 'client' | 'provider' | 'platform';
+      rating: number;
+      text?: string | null;
+      createdAt: Date;
+      authorUserId?: string | null;
+      authorName?: string | null;
+    }>,
     authorById: Map<string, { name: string | null; avatarUrl: string | null }>,
   ): ReviewPublicDto[] {
     return items.map((r) => ({
@@ -89,7 +122,7 @@ export class ReviewsController {
       targetRole: r.targetRole,
       rating: r.rating,
       text: r.text ?? null,
-      authorName: authorById.get(String(r.authorUserId ?? ''))?.name ?? null,
+      authorName: authorById.get(String(r.authorUserId ?? ''))?.name ?? r.authorName ?? null,
       authorAvatarUrl: authorById.get(String(r.authorUserId ?? ''))?.avatarUrl ?? null,
       createdAt: r.createdAt,
     }));
@@ -166,6 +199,7 @@ export class ReviewsController {
       targetRole: created.targetRole,
       rating: created.rating,
       text: created.text ?? null,
+      authorName: created.authorName ?? null,
       createdAt: created.createdAt,
     };
   }
@@ -194,6 +228,41 @@ export class ReviewsController {
       targetRole: created.targetRole,
       rating: created.rating,
       text: created.text ?? null,
+      authorName: created.authorName ?? null,
+      createdAt: created.createdAt,
+    };
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Post('platform')
+  @ApiOperation({ summary: 'Create a public platform review (guest or authenticated)' })
+  @ApiCreatedResponse({ type: ReviewResponseDto })
+  @ApiPublicErrors()
+  async createPlatformReview(
+    @CurrentUser() user: CurrentUserPayload | null,
+    @Body() dto: CreatePlatformReviewDto,
+  ): Promise<ReviewResponseDto> {
+    const userId = String(user?.userId ?? '').trim();
+    let actorName: string | null = null;
+    if (userId) {
+      const [author] = await this.users.findPublicByIds([userId]);
+      actorName = author?.name ?? null;
+    }
+
+    const created = await this.reviews.createPlatformReview(dto, {
+      userId: userId || null,
+      fallbackName: actorName,
+    });
+
+    return {
+      id: created._id.toString(),
+      bookingId: created.bookingId ?? null,
+      authorUserId: created.authorUserId ?? null,
+      targetUserId: created.targetUserId ?? null,
+      targetRole: created.targetRole,
+      rating: created.rating,
+      text: created.text ?? null,
+      authorName: created.authorName ?? null,
       createdAt: created.createdAt,
     };
   }
@@ -205,6 +274,29 @@ export class ReviewsController {
   @ApiPublicErrors()
   async overviewByTarget(@Query() q: ReviewsQueryDto): Promise<ReviewOverviewDto> {
     const overview = await this.reviews.getOverviewByTarget(q.targetUserId, q.targetRole, q.limit, q.offset, q.sort);
+    const authorById = await this.buildAuthorMap(overview.items as any[]);
+    const items = this.mapItemsWithAuthors(overview.items as any[], authorById);
+
+    return {
+      items,
+      total: overview.total,
+      limit: overview.limit,
+      offset: overview.offset,
+      summary: {
+        total: overview.summary.total,
+        averageRating: overview.summary.averageRating,
+        distribution: overview.summary.distribution,
+      },
+    };
+  }
+
+  @Get('platform/overview')
+  @ApiOperation({ summary: 'Get public platform reviews page + summary' })
+  @ApiSecurity({} as any)
+  @ApiOkResponse({ type: ReviewOverviewDto })
+  @ApiPublicErrors()
+  async platformOverview(@Query() q: PlatformReviewsQueryDto): Promise<ReviewOverviewDto> {
+    const overview = await this.reviews.getPlatformOverview(q.limit, q.offset, q.sort);
     const authorById = await this.buildAuthorMap(overview.items as any[]);
     const items = this.mapItemsWithAuthors(overview.items as any[], authorById);
 

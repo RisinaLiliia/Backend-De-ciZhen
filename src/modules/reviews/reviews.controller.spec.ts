@@ -11,8 +11,10 @@ describe('ReviewsController (unit)', () => {
   const svcMock = {
     createForProvider: jest.fn(),
     createForClient: jest.fn(),
+    createPlatformReview: jest.fn(),
     listMyReceived: jest.fn(),
     getOverviewByTarget: jest.fn(),
+    getPlatformOverview: jest.fn(),
   };
 
   const usersMock = {
@@ -130,5 +132,71 @@ describe('ReviewsController (unit)', () => {
         authorAvatarUrl: '/avatars/a.png',
       }),
     );
+  });
+
+  it('platformOverview maps anonymous author names without user avatar', async () => {
+    usersMock.findPublicByIds.mockResolvedValue([]);
+    svcMock.getPlatformOverview.mockResolvedValue({
+      items: [
+        {
+          _id: { toString: () => 'rp1' },
+          targetRole: 'platform',
+          rating: 5,
+          text: 'Great',
+          authorName: 'Anonymous',
+          authorUserId: null,
+          createdAt: new Date('2026-03-01T10:00:00.000Z'),
+        },
+      ],
+      total: 1,
+      limit: 10,
+      offset: 0,
+      summary: {
+        total: 1,
+        averageRating: 5,
+        distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 1 },
+      },
+    });
+
+    const res = await controller.platformOverview({
+      limit: 10,
+      offset: 0,
+      sort: 'created_desc',
+    } as any);
+
+    expect(svcMock.getPlatformOverview).toHaveBeenCalledWith(10, 0, 'created_desc');
+    expect(res.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'rp1',
+        authorName: 'Anonymous',
+        authorAvatarUrl: null,
+      }),
+    );
+  });
+
+  it('createPlatformReview uses authenticated author when user is provided', async () => {
+    usersMock.findPublicByIds.mockResolvedValue([{ _id: 'u1', name: 'Nina', avatar: null }]);
+    svcMock.createPlatformReview.mockResolvedValue({
+      _id: { toString: () => 'rp2' },
+      bookingId: null,
+      authorUserId: 'u1',
+      targetUserId: null,
+      targetRole: 'platform',
+      rating: 4,
+      text: 'Solid platform',
+      authorName: 'Nina',
+      createdAt: new Date('2026-03-01T12:00:00.000Z'),
+    });
+
+    const res = await controller.createPlatformReview(
+      { userId: 'u1', role: 'client' } as any,
+      { rating: 4, text: 'Solid platform' } as any,
+    );
+
+    expect(svcMock.createPlatformReview).toHaveBeenCalledWith(
+      { rating: 4, text: 'Solid platform' },
+      { userId: 'u1', fallbackName: 'Nina' },
+    );
+    expect(res).toEqual(expect.objectContaining({ id: 'rp2', targetRole: 'platform', authorName: 'Nina' }));
   });
 });
