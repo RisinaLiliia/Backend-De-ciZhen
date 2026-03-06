@@ -39,6 +39,24 @@ export class ReviewsService {
     }
   }
 
+  private normalizeRating(value: number) {
+    const rating = Number(value);
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+      throw new BadRequestException('rating must be between 1 and 5');
+    }
+    return rating;
+  }
+
+  private normalizeText(value?: string) {
+    return value?.trim?.() ? String(value).trim() : null;
+  }
+
+  private normalizeAuthorName(value?: string | null) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return null;
+    return raw.slice(0, 120);
+  }
+
   async createForProvider(
     providerUserId: string,
     input: { bookingId: string; rating: number; text?: string },
@@ -63,12 +81,8 @@ export class ReviewsService {
       throw new BadRequestException('Review already exists');
     }
 
-    const rating = Number(input.rating);
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-      throw new BadRequestException('rating must be between 1 and 5');
-    }
-
-    const text = input.text?.trim?.() ? String(input.text).trim() : null;
+    const rating = this.normalizeRating(input.rating);
+    const text = this.normalizeText(input.text);
 
     const review = await this.reviewModel.create({
       authorUserId: providerUserId,
@@ -78,6 +92,7 @@ export class ReviewsService {
       requestId: booking.requestId ?? null,
       rating,
       text,
+      authorName: null,
     });
 
     await this.clientProfiles.applyRating(booking.clientId, rating);
@@ -110,12 +125,8 @@ export class ReviewsService {
       throw new BadRequestException('Review already exists');
     }
 
-    const rating = Number(input.rating);
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-      throw new BadRequestException('rating must be between 1 and 5');
-    }
-
-    const text = input.text?.trim?.() ? String(input.text).trim() : null;
+    const rating = this.normalizeRating(input.rating);
+    const text = this.normalizeText(input.text);
 
     const review = await this.reviewModel.create({
       authorUserId: clientId,
@@ -125,6 +136,7 @@ export class ReviewsService {
       requestId: booking.requestId ?? null,
       rating,
       text,
+      authorName: null,
     });
 
     await this.providers.applyRating(booking.providerUserId, rating);
@@ -133,18 +145,50 @@ export class ReviewsService {
     return saved ?? review;
   }
 
+  async createPlatformReview(
+    input: { rating: number; text?: string; authorName?: string | null },
+    actor?: { userId?: string | null; fallbackName?: string | null },
+  ): Promise<ReviewDocument> {
+    const rating = this.normalizeRating(input.rating);
+    const text = this.normalizeText(input.text);
+    const userId = String(actor?.userId ?? '').trim();
+    const resolvedAuthorName =
+      this.normalizeAuthorName(actor?.fallbackName) ??
+      this.normalizeAuthorName(input.authorName) ??
+      'Anonymous';
+
+    const review = await this.reviewModel.create({
+      authorUserId: userId || null,
+      authorName: resolvedAuthorName,
+      targetUserId: null,
+      targetRole: 'platform',
+      bookingId: null,
+      requestId: null,
+      rating,
+      text,
+    });
+
+    const saved = await this.reviewModel.findById(review._id).exec();
+    return saved ?? review;
+  }
+
   async getOverviewByTarget(
     targetUserId: string,
-    targetRole?: 'client' | 'provider',
+    targetRole?: 'client' | 'provider' | 'platform',
     limit?: number,
     offset?: number,
     sort: ReviewListSort = 'created_desc',
   ): Promise<ReviewOverviewResult> {
     const id = String(targetUserId ?? '').trim();
-    if (!id) throw new BadRequestException('targetUserId is required');
+    if (!id && targetRole !== 'platform') {
+      throw new BadRequestException('targetUserId is required');
+    }
 
-    const q: Record<string, unknown> = { targetUserId: id };
-    if (targetRole) q.targetRole = targetRole;
+    const q: Record<string, unknown> =
+      targetRole === 'platform'
+        ? { targetRole: 'platform' }
+        : { targetUserId: id };
+    if (targetRole && targetRole !== 'platform') q.targetRole = targetRole;
 
     const safeLimit = Math.min(Math.max(limit ?? 20, 1), 100);
     const safeOffset = Math.max(offset ?? 0, 0);
@@ -228,6 +272,14 @@ export class ReviewsService {
         },
       },
     };
+  }
+
+  async getPlatformOverview(
+    limit?: number,
+    offset?: number,
+    sort: ReviewListSort = 'created_desc',
+  ): Promise<ReviewOverviewResult> {
+    return this.getOverviewByTarget('', 'platform', limit, offset, sort);
   }
 
   async listMyReceived(
