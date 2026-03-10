@@ -296,8 +296,8 @@ export class WorkspaceService {
   async getPublicOverview(query: WorkspacePublicQueryDto): Promise<WorkspacePublicOverviewResponseDto> {
     const limit = Math.min(Math.max(query.limit ?? 20, 1), 100);
     const page = Math.max(query.page ?? 1, 1);
-    const cityActivityLimit = Math.min(Math.max(query.cityActivityLimit ?? 20, 1), 100);
-    const cityAggregationLimit = Math.min(cityActivityLimit * 5, 500);
+    const cityActivityLimit = Math.min(Math.max(query.cityActivityLimit ?? 20, 1), 5000);
+    const cityAggregationLimit = Math.min(cityActivityLimit * 5, 25000);
     const activityRange: PlatformActivityRange = query.activityRange ?? '30d';
 
     const filters = {
