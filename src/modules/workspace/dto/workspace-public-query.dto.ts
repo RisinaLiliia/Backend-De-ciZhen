@@ -55,10 +55,10 @@ export class WorkspacePublicQueryDto {
   @Max(100)
   limit?: number;
 
-  @ApiPropertyOptional({ enum: ['24h', '7d', '30d'], example: '30d', description: 'Range for activity chart' })
+  @ApiPropertyOptional({ enum: ['24h', '7d', '30d', '90d'], example: '30d', description: 'Range for activity chart' })
   @IsOptional()
-  @IsIn(['24h', '7d', '30d'])
-  activityRange?: '24h' | '7d' | '30d';
+  @IsIn(['24h', '7d', '30d', '90d'])
+  activityRange?: '24h' | '7d' | '30d' | '90d';
 
   @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100, description: 'Top city points for demand map' })
   @IsOptional()

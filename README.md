@@ -54,6 +54,12 @@ Domain modules are organized by business responsibility:
 - `GET /workspace/public`
   Returns one aggregated payload for public workspace:
   request page, platform counters, city demand map points, and activity chart.
+  Supports `activityRange=24h|7d|30d|90d`.
+- `GET /workspace/statistics` (optional Bearer auth)
+  Unified Statistik contract for both guests and authenticated users.
+  - guest -> `mode=platform` with platform-level KPI/demand/funnel
+  - authenticated -> `mode=personalized` with private KPI/funnel fields
+  Supports `range=24h|7d|30d|90d`.
 - `POST /workspace/public/requests-batch`
   Batch-resolves public request details by ids (N+1 elimination endpoint).
 - `GET /workspace/private` (Bearer auth)

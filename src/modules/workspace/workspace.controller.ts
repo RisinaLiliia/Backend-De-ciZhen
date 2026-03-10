@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from
 
 import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
 import { WorkspaceService } from './workspace.service';
+import { WorkspaceStatisticsService } from './workspace-statistics.service';
 import { WorkspacePublicQueryDto } from './dto/workspace-public-query.dto';
 import { WorkspacePublicOverviewResponseDto } from './dto/workspace-public-response.dto';
 import {
@@ -11,15 +12,21 @@ import {
 } from './dto/workspace-public-requests-batch.dto';
 import { WorkspacePrivateOverviewResponseDto } from './dto/workspace-private-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
+import { WorkspaceStatisticsQueryDto } from './dto/workspace-statistics-query.dto';
+import { WorkspaceStatisticsOverviewResponseDto } from './dto/workspace-statistics-response.dto';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
 @ApiTags('workspace')
 @Controller('workspace')
 export class WorkspaceController {
-  constructor(private readonly workspace: WorkspaceService) {}
+  constructor(
+    private readonly workspace: WorkspaceService,
+    private readonly statistics: WorkspaceStatisticsService,
+  ) {}
 
   @Get('public')
   @ApiOperation({
@@ -32,6 +39,24 @@ export class WorkspaceController {
   @ApiPublicErrors()
   async getPublicOverview(@Query() query: WorkspacePublicQueryDto): Promise<WorkspacePublicOverviewResponseDto> {
     return this.workspace.getPublicOverview(query);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('statistics')
+  @ApiOperation({
+    summary: 'Unified workspace statistics (guest + personalized)',
+    description:
+      'Returns one Statistik contract for both guests and authenticated users. If auth is present, includes personalized KPI/funnel fields.',
+  })
+  @ApiSecurity({} as any)
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ type: WorkspaceStatisticsOverviewResponseDto })
+  @ApiPublicErrors()
+  async getStatisticsOverview(
+    @Query() query: WorkspaceStatisticsQueryDto,
+    @CurrentUser() user?: CurrentUserPayload | null,
+  ): Promise<WorkspaceStatisticsOverviewResponseDto> {
+    return this.statistics.getStatisticsOverview(query.range, user?.userId, user?.role);
   }
 
   @Post('public/requests-batch')

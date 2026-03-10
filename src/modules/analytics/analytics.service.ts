@@ -4,7 +4,7 @@ import type { Model } from 'mongoose';
 import { Request, RequestDocument } from '../requests/schemas/request.schema';
 import { Offer, OfferDocument } from '../offers/schemas/offer.schema';
 
-export type PlatformActivityRange = '24h' | '7d' | '30d';
+export type PlatformActivityRange = '24h' | '7d' | '30d' | '90d';
 export type PlatformActivityInterval = 'hour' | 'day';
 
 type PlatformActivityPoint = {
@@ -43,6 +43,9 @@ export class AnalyticsService {
   private getRangeConfig(range: PlatformActivityRange) {
     if (range === '24h') {
       return { points: 24, stepMs: 60 * 60 * 1000, interval: 'hour' as const };
+    }
+    if (range === '90d') {
+      return { points: 90, stepMs: 24 * 60 * 60 * 1000, interval: 'day' as const };
     }
     if (range === '30d') {
       return { points: 30, stepMs: 24 * 60 * 60 * 1000, interval: 'day' as const };

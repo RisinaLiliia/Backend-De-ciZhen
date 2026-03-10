@@ -6,10 +6,10 @@ import { AnalyticsService, PlatformActivityResponse, PlatformLiveFeedResponse } 
 import { ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
 
 class PlatformActivityQueryDto {
-  @ApiPropertyOptional({ enum: ['24h', '7d', '30d'], example: '7d' })
+  @ApiPropertyOptional({ enum: ['24h', '7d', '30d', '90d'], example: '7d' })
   @IsOptional()
-  @IsIn(['24h', '7d', '30d'])
-  range?: '24h' | '7d' | '30d';
+  @IsIn(['24h', '7d', '30d', '90d'])
+  range?: '24h' | '7d' | '30d' | '90d';
 
   @ApiPropertyOptional({ enum: ['hour', 'day'], example: 'day' })
   @IsOptional()
@@ -39,8 +39,8 @@ class PlatformActivityPointDto {
 }
 
 class PlatformActivityResponseDto {
-  @ApiProperty({ enum: ['24h', '7d', '30d'], example: '7d' })
-  range: '24h' | '7d' | '30d';
+  @ApiProperty({ enum: ['24h', '7d', '30d', '90d'], example: '7d' })
+  range: '24h' | '7d' | '30d' | '90d';
 
   @ApiProperty({ enum: ['hour', 'day'], example: 'day' })
   interval: 'hour' | 'day';
