@@ -302,4 +302,118 @@ describe('workspace (e2e)', () => {
     expect(res.body.providerMonthlySeries).toHaveLength(6);
     expect(res.body.clientMonthlySeries).toHaveLength(6);
   });
+
+
+  it('GET /workspace/statistics returns platform mode for guest', async () => {
+    await requestModel.create({
+      title: 'Stats request',
+      serviceKey: 'home_cleaning',
+      cityId: 'berlin-city',
+      cityName: 'Berlin',
+      propertyType: 'apartment',
+      area: 42,
+      preferredDate: new Date('2026-03-06T10:00:00.000Z'),
+      isRecurring: false,
+      status: 'published',
+      categoryKey: 'cleaning',
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/workspace/statistics')
+      .query({ range: '30d' })
+      .expect(200);
+
+    expect(res.body.mode).toBe('platform');
+    expect(res.body.range).toBe('30d');
+    expect(res.body.summary).toEqual(
+      expect.objectContaining({
+        totalPublishedRequests: expect.any(Number),
+        totalActiveProviders: expect.any(Number),
+      }),
+    );
+    expect(res.body.kpis).toEqual(
+      expect.objectContaining({
+        requestsTotal: expect.any(Number),
+        offersTotal: expect.any(Number),
+      }),
+    );
+    expect(Array.isArray(res.body.activity.points)).toBe(true);
+    expect(Array.isArray(res.body.demand.categories)).toBe(true);
+    expect(Array.isArray(res.body.demand.cities)).toBe(true);
+    if (res.body.demand.cities.length > 0) {
+      expect(res.body.demand.cities[0]).toEqual(
+        expect.objectContaining({
+          auftragSuchenCount: expect.any(Number),
+          anbieterSuchenCount: expect.any(Number),
+        }),
+      );
+    }
+    expect(Array.isArray(res.body.growthCards)).toBe(true);
+  });
+
+  it('GET /workspace/statistics returns personalized mode for authenticated user', async () => {
+    const account = await registerAndGetToken(app, 'provider', 'workspace-statistics@test.local', 'Stats User');
+    const userId = String(account.userId);
+
+    await requestModel.create({
+      title: 'Client request for stats',
+      clientId: userId,
+      serviceKey: 'home_cleaning',
+      cityId: 'berlin-city',
+      cityName: 'Berlin',
+      propertyType: 'apartment',
+      area: 50,
+      preferredDate: new Date('2026-03-06T10:00:00.000Z'),
+      isRecurring: false,
+      status: 'published',
+      categoryKey: 'cleaning',
+    });
+
+    const offer = await offerModel.create({
+      requestId: new Types.ObjectId().toString(),
+      providerUserId: userId,
+      clientUserId: new Types.ObjectId().toString(),
+      status: 'accepted',
+      pricing: { amount: 120, type: 'fixed' },
+      createdAt: new Date('2026-03-09T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-09T10:20:00.000Z'),
+    });
+
+    await contractModel.create({
+      requestId: new Types.ObjectId().toString(),
+      offerId: offer._id.toString(),
+      clientId: userId,
+      providerUserId: userId,
+      status: 'completed',
+      priceAmount: 120,
+      priceType: 'fixed',
+      completedAt: new Date(),
+      confirmedAt: new Date(),
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/workspace/statistics')
+      .query({ range: '7d' })
+      .set('Authorization', `Bearer ${account.accessToken}`)
+      .expect(200);
+
+    expect(res.body.mode).toBe('personalized');
+    expect(res.body.kpis).toEqual(
+      expect.objectContaining({
+        requestsTotal: expect.any(Number),
+        offersTotal: expect.any(Number),
+        profileCompleteness: expect.any(Number),
+      }),
+    );
+    expect(res.body.profileFunnel).toEqual(
+      expect.objectContaining({
+        stage1: expect.any(Number),
+        stage2: expect.any(Number),
+        stage3: expect.any(Number),
+        stage4: expect.any(Number),
+      }),
+    );
+    expect(Array.isArray(res.body.insights)).toBe(true);
+  });
+
 });

@@ -46,7 +46,7 @@ export class WorkspacePublicActivityPointDto {
 }
 
 export class WorkspacePublicActivityDto {
-  @ApiProperty({ enum: ['24h', '7d', '30d'], example: '30d' })
+  @ApiProperty({ enum: ['24h', '7d', '30d', '90d'], example: '30d' })
   range: PlatformActivityRange;
 
   @ApiProperty({ enum: ['hour', 'day'], example: 'day' })

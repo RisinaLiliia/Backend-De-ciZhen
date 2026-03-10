@@ -54,10 +54,27 @@ Domain modules are organized by business responsibility:
 - `GET /workspace/public`
   Returns one aggregated payload for public workspace:
   request page, platform counters, city demand map points, and activity chart.
+  Supports `activityRange=24h|7d|30d|90d`.
+- `GET /workspace/statistics` (optional Bearer auth)
+  Unified Statistik contract for both guests and authenticated users.
+  - guest -> `mode=platform` with platform-level KPI/demand/funnel
+  - authenticated -> `mode=personalized` with private KPI/funnel fields
+  - `demand.cities[]` now includes city-level marketplace activity metrics:
+    - `requestCount` (Anfragen)
+    - `auftragSuchenCount` (deduplicated searches for jobs in city; fallback: offer proxy)
+    - `anbieterSuchenCount` (deduplicated searches for providers in city; fallback: distinct-clients proxy)
+  Supports `range=24h|7d|30d|90d`.
 - `POST /workspace/public/requests-batch`
   Batch-resolves public request details by ids (N+1 elimination endpoint).
 - `GET /workspace/private` (Bearer auth)
   Returns personalized counters/KPIs/series for private workspace dashboard.
+
+## Analytics Ingestion Endpoint
+- `POST /analytics/search-event` (optional Bearer auth)
+  Records deduplicated search intent events from UI filters/search interactions.
+  - Redis dedupe key: `queryHash + actor + timeBucket`
+  - Mongo aggregate collection: `analytics_search_aggregates`
+  - Used by `/workspace/statistics` city demand metrics (`auftragSuchenCount`, `anbieterSuchenCount`).
 
 ## Reviews BFF Endpoint
 - `GET /reviews/overview`
@@ -142,6 +159,9 @@ Important optional:
 - `CLOUDINARY_*`
 - `REDIS_DISABLED=true` (enables in-memory fallback cache/session store for local/dev)
 - `TRUST_PROXY` (`0` by default; set `1` or `true` when running behind reverse proxy)
+- `SEARCH_ANALYTICS_BUCKET_SECONDS` (default `900`, dedupe/aggregation time bucket)
+- `SEARCH_ANALYTICS_DEDUPE_TTL_SECONDS` (default `1020`, Redis dedupe key TTL)
+- `ANALYTICS_HASH_SALT` (optional salt for hashing actor/query dedupe keys)
 
 Run:
 ```bash

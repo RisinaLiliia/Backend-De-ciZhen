@@ -56,4 +56,8 @@ export const envValidationSchema = Joi.object({
   GEOCODE_CACHE_TTL_SECONDS: Joi.number().min(0).optional(),
 
   PRESENCE_TTL_SECONDS: Joi.number().min(5).max(3600).optional(),
+
+  SEARCH_ANALYTICS_BUCKET_SECONDS: Joi.number().min(60).max(86400).optional(),
+  SEARCH_ANALYTICS_DEDUPE_TTL_SECONDS: Joi.number().min(60).max(172800).optional(),
+  ANALYTICS_HASH_SALT: Joi.string().allow("").optional(),
 }).unknown(true);

@@ -56,4 +56,8 @@ export default registerAs("app", () => ({
   geocodeCacheTtlSeconds: Number(process.env.GEOCODE_CACHE_TTL_SECONDS ?? 3600),
 
   presenceTtlSeconds: Number(process.env.PRESENCE_TTL_SECONDS ?? 60),
+
+  searchAnalyticsBucketSeconds: Number(process.env.SEARCH_ANALYTICS_BUCKET_SECONDS ?? 900),
+  searchAnalyticsDedupeTtlSeconds: Number(process.env.SEARCH_ANALYTICS_DEDUPE_TTL_SECONDS ?? 1020),
+  analyticsHashSalt: process.env.ANALYTICS_HASH_SALT ?? "",
 }));
