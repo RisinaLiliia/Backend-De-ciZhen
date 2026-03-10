@@ -60,11 +60,16 @@ export class WorkspacePublicQueryDto {
   @IsIn(['24h', '7d', '30d', '90d'])
   activityRange?: '24h' | '7d' | '30d' | '90d';
 
-  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100, description: 'Top city points for demand map' })
+  @ApiPropertyOptional({
+    example: 1000,
+    minimum: 1,
+    maximum: 5000,
+    description: 'City points for demand map and cities ranking (1..5000).',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(5000)
   cityActivityLimit?: number;
 }

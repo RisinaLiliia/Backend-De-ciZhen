@@ -256,4 +256,36 @@ describe('WorkspaceService (unit)', () => {
       lng: 8.466,
     });
   });
+
+  it('getPublicOverview supports extended cityActivityLimit for full ranking payloads', async () => {
+    requestsMock.listPublic.mockResolvedValue([]);
+    requestsMock.countPublic.mockResolvedValue(0);
+
+    modelMock.countDocuments
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(0) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(0) });
+
+    analyticsMock.getPlatformActivity.mockResolvedValue({
+      range: '30d',
+      interval: 'day',
+      source: 'real',
+      data: [],
+      updatedAt: new Date('2030-03-01T00:00:00.000Z').toISOString(),
+    });
+
+    modelMock.aggregate.mockReturnValueOnce({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+
+    await service.getPublicOverview({
+      page: 1,
+      limit: 10,
+      cityActivityLimit: 5000,
+      activityRange: '30d',
+    });
+
+    const pipeline = modelMock.aggregate.mock.calls[0]?.[0] as Array<Record<string, number>>;
+    const limitStage = pipeline.find((stage) => '$limit' in stage);
+    expect(limitStage).toEqual({ $limit: 25000 });
+  });
 });
