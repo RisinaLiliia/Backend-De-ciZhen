@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 
-import { AnalyticsService } from '../analytics/analytics.service';
+import { AnalyticsService, type CitySearchCountsRow } from '../analytics/analytics.service';
 import { Contract, type ContractDocument } from '../contracts/schemas/contract.schema';
+import { Offer, type OfferDocument } from '../offers/schemas/offer.schema';
 import { Request, type RequestDocument } from '../requests/schemas/request.schema';
 import { Review, type ReviewDocument } from '../reviews/schemas/review.schema';
 import type { AppRole } from '../users/schemas/user.schema';
@@ -22,6 +23,7 @@ export class WorkspaceStatisticsService {
     private readonly workspace: WorkspaceService,
     private readonly analytics: AnalyticsService,
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
+    @InjectModel(Offer.name) private readonly offerModel: Model<OfferDocument>,
     @InjectModel(Contract.name) private readonly contractModel: Model<ContractDocument>,
     @InjectModel(Review.name) private readonly reviewModel: Model<ReviewDocument>,
   ) {}
@@ -153,7 +155,7 @@ export class WorkspaceStatisticsService {
     const range = this.resolveRange(rangeInput);
     const { start, end } = this.resolveWindow(range);
 
-    const [publicOverview, activity, categoryRows, cityRows, completedJobsRange, reviewSummary] = await Promise.all([
+    const [publicOverview, activity, categoryRows, cityRows, offerCityRows, searchCityRows, completedJobsRange, reviewSummary] = await Promise.all([
       this.workspace.getPublicOverview({
         page: 1,
         limit: 100,
@@ -185,7 +187,7 @@ export class WorkspaceStatisticsService {
         ])
         .exec(),
       this.requestModel
-        .aggregate<{ _id: { cityId?: string | null; cityName?: string | null }; count: number }>([
+        .aggregate<{ _id: { cityId?: string | null; cityName?: string | null }; requestCount: number; anbieterSuchenCount: number }>([
           {
             $match: {
               status: 'published',
@@ -198,13 +200,75 @@ export class WorkspaceStatisticsService {
                 cityId: '$cityId',
                 cityName: '$cityName',
               },
-              count: { $sum: 1 },
+              requestCount: { $sum: 1 },
+              clientIds: { $addToSet: '$clientId' },
             },
           },
-          { $sort: { count: -1 } },
+          {
+            $project: {
+              _id: 1,
+              requestCount: 1,
+              anbieterSuchenCount: {
+                $size: {
+                  $filter: {
+                    input: '$clientIds',
+                    as: 'clientId',
+                    cond: {
+                      $and: [
+                        { $ne: ['$$clientId', null] },
+                        { $ne: ['$$clientId', ''] },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+          { $sort: { requestCount: -1 } },
           { $limit: 8 },
         ])
         .exec(),
+      this.offerModel
+        .aggregate<{ _id: { cityId?: string | null; cityName?: string | null }; auftragSuchenCount: number }>([
+          {
+            $match: {
+              createdAt: { $gte: start, $lte: end },
+            },
+          },
+          {
+            $lookup: {
+              from: 'requests',
+              let: { requestId: '$requestId' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    cityId: '$cityId',
+                    cityName: '$cityName',
+                  },
+                },
+              ],
+              as: 'requestRef',
+            },
+          },
+          { $unwind: '$requestRef' },
+          {
+            $group: {
+              _id: {
+                cityId: '$requestRef.cityId',
+                cityName: '$requestRef.cityName',
+              },
+              auftragSuchenCount: { $sum: 1 },
+            },
+          },
+        ])
+        .exec(),
+      this.analytics.getCitySearchCounts(range),
       this.contractModel
         .countDocuments({
           status: 'completed',
@@ -250,18 +314,40 @@ export class WorkspaceStatisticsService {
       ]),
     );
 
+    const auftragSuchenByCitySlug = new Map<string, number>(
+      offerCityRows.map((row) => {
+        const cityName = String(row._id?.cityName ?? '').trim();
+        const citySlug = this.slugifyCityName(cityName);
+        return [citySlug, Math.max(0, Math.round(row.auftragSuchenCount ?? 0))] as const;
+      }),
+    );
+
+    const searchByCitySlug = new Map<string, CitySearchCountsRow>(
+      searchCityRows.map((row) => [row.citySlug, row] as const),
+    );
+
+    const searchByCityId = new Map<string, CitySearchCountsRow>(
+      searchCityRows
+        .filter((row) => String(row.cityId ?? '').trim().length > 0)
+        .map((row) => [String(row.cityId), row] as const),
+    );
+
     const cities: WorkspaceStatisticsCityDemandDto[] = cityRows.map((row) => {
       const cityName = String(row._id?.cityName ?? '').trim();
       const citySlug = this.slugifyCityName(cityName);
       const coords = coordsBySlug.get(citySlug);
-
       const resolvedCityId = String(row._id?.cityId ?? '').trim();
+      const searchRow =
+        (resolvedCityId.length > 0 ? searchByCityId.get(resolvedCityId) : undefined) ??
+        searchByCitySlug.get(citySlug);
 
       return {
         citySlug,
         cityName,
         cityId: resolvedCityId.length > 0 ? resolvedCityId : (coords?.cityId ?? null),
-        requestCount: Math.max(0, Math.round(row.count || 0)),
+        requestCount: Math.max(0, Math.round(row.requestCount || 0)),
+        auftragSuchenCount: searchRow ? searchRow.requestSearchCount : (auftragSuchenByCitySlug.get(citySlug) ?? 0),
+        anbieterSuchenCount: searchRow ? searchRow.providerSearchCount : Math.max(0, Math.round(row.anbieterSuchenCount || 0)),
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
       };

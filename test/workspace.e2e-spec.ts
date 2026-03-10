@@ -339,6 +339,15 @@ describe('workspace (e2e)', () => {
     );
     expect(Array.isArray(res.body.activity.points)).toBe(true);
     expect(Array.isArray(res.body.demand.categories)).toBe(true);
+    expect(Array.isArray(res.body.demand.cities)).toBe(true);
+    if (res.body.demand.cities.length > 0) {
+      expect(res.body.demand.cities[0]).toEqual(
+        expect.objectContaining({
+          auftragSuchenCount: expect.any(Number),
+          anbieterSuchenCount: expect.any(Number),
+        }),
+      );
+    }
     expect(Array.isArray(res.body.growthCards)).toBe(true);
   });
 

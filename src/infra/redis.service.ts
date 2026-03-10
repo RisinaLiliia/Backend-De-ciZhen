@@ -47,6 +47,38 @@ export class RedisService implements OnApplicationShutdown {
     }
   }
 
+  async setIfAbsent(key: string, value: string, expireSeconds: number): Promise<boolean> {
+    try {
+      const setWithOptions = (this.redisClient as unknown as {
+        set?: (
+          key: string,
+          value: string,
+          options?: { NX?: boolean; EX?: number },
+        ) => Promise<unknown>;
+      }).set;
+
+      if (this.redisClient.__mode !== "memory" && typeof setWithOptions === "function") {
+        const result = await setWithOptions.call(this.redisClient, key, value, {
+          NX: true,
+          EX: Math.max(1, Math.floor(expireSeconds)),
+        });
+
+        if (result === "OK" || result === true) return true;
+        if (result === null || result === false) return false;
+      }
+
+      const existing = await this.get(key);
+      if (existing !== null) return false;
+
+      await this.set(key, value, expireSeconds);
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Failed to set-if-absent for key "${key}": ${message}`);
+      return true;
+    }
+  }
+
   async get(key: string): Promise<string | null> {
     try {
       const value = await this.redisClient.get(key);

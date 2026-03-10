@@ -6,7 +6,7 @@ import { WorkspaceService } from './workspace.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { Request } from '../requests/schemas/request.schema';
 import { Contract } from '../contracts/schemas/contract.schema';
-import { ProviderProfile } from '../providers/schemas/provider-profile.schema';
+import { Offer } from '../offers/schemas/offer.schema';
 import { Review } from '../reviews/schemas/review.schema';
 
 describe('WorkspaceStatisticsService (unit)', () => {
@@ -19,6 +19,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
 
   const analyticsMock = {
     getPlatformActivity: jest.fn(),
+    getCitySearchCounts: jest.fn(),
   };
 
   const requestModelMock = {
@@ -29,7 +30,9 @@ describe('WorkspaceStatisticsService (unit)', () => {
     countDocuments: jest.fn(),
   };
 
-  const providerModelMock = {};
+  const offerModelMock = {
+    aggregate: jest.fn(),
+  };
 
   const reviewModelMock = {
     aggregate: jest.fn(),
@@ -44,8 +47,8 @@ describe('WorkspaceStatisticsService (unit)', () => {
         { provide: WorkspaceService, useValue: workspaceMock },
         { provide: AnalyticsService, useValue: analyticsMock },
         { provide: getModelToken(Request.name), useValue: requestModelMock },
+        { provide: getModelToken(Offer.name), useValue: offerModelMock },
         { provide: getModelToken(Contract.name), useValue: contractModelMock },
-        { provide: getModelToken(ProviderProfile.name), useValue: providerModelMock },
         { provide: getModelToken(Review.name), useValue: reviewModelMock },
       ],
     }).compile();
@@ -77,6 +80,16 @@ describe('WorkspaceStatisticsService (unit)', () => {
       ],
     });
 
+    analyticsMock.getCitySearchCounts.mockResolvedValue([
+      {
+        cityId: 'c-1',
+        cityName: 'Berlin',
+        citySlug: 'berlin',
+        requestSearchCount: 21,
+        providerSearchCount: 14,
+      },
+    ]);
+
     requestModelMock.aggregate
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([
@@ -85,9 +98,15 @@ describe('WorkspaceStatisticsService (unit)', () => {
       })
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([
-          { _id: { cityId: 'c-1', cityName: 'Berlin' }, count: 9 },
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, requestCount: 9, anbieterSuchenCount: 4 },
         ]),
       });
+
+    offerModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([
+        { _id: { cityId: 'c-1', cityName: 'Berlin' }, auftragSuchenCount: 12 },
+      ]),
+    });
 
     contractModelMock.countDocuments.mockReturnValue({
       exec: jest.fn().mockResolvedValue(5),
@@ -111,6 +130,8 @@ describe('WorkspaceStatisticsService (unit)', () => {
     expect(result.demand.cities[0]).toMatchObject({
       cityName: 'Berlin',
       requestCount: 9,
+      auftragSuchenCount: 21,
+      anbieterSuchenCount: 14,
       lat: 52.52,
       lng: 13.405,
     });
@@ -133,9 +154,15 @@ describe('WorkspaceStatisticsService (unit)', () => {
       data: [{ timestamp: '2026-03-09T00:00:00.000Z', requests: 4, offers: 2 }],
     });
 
+    analyticsMock.getCitySearchCounts.mockResolvedValue([]);
+
     requestModelMock.aggregate
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+
+    offerModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
 
     contractModelMock.countDocuments.mockReturnValue({
       exec: jest.fn().mockResolvedValue(2),

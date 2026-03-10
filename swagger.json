@@ -7103,6 +7103,672 @@
           }
         ]
       }
+    },
+    "/workspace/public": {
+      "get": {
+        "operationId": "WorkspaceController_getPublicOverview",
+        "summary": "Public workspace overview (BFF view-model)",
+        "description": "Returns request page + aggregated platform counters + demand map city activity + activity chart in one payload.",
+        "parameters": [
+          {
+            "name": "cityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "cleaning",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subcategoryKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "window_cleaning",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "date_desc",
+              "enum": [
+                "date_desc",
+                "date_asc",
+                "price_asc",
+                "price_desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "priceMin",
+            "required": false,
+            "in": "query",
+            "description": "Filter by price >= priceMin",
+            "schema": {
+              "example": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "priceMax",
+            "required": false,
+            "in": "query",
+            "description": "Filter by price <= priceMax",
+            "schema": {
+              "example": 200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (>=1). Default 1",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size (1..100). Default 20",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "activityRange",
+            "required": false,
+            "in": "query",
+            "description": "Range for activity chart",
+            "schema": {
+              "example": "30d",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "cityActivityLimit",
+            "required": false,
+            "in": "query",
+            "description": "Top city points for demand map",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePublicOverviewResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/workspace/statistics": {
+      "get": {
+        "operationId": "WorkspaceController_getStatisticsOverview",
+        "summary": "Unified workspace statistics (guest + personalized)",
+        "description": "Returns one Statistik contract for both guests and authenticated users. If auth is present, includes personalized KPI/funnel fields.",
+        "parameters": [
+          {
+            "name": "range",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "30d",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceStatisticsOverviewResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {
+            "access-token": []
+          },
+          {}
+        ]
+      }
+    },
+    "/workspace/public/requests-batch": {
+      "post": {
+        "operationId": "WorkspaceController_getPublicRequestsBatch",
+        "summary": "Resolve request details by ids in one call",
+        "description": "Batch endpoint to avoid N+1 request detail calls from frontend.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspacePublicRequestsBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePublicRequestsBatchResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/workspace/private": {
+      "get": {
+        "operationId": "WorkspaceController_getPrivateOverview",
+        "summary": "Private workspace overview (BFF view-model)",
+        "description": "Returns personalized counts, KPI metrics and last-6-month chart series in one payload for authenticated user.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePrivateOverviewResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/analytics/platform-activity": {
+      "get": {
+        "operationId": "AnalyticsController_platformActivity",
+        "summary": "Platform requests/offers timeline for home dashboard",
+        "parameters": [
+          {
+            "name": "range",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "7d",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "interval",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "day",
+              "enum": [
+                "hour",
+                "day"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformActivityResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "analytics"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/analytics/platform-live-feed": {
+      "get": {
+        "operationId": "AnalyticsController_platformLiveFeed",
+        "summary": "Recent platform activity feed for home dashboard",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 20,
+              "example": 4,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformLiveFeedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "analytics"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/analytics/search-event": {
+      "post": {
+        "operationId": "AnalyticsController_trackSearchEvent",
+        "summary": "Ingest search interaction event with Redis dedupe",
+        "description": "Records deduplicated search intent event and updates Mongo aggregate counters used by Statistik demand insights.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSearchEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchEventResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "analytics"
+        ],
+        "security": [
+          {
+            "access-token": []
+          },
+          {}
+        ]
+      }
     }
   },
   "info": {
@@ -9764,6 +10430,1253 @@
         },
         "required": [
           "text"
+        ]
+      },
+      "WorkspacePublicSummaryDto": {
+        "type": "object",
+        "properties": {
+          "totalPublishedRequests": {
+            "type": "number",
+            "example": 245
+          },
+          "totalActiveProviders": {
+            "type": "number",
+            "example": 67
+          }
+        },
+        "required": [
+          "totalPublishedRequests",
+          "totalActiveProviders"
+        ]
+      },
+      "WorkspacePublicActivityPointDto": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "example": "2026-03-02T00:00:00.000Z"
+          },
+          "requests": {
+            "type": "number",
+            "example": 12
+          },
+          "offers": {
+            "type": "number",
+            "example": 9
+          }
+        },
+        "required": [
+          "timestamp",
+          "requests",
+          "offers"
+        ]
+      },
+      "WorkspacePublicActivityDto": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d",
+              "90d"
+            ],
+            "example": "30d"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "hour",
+              "day"
+            ],
+            "example": "day"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "real"
+            ],
+            "example": "real"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePublicActivityPointDto"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-03-02T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "range",
+          "interval",
+          "source",
+          "data",
+          "updatedAt"
+        ]
+      },
+      "WorkspacePublicCityActivityItemDto": {
+        "type": "object",
+        "properties": {
+          "citySlug": {
+            "type": "string",
+            "example": "berlin"
+          },
+          "cityName": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "cityId": {
+            "type": "object",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+            "nullable": true
+          },
+          "requestCount": {
+            "type": "number",
+            "example": 42
+          },
+          "lat": {
+            "type": "object",
+            "example": 52.52,
+            "nullable": true
+          },
+          "lng": {
+            "type": "object",
+            "example": 13.405,
+            "nullable": true
+          }
+        },
+        "required": [
+          "citySlug",
+          "cityName",
+          "cityId",
+          "requestCount",
+          "lat",
+          "lng"
+        ]
+      },
+      "WorkspacePublicCityActivityDto": {
+        "type": "object",
+        "properties": {
+          "totalActiveCities": {
+            "type": "number",
+            "example": 8
+          },
+          "totalActiveRequests": {
+            "type": "number",
+            "example": 120
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePublicCityActivityItemDto"
+            }
+          }
+        },
+        "required": [
+          "totalActiveCities",
+          "totalActiveRequests",
+          "items"
+        ]
+      },
+      "WorkspacePublicRequestsPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestPublicDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "example": 245
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 20
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit"
+        ]
+      },
+      "WorkspacePublicOverviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-03-02T12:00:00.000Z"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WorkspacePublicSummaryDto"
+          },
+          "activity": {
+            "$ref": "#/components/schemas/WorkspacePublicActivityDto"
+          },
+          "cityActivity": {
+            "$ref": "#/components/schemas/WorkspacePublicCityActivityDto"
+          },
+          "requests": {
+            "$ref": "#/components/schemas/WorkspacePublicRequestsPageDto"
+          }
+        },
+        "required": [
+          "updatedAt",
+          "summary",
+          "activity",
+          "cityActivity",
+          "requests"
+        ]
+      },
+      "WorkspaceStatisticsSummaryDto": {
+        "type": "object",
+        "properties": {
+          "totalPublishedRequests": {
+            "type": "number",
+            "example": 412
+          },
+          "totalActiveProviders": {
+            "type": "number",
+            "example": 88
+          },
+          "totalActiveCities": {
+            "type": "number",
+            "example": 12
+          },
+          "platformRatingAvg": {
+            "type": "number",
+            "example": 4.7
+          },
+          "platformRatingCount": {
+            "type": "number",
+            "example": 128
+          }
+        },
+        "required": [
+          "totalPublishedRequests",
+          "totalActiveProviders",
+          "totalActiveCities",
+          "platformRatingAvg",
+          "platformRatingCount"
+        ]
+      },
+      "WorkspaceStatisticsKpisDto": {
+        "type": "object",
+        "properties": {
+          "requestsTotal": {
+            "type": "number",
+            "example": 34
+          },
+          "offersTotal": {
+            "type": "number",
+            "example": 19
+          },
+          "completedJobsTotal": {
+            "type": "number",
+            "example": 7
+          },
+          "successRate": {
+            "type": "number",
+            "example": 56
+          },
+          "avgResponseMinutes": {
+            "type": "object",
+            "example": 16,
+            "nullable": true
+          },
+          "profileCompleteness": {
+            "type": "object",
+            "example": 84,
+            "nullable": true
+          },
+          "openRequests": {
+            "type": "object",
+            "example": 9,
+            "nullable": true
+          },
+          "recentOffers7d": {
+            "type": "object",
+            "example": 5,
+            "nullable": true
+          }
+        },
+        "required": [
+          "requestsTotal",
+          "offersTotal",
+          "completedJobsTotal",
+          "successRate",
+          "avgResponseMinutes",
+          "profileCompleteness",
+          "openRequests",
+          "recentOffers7d"
+        ]
+      },
+      "WorkspaceStatisticsActivityPointDto": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "example": "2026-03-02T00:00:00.000Z"
+          },
+          "requests": {
+            "type": "number",
+            "example": 12
+          },
+          "offers": {
+            "type": "number",
+            "example": 9
+          }
+        },
+        "required": [
+          "timestamp",
+          "requests",
+          "offers"
+        ]
+      },
+      "WorkspaceStatisticsActivityTotalsDto": {
+        "type": "object",
+        "properties": {
+          "requestsTotal": {
+            "type": "number",
+            "example": 126
+          },
+          "offersTotal": {
+            "type": "number",
+            "example": 92
+          },
+          "latestRequests": {
+            "type": "number",
+            "example": 8
+          },
+          "latestOffers": {
+            "type": "number",
+            "example": 6
+          },
+          "previousRequests": {
+            "type": "number",
+            "example": 4
+          },
+          "previousOffers": {
+            "type": "number",
+            "example": 3
+          },
+          "peakTimestamp": {
+            "type": "object",
+            "example": "2026-03-09T00:00:00.000Z",
+            "nullable": true
+          },
+          "bestWindowTimestamp": {
+            "type": "object",
+            "example": "2026-03-09T00:00:00.000Z",
+            "nullable": true
+          }
+        },
+        "required": [
+          "requestsTotal",
+          "offersTotal",
+          "latestRequests",
+          "latestOffers",
+          "previousRequests",
+          "previousOffers",
+          "peakTimestamp",
+          "bestWindowTimestamp"
+        ]
+      },
+      "WorkspaceStatisticsActivityDto": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d",
+              "90d"
+            ],
+            "example": "30d"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "hour",
+              "day"
+            ],
+            "example": "day"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsActivityPointDto"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsActivityTotalsDto"
+          }
+        },
+        "required": [
+          "range",
+          "interval",
+          "points",
+          "totals"
+        ]
+      },
+      "WorkspaceStatisticsCategoryDemandDto": {
+        "type": "object",
+        "properties": {
+          "categoryKey": {
+            "type": "object",
+            "example": "cleaning",
+            "nullable": true
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Reinigung"
+          },
+          "requestCount": {
+            "type": "number",
+            "example": 18
+          },
+          "sharePercent": {
+            "type": "number",
+            "example": 32
+          }
+        },
+        "required": [
+          "categoryKey",
+          "categoryName",
+          "requestCount",
+          "sharePercent"
+        ]
+      },
+      "WorkspaceStatisticsCityDemandDto": {
+        "type": "object",
+        "properties": {
+          "citySlug": {
+            "type": "string",
+            "example": "berlin"
+          },
+          "cityName": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "cityId": {
+            "type": "object",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+            "nullable": true
+          },
+          "requestCount": {
+            "type": "number",
+            "example": 14
+          },
+          "auftragSuchenCount": {
+            "type": "number",
+            "example": 22,
+            "description": "Provider-side demand activity: deduplicated searches for jobs in this city (target=request). Falls back to offer-based proxy if event data is missing."
+          },
+          "anbieterSuchenCount": {
+            "type": "number",
+            "example": 9,
+            "description": "Client-side demand activity: deduplicated searches for providers in this city (target=provider). Falls back to distinct client-request proxy if event data is missing."
+          },
+          "lat": {
+            "type": "object",
+            "example": 52.52,
+            "nullable": true
+          },
+          "lng": {
+            "type": "object",
+            "example": 13.405,
+            "nullable": true
+          }
+        },
+        "required": [
+          "citySlug",
+          "cityName",
+          "cityId",
+          "requestCount",
+          "auftragSuchenCount",
+          "anbieterSuchenCount",
+          "lat",
+          "lng"
+        ]
+      },
+      "WorkspaceStatisticsDemandDto": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsCategoryDemandDto"
+            }
+          },
+          "cities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsCityDemandDto"
+            }
+          }
+        },
+        "required": [
+          "categories",
+          "cities"
+        ]
+      },
+      "WorkspaceStatisticsProfileFunnelDto": {
+        "type": "object",
+        "properties": {
+          "stage1": {
+            "type": "number",
+            "example": 128
+          },
+          "stage2": {
+            "type": "number",
+            "example": 34
+          },
+          "stage3": {
+            "type": "number",
+            "example": 17
+          },
+          "stage4": {
+            "type": "number",
+            "example": 5
+          },
+          "conversionRate": {
+            "type": "number",
+            "example": 29
+          }
+        },
+        "required": [
+          "stage1",
+          "stage2",
+          "stage3",
+          "stage4",
+          "conversionRate"
+        ]
+      },
+      "WorkspaceStatisticsInsightDto": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "info",
+              "trend",
+              "warning"
+            ],
+            "example": "trend"
+          },
+          "code": {
+            "type": "string",
+            "example": "high_category_demand"
+          },
+          "context": {
+            "type": "object",
+            "example": "Reinigung",
+            "nullable": true
+          }
+        },
+        "required": [
+          "level",
+          "code",
+          "context"
+        ]
+      },
+      "WorkspaceStatisticsGrowthCardDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "highlight_profile"
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=profile"
+          }
+        },
+        "required": [
+          "key",
+          "href"
+        ]
+      },
+      "WorkspaceStatisticsOverviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-03-10T12:00:00.000Z"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "personalized"
+            ],
+            "example": "platform"
+          },
+          "range": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d",
+              "90d"
+            ],
+            "example": "30d"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsSummaryDto"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsKpisDto"
+          },
+          "activity": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsActivityDto"
+          },
+          "demand": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsDemandDto"
+          },
+          "profileFunnel": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsProfileFunnelDto"
+          },
+          "insights": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsInsightDto"
+            }
+          },
+          "growthCards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsGrowthCardDto"
+            }
+          }
+        },
+        "required": [
+          "updatedAt",
+          "mode",
+          "range",
+          "summary",
+          "kpis",
+          "activity",
+          "demand",
+          "profileFunnel",
+          "insights",
+          "growthCards"
+        ]
+      },
+      "WorkspacePublicRequestsBatchDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "example": [
+              "65f0c1a2b3c4d5e6f7a8b9c1",
+              "65f0c1a2b3c4d5e6f7a8b9c2"
+            ],
+            "description": "Request ids to resolve in one API call. Max 100 ids.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "WorkspacePublicRequestsBatchResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestPublicDto"
+            }
+          },
+          "missingIds": {
+            "example": [
+              "65f0c1a2b3c4d5e6f7a8b9ff"
+            ],
+            "description": "Ids that were not found among published requests.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "WorkspacePrivateUserDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "client",
+              "provider",
+              "admin"
+            ],
+            "example": "provider"
+          }
+        },
+        "required": [
+          "userId",
+          "role"
+        ]
+      },
+      "WorkspacePrivateStatusCountsDto": {
+        "type": "object",
+        "properties": {
+          "draft": {
+            "type": "number",
+            "example": 0
+          },
+          "published": {
+            "type": "number",
+            "example": 12
+          },
+          "paused": {
+            "type": "number",
+            "example": 1
+          },
+          "matched": {
+            "type": "number",
+            "example": 3
+          },
+          "closed": {
+            "type": "number",
+            "example": 7
+          },
+          "cancelled": {
+            "type": "number",
+            "example": 1
+          },
+          "total": {
+            "type": "number",
+            "example": 24
+          }
+        },
+        "required": [
+          "draft",
+          "published",
+          "paused",
+          "matched",
+          "closed",
+          "cancelled",
+          "total"
+        ]
+      },
+      "WorkspacePrivateOfferStatusCountsDto": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "number",
+            "example": 4
+          },
+          "accepted": {
+            "type": "number",
+            "example": 9
+          },
+          "declined": {
+            "type": "number",
+            "example": 3
+          },
+          "withdrawn": {
+            "type": "number",
+            "example": 1
+          },
+          "total": {
+            "type": "number",
+            "example": 17
+          }
+        },
+        "required": [
+          "sent",
+          "accepted",
+          "declined",
+          "withdrawn",
+          "total"
+        ]
+      },
+      "WorkspacePrivateContractStatusCountsDto": {
+        "type": "object",
+        "properties": {
+          "pending": {
+            "type": "number",
+            "example": 2
+          },
+          "confirmed": {
+            "type": "number",
+            "example": 4
+          },
+          "in_progress": {
+            "type": "number",
+            "example": 1
+          },
+          "completed": {
+            "type": "number",
+            "example": 8
+          },
+          "cancelled": {
+            "type": "number",
+            "example": 1
+          },
+          "total": {
+            "type": "number",
+            "example": 16
+          }
+        },
+        "required": [
+          "pending",
+          "confirmed",
+          "in_progress",
+          "completed",
+          "cancelled",
+          "total"
+        ]
+      },
+      "WorkspacePrivateFavoritesDto": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "number",
+            "example": 3
+          },
+          "providers": {
+            "type": "number",
+            "example": 2
+          }
+        },
+        "required": [
+          "requests",
+          "providers"
+        ]
+      },
+      "WorkspacePrivateReviewsDto": {
+        "type": "object",
+        "properties": {
+          "asProvider": {
+            "type": "number",
+            "example": 4,
+            "description": "Reviews where current user is provider target."
+          },
+          "asClient": {
+            "type": "number",
+            "example": 1,
+            "description": "Reviews where current user is client target."
+          }
+        },
+        "required": [
+          "asProvider",
+          "asClient"
+        ]
+      },
+      "WorkspacePrivateProfilesDto": {
+        "type": "object",
+        "properties": {
+          "providerCompleteness": {
+            "type": "number",
+            "example": 70,
+            "description": "Provider profile completeness in percent (0..100)."
+          },
+          "clientCompleteness": {
+            "type": "number",
+            "example": 80,
+            "description": "Client profile completeness in percent (0..100)."
+          }
+        },
+        "required": [
+          "providerCompleteness",
+          "clientCompleteness"
+        ]
+      },
+      "WorkspacePrivateKpisDto": {
+        "type": "object",
+        "properties": {
+          "myOpenRequests": {
+            "type": "number",
+            "example": 10
+          },
+          "providerActiveContracts": {
+            "type": "number",
+            "example": 5
+          },
+          "clientActiveContracts": {
+            "type": "number",
+            "example": 4
+          },
+          "acceptanceRate": {
+            "type": "number",
+            "example": 70
+          },
+          "activityProgress": {
+            "type": "number",
+            "example": 66
+          },
+          "avgResponseMinutes": {
+            "type": "object",
+            "example": 18,
+            "nullable": true,
+            "description": "Average offer response minutes or null."
+          },
+          "recentOffers7d": {
+            "type": "number",
+            "example": 6
+          }
+        },
+        "required": [
+          "myOpenRequests",
+          "providerActiveContracts",
+          "clientActiveContracts",
+          "acceptanceRate",
+          "activityProgress",
+          "avgResponseMinutes",
+          "recentOffers7d"
+        ]
+      },
+      "WorkspacePrivateInsightsDto": {
+        "type": "object",
+        "properties": {
+          "providerCompletedThisMonth": {
+            "type": "number",
+            "example": 3
+          },
+          "providerCompletedLastMonth": {
+            "type": "number",
+            "example": 2
+          },
+          "providerCompletedDeltaKind": {
+            "type": "string",
+            "example": "percent",
+            "enum": [
+              "percent",
+              "new",
+              "none"
+            ]
+          },
+          "providerCompletedDeltaPercent": {
+            "type": "object",
+            "example": 50,
+            "nullable": true,
+            "description": "Present only when delta kind is percent."
+          }
+        },
+        "required": [
+          "providerCompletedThisMonth",
+          "providerCompletedLastMonth",
+          "providerCompletedDeltaKind",
+          "providerCompletedDeltaPercent"
+        ]
+      },
+      "WorkspacePrivateMonthlyPointDto": {
+        "type": "object",
+        "properties": {
+          "monthStart": {
+            "type": "string",
+            "example": "2026-01-01T00:00:00.000Z"
+          },
+          "bars": {
+            "type": "number",
+            "example": 6,
+            "description": "Primary series value (bars)."
+          },
+          "line": {
+            "type": "number",
+            "example": 1200,
+            "description": "Secondary series value (line)."
+          }
+        },
+        "required": [
+          "monthStart",
+          "bars",
+          "line"
+        ]
+      },
+      "WorkspacePrivateOverviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-03-02T12:00:00.000Z"
+          },
+          "user": {
+            "$ref": "#/components/schemas/WorkspacePrivateUserDto"
+          },
+          "requestsByStatus": {
+            "$ref": "#/components/schemas/WorkspacePrivateStatusCountsDto"
+          },
+          "providerOffersByStatus": {
+            "$ref": "#/components/schemas/WorkspacePrivateOfferStatusCountsDto"
+          },
+          "clientOffersByStatus": {
+            "$ref": "#/components/schemas/WorkspacePrivateOfferStatusCountsDto"
+          },
+          "providerContractsByStatus": {
+            "$ref": "#/components/schemas/WorkspacePrivateContractStatusCountsDto"
+          },
+          "clientContractsByStatus": {
+            "$ref": "#/components/schemas/WorkspacePrivateContractStatusCountsDto"
+          },
+          "favorites": {
+            "$ref": "#/components/schemas/WorkspacePrivateFavoritesDto"
+          },
+          "reviews": {
+            "$ref": "#/components/schemas/WorkspacePrivateReviewsDto"
+          },
+          "profiles": {
+            "$ref": "#/components/schemas/WorkspacePrivateProfilesDto"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/WorkspacePrivateKpisDto"
+          },
+          "insights": {
+            "$ref": "#/components/schemas/WorkspacePrivateInsightsDto"
+          },
+          "providerMonthlySeries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePrivateMonthlyPointDto"
+            }
+          },
+          "clientMonthlySeries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePrivateMonthlyPointDto"
+            }
+          }
+        },
+        "required": [
+          "updatedAt",
+          "user",
+          "requestsByStatus",
+          "providerOffersByStatus",
+          "clientOffersByStatus",
+          "providerContractsByStatus",
+          "clientContractsByStatus",
+          "favorites",
+          "reviews",
+          "profiles",
+          "kpis",
+          "insights",
+          "providerMonthlySeries",
+          "clientMonthlySeries"
+        ]
+      },
+      "PlatformActivityPointDto": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "example": "2026-03-02T00:00:00.000Z"
+          },
+          "requests": {
+            "type": "number",
+            "example": 12
+          },
+          "offers": {
+            "type": "number",
+            "example": 9
+          }
+        },
+        "required": [
+          "timestamp",
+          "requests",
+          "offers"
+        ]
+      },
+      "PlatformActivityResponseDto": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d",
+              "90d"
+            ],
+            "example": "7d"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "hour",
+              "day"
+            ],
+            "example": "day"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "real"
+            ],
+            "example": "real"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformActivityPointDto"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-03-02T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "range",
+          "interval",
+          "source",
+          "data",
+          "updatedAt"
+        ]
+      },
+      "PlatformLiveFeedItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "req-123"
+          },
+          "text": {
+            "type": "string",
+            "example": "Neue Anfrage in Berlin"
+          },
+          "minutesAgo": {
+            "type": "number",
+            "example": 5
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "minutesAgo"
+        ]
+      },
+      "PlatformLiveFeedResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "real"
+            ],
+            "example": "real"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-03-02T12:00:00.000Z"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformLiveFeedItemDto"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "updatedAt",
+          "data"
+        ]
+      },
+      "CreateSearchEventDto": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "request",
+              "provider"
+            ],
+            "example": "request",
+            "description": "What user is searching for: jobs (request) or providers (provider)."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "workspace_requests",
+              "workspace_providers",
+              "workspace_filters",
+              "home_quick_search",
+              "other"
+            ],
+            "example": "workspace_filters",
+            "description": "UI source where search interaction happened."
+          },
+          "cityId": {
+            "type": "string",
+            "example": "berlin-city"
+          },
+          "cityName": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "categoryKey": {
+            "type": "string",
+            "example": "cleaning"
+          },
+          "subcategoryKey": {
+            "type": "string",
+            "example": "home_cleaning"
+          },
+          "query": {
+            "type": "string",
+            "example": "Fensterreinigung",
+            "description": "Optional free-text query (search input)."
+          },
+          "sessionId": {
+            "type": "string",
+            "example": "session-xyz",
+            "description": "Client-side session id/fingerprint if available."
+          }
+        },
+        "required": [
+          "target"
+        ]
+      },
+      "SearchEventResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "example": true
+          },
+          "deduped": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when event was ignored due to dedupe window."
+          },
+          "bucketStart": {
+            "type": "string",
+            "example": "2026-03-10T14:30:00.000Z"
+          },
+          "recordedAt": {
+            "type": "string",
+            "example": "2026-03-10T14:30:02.000Z"
+          }
+        },
+        "required": [
+          "accepted",
+          "deduped",
+          "bucketStart",
+          "recordedAt"
         ]
       }
     }

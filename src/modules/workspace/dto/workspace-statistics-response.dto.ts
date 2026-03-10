@@ -123,6 +123,20 @@ export class WorkspaceStatisticsCityDemandDto {
   @ApiProperty({ example: 14 })
   requestCount: number;
 
+  @ApiProperty({
+    example: 22,
+    description:
+      'Provider-side demand activity: deduplicated searches for jobs in this city (target=request). Falls back to offer-based proxy if event data is missing.',
+  })
+  auftragSuchenCount: number;
+
+  @ApiProperty({
+    example: 9,
+    description:
+      'Client-side demand activity: deduplicated searches for providers in this city (target=provider). Falls back to distinct client-request proxy if event data is missing.',
+  })
+  anbieterSuchenCount: number;
+
   @ApiProperty({ example: 52.52, nullable: true })
   lat: number | null;
 
