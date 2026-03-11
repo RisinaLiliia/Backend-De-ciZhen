@@ -60,4 +60,5 @@ export default registerAs("app", () => ({
   searchAnalyticsBucketSeconds: Number(process.env.SEARCH_ANALYTICS_BUCKET_SECONDS ?? 900),
   searchAnalyticsDedupeTtlSeconds: Number(process.env.SEARCH_ANALYTICS_DEDUPE_TTL_SECONDS ?? 1020),
   analyticsHashSalt: process.env.ANALYTICS_HASH_SALT ?? "",
+  platformTakeRatePercent: Number(process.env.PLATFORM_TAKE_RATE_PERCENT ?? 10),
 }));

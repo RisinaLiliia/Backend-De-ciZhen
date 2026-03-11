@@ -82,6 +82,32 @@ export class WorkspaceStatisticsActivityTotalsDto {
   bestWindowTimestamp: string | null;
 }
 
+export class WorkspaceStatisticsActivityMetricsDto {
+  @ApiProperty({ example: 73 })
+  offerRatePercent: number;
+
+  @ApiProperty({ example: 42, nullable: true })
+  responseMedianMinutes: number | null;
+
+  @ApiProperty({ example: 18 })
+  unansweredRequests24h: number;
+
+  @ApiProperty({ example: 12 })
+  cancellationRatePercent: number;
+
+  @ApiProperty({ example: 11 })
+  completedJobs: number;
+
+  @ApiProperty({ example: 6840 })
+  gmvAmount: number;
+
+  @ApiProperty({ example: 684 })
+  platformRevenueAmount: number;
+
+  @ApiProperty({ example: 10 })
+  takeRatePercent: number;
+}
+
 export class WorkspaceStatisticsActivityDto {
   @ApiProperty({ enum: ['24h', '7d', '30d', '90d'], example: '30d' })
   range: WorkspaceStatisticsRange;
@@ -94,6 +120,9 @@ export class WorkspaceStatisticsActivityDto {
 
   @ApiProperty({ type: WorkspaceStatisticsActivityTotalsDto })
   totals: WorkspaceStatisticsActivityTotalsDto;
+
+  @ApiProperty({ type: WorkspaceStatisticsActivityMetricsDto })
+  metrics: WorkspaceStatisticsActivityMetricsDto;
 }
 
 export class WorkspaceStatisticsCategoryDemandDto {
@@ -106,7 +135,11 @@ export class WorkspaceStatisticsCategoryDemandDto {
   @ApiProperty({ example: 18 })
   requestCount: number;
 
-  @ApiProperty({ example: 32 })
+  @ApiProperty({
+    example: 32,
+    description:
+      'Category demand share in percent, computed server-side from all published requests within selected range (24h|7d|30d|90d).',
+  })
   sharePercent: number;
 }
 

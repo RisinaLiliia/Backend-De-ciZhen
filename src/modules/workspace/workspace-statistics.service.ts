@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 
@@ -19,7 +20,10 @@ import { WorkspaceService } from './workspace.service';
 
 @Injectable()
 export class WorkspaceStatisticsService {
+  private static readonly CATEGORY_RESPONSE_LIMIT = 50;
+
   constructor(
+    private readonly config: ConfigService,
     private readonly workspace: WorkspaceService,
     private readonly analytics: AnalyticsService,
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
@@ -54,6 +58,27 @@ export class WorkspaceStatisticsService {
   private clampPercent(value: number): number {
     if (!Number.isFinite(value)) return 0;
     return Math.max(0, Math.min(100, Math.round(value)));
+  }
+
+  private roundMoney(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.round(value * 100) / 100;
+  }
+
+  private toMedian(values: number[]): number | null {
+    if (values.length === 0) return null;
+    const sorted = values.slice().sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) {
+      return this.roundMoney((sorted[middle - 1] + sorted[middle]) / 2);
+    }
+    return this.roundMoney(sorted[middle]);
+  }
+
+  private getPlatformTakeRatePercent(): number {
+    const raw = Number(this.config.get('app.platformTakeRatePercent') ?? 10);
+    if (!Number.isFinite(raw)) return 10;
+    return Math.max(0, Math.min(100, this.roundMoney(raw)));
   }
 
   private toActivityTotals(points: Array<{ timestamp: string; requests: number; offers: number }>) {
@@ -155,11 +180,21 @@ export class WorkspaceStatisticsService {
     const range = this.resolveRange(rangeInput);
     const { start, end } = this.resolveWindow(range);
 
-    const [publicOverview, activity, categoryRows, cityRows, offerCityRows, searchCityRows, completedJobsRange, reviewSummary] = await Promise.all([
+    const [
+      publicOverview,
+      activity,
+      categoryRows,
+      cityRows,
+      offerCityRows,
+      searchCityRows,
+      requestResponseRows,
+      contractLifecycleRows,
+      reviewSummary,
+    ] = await Promise.all([
       this.workspace.getPublicOverview({
         page: 1,
         limit: 100,
-        cityActivityLimit: 50,
+        cityActivityLimit: 5000,
         activityRange: range,
       }),
       this.analytics.getPlatformActivity(range),
@@ -183,7 +218,6 @@ export class WorkspaceStatisticsService {
             },
           },
           { $sort: { count: -1 } },
-          { $limit: 8 },
         ])
         .exec(),
       this.requestModel
@@ -225,7 +259,6 @@ export class WorkspaceStatisticsService {
             },
           },
           { $sort: { requestCount: -1 } },
-          { $limit: 8 },
         ])
         .exec(),
       this.offerModel
@@ -269,11 +302,132 @@ export class WorkspaceStatisticsService {
         ])
         .exec(),
       this.analytics.getCitySearchCounts(range),
+      this.requestModel
+        .aggregate<{ createdAt: Date; firstOfferAt: Date | null; responseMinutes: number | null }>([
+          {
+            $match: {
+              createdAt: { $gte: start, $lte: end },
+            },
+          },
+          {
+            $project: {
+              createdAt: 1,
+              requestId: { $toString: '$_id' },
+            },
+          },
+          {
+            $lookup: {
+              from: 'offers',
+              let: { requestId: '$requestId' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: { $eq: ['$requestId', '$$requestId'] },
+                  },
+                },
+                {
+                  $group: {
+                    _id: null,
+                    firstOfferAt: { $min: '$createdAt' },
+                  },
+                },
+              ],
+              as: 'offerStats',
+            },
+          },
+          {
+            $project: {
+              createdAt: 1,
+              firstOfferAt: {
+                $ifNull: [{ $arrayElemAt: ['$offerStats.firstOfferAt', 0] }, null],
+              },
+            },
+          },
+          {
+            $project: {
+              createdAt: 1,
+              firstOfferAt: 1,
+              responseMinutes: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ['$firstOfferAt', null] },
+                      { $gte: ['$firstOfferAt', '$createdAt'] },
+                    ],
+                  },
+                  {
+                    $divide: [{ $subtract: ['$firstOfferAt', '$createdAt'] }, 60000],
+                  },
+                  null,
+                ],
+              },
+            },
+          },
+        ])
+        .exec(),
       this.contractModel
-        .countDocuments({
-          status: 'completed',
-          completedAt: { $gte: start, $lte: end },
-        })
+        .aggregate<{ _id: null; completedJobs: number; cancelledJobs: number; gmvAmount: number }>([
+          {
+            $match: {
+              $or: [
+                { completedAt: { $gte: start, $lte: end } },
+                { cancelledAt: { $gte: start, $lte: end } },
+              ],
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              completedJobs: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ne: ['$completedAt', null] },
+                        { $gte: ['$completedAt', start] },
+                        { $lte: ['$completedAt', end] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              cancelledJobs: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ne: ['$cancelledAt', null] },
+                        { $gte: ['$cancelledAt', start] },
+                        { $lte: ['$cancelledAt', end] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              gmvAmount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ne: ['$completedAt', null] },
+                        { $gte: ['$completedAt', start] },
+                        { $lte: ['$completedAt', end] },
+                        { $ne: ['$priceAmount', null] },
+                        { $gt: ['$priceAmount', 0] },
+                      ],
+                    },
+                    '$priceAmount',
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ])
         .exec(),
       this.reviewModel
         .aggregate<{ _id: null; total: number; average: number }>([
@@ -290,9 +444,47 @@ export class WorkspaceStatisticsService {
     ]);
 
     const activityTotals = this.toActivityTotals(activity.data);
-    const categoryTotal = categoryRows.reduce((sum, row) => sum + row.count, 0);
+    const activityResponseMinutes = requestResponseRows
+      .map((row) => row.responseMinutes)
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0);
+    const responseMedianMinutes = this.toMedian(activityResponseMinutes);
+    const unansweredThreshold = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    const unansweredRequests24h = requestResponseRows.filter((row) => {
+      const createdAt = row.createdAt ? new Date(row.createdAt) : null;
+      if (!createdAt || !Number.isFinite(createdAt.getTime()) || createdAt > unansweredThreshold) {
+        return false;
+      }
+      return row.firstOfferAt === null;
+    }).length;
 
-    const categories = categoryRows.map((row) => {
+    const contractLifecycle = contractLifecycleRows[0] ?? { completedJobs: 0, cancelledJobs: 0, gmvAmount: 0 };
+    const completedJobsRange = Math.max(0, Math.round(contractLifecycle.completedJobs ?? 0));
+    const cancelledJobsRange = Math.max(0, Math.round(contractLifecycle.cancelledJobs ?? 0));
+    const gmvAmount = this.roundMoney(Math.max(0, Number(contractLifecycle.gmvAmount ?? 0)));
+    const takeRatePercent = this.getPlatformTakeRatePercent();
+
+    const activityMetrics = {
+      offerRatePercent: this.clampPercent((activityTotals.offersTotal / Math.max(1, activityTotals.requestsTotal)) * 100),
+      responseMedianMinutes,
+      unansweredRequests24h,
+      cancellationRatePercent: this.clampPercent(
+        (cancelledJobsRange / Math.max(1, completedJobsRange + cancelledJobsRange)) * 100,
+      ),
+      completedJobs: completedJobsRange,
+      gmvAmount,
+      platformRevenueAmount: this.roundMoney((gmvAmount * takeRatePercent) / 100),
+      takeRatePercent,
+    };
+
+    const normalizedCategoryRows = categoryRows
+      .map((row) => ({
+        ...row,
+        count: Math.max(0, Math.round(row.count || 0)),
+      }))
+      .sort((a, b) => b.count - a.count);
+    const categoryTotal = normalizedCategoryRows.reduce((sum, row) => sum + row.count, 0);
+
+    const categories = normalizedCategoryRows.map((row) => {
       const categoryName =
         String(row._id?.categoryName ?? '').trim() ||
         String(row._id?.subcategoryName ?? '').trim() ||
@@ -302,10 +494,10 @@ export class WorkspaceStatisticsService {
       return {
         categoryKey: row._id?.categoryKey ?? null,
         categoryName,
-        requestCount: Math.max(0, Math.round(row.count || 0)),
+        requestCount: row.count,
         sharePercent: categoryTotal > 0 ? this.clampPercent((row.count / categoryTotal) * 100) : 0,
       };
-    });
+    }).slice(0, WorkspaceStatisticsService.CATEGORY_RESPONSE_LIMIT);
 
     const coordsBySlug = new Map(
       publicOverview.cityActivity.items.map((item) => [
@@ -388,11 +580,11 @@ export class WorkspaceStatisticsService {
         : activityTotals.offersTotal,
       completedJobsTotal: mode === 'personalized'
         ? personalizedCompletedJobs
-        : Math.max(0, Math.round(completedJobsRange)),
+        : completedJobsRange,
       successRate: mode === 'personalized'
         ? privateOverview?.kpis.acceptanceRate ?? 0
         : this.clampPercent(
-            (Math.max(0, Math.round(completedJobsRange)) / Math.max(1, activityTotals.requestsTotal)) * 100,
+            (completedJobsRange / Math.max(1, activityTotals.requestsTotal)) * 100,
           ),
       avgResponseMinutes: mode === 'personalized' ? privateOverview?.kpis.avgResponseMinutes ?? null : null,
       profileCompleteness: mode === 'personalized' ? personalizedProfileCompleteness : null,
@@ -411,10 +603,10 @@ export class WorkspaceStatisticsService {
       : {
           stage1: activityTotals.requestsTotal,
           stage2: activityTotals.offersTotal,
-          stage3: Math.max(0, Math.round(completedJobsRange)),
-          stage4: Math.max(0, Math.round(completedJobsRange)),
+          stage3: completedJobsRange,
+          stage4: completedJobsRange,
           conversionRate: this.clampPercent(
-            (Math.max(0, Math.round(completedJobsRange)) / Math.max(1, activityTotals.requestsTotal)) * 100,
+            (completedJobsRange / Math.max(1, activityTotals.requestsTotal)) * 100,
           ),
         };
 
@@ -438,6 +630,7 @@ export class WorkspaceStatisticsService {
         interval: activity.interval,
         points: activity.data,
         totals: activityTotals,
+        metrics: activityMetrics,
       },
       demand: {
         categories,
