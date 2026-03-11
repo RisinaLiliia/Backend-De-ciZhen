@@ -59,10 +59,22 @@ Domain modules are organized by business responsibility:
   Unified Statistik contract for both guests and authenticated users.
   - guest -> `mode=platform` with platform-level KPI/demand/funnel
   - authenticated -> `mode=personalized` with private KPI/funnel fields
+  - `activity.metrics` provides backend-calculated decision metrics for selected range:
+    - `offerRatePercent`
+    - `responseMedianMinutes`
+    - `unansweredRequests24h`
+    - `cancellationRatePercent`
+    - `completedJobs`
+    - `gmvAmount`
+    - `platformRevenueAmount` (`gmvAmount * PLATFORM_TAKE_RATE_PERCENT`)
+    - `takeRatePercent`
+  - `demand.categories[].sharePercent` is computed on backend from **all** published requests in selected range (`24h|7d|30d|90d`), not from frontend slices.
+  - category response keeps top 50 categories sorted by demand; percent base remains full-range total.
   - `demand.cities[]` now includes city-level marketplace activity metrics:
     - `requestCount` (Anfragen)
     - `auftragSuchenCount` (deduplicated searches for jobs in city; fallback: offer proxy)
     - `anbieterSuchenCount` (deduplicated searches for providers in city; fallback: distinct-clients proxy)
+  - city statistics are returned for the full ranked set in selected range (no top-8 truncation in BFF).
   Supports `range=24h|7d|30d|90d`.
 - `POST /workspace/public/requests-batch`
   Batch-resolves public request details by ids (N+1 elimination endpoint).
@@ -162,6 +174,7 @@ Important optional:
 - `SEARCH_ANALYTICS_BUCKET_SECONDS` (default `900`, dedupe/aggregation time bucket)
 - `SEARCH_ANALYTICS_DEDUPE_TTL_SECONDS` (default `1020`, Redis dedupe key TTL)
 - `ANALYTICS_HASH_SALT` (optional salt for hashing actor/query dedupe keys)
+- `PLATFORM_TAKE_RATE_PERCENT` (default `10`, used to derive `activity.metrics.platformRevenueAmount`)
 
 Run:
 ```bash

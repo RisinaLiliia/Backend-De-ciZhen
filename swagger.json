@@ -10793,6 +10793,54 @@
           "bestWindowTimestamp"
         ]
       },
+      "WorkspaceStatisticsActivityMetricsDto": {
+        "type": "object",
+        "properties": {
+          "offerRatePercent": {
+            "type": "number",
+            "example": 73
+          },
+          "responseMedianMinutes": {
+            "type": "object",
+            "example": 42,
+            "nullable": true
+          },
+          "unansweredRequests24h": {
+            "type": "number",
+            "example": 18
+          },
+          "cancellationRatePercent": {
+            "type": "number",
+            "example": 12
+          },
+          "completedJobs": {
+            "type": "number",
+            "example": 11
+          },
+          "gmvAmount": {
+            "type": "number",
+            "example": 6840
+          },
+          "platformRevenueAmount": {
+            "type": "number",
+            "example": 684
+          },
+          "takeRatePercent": {
+            "type": "number",
+            "example": 10
+          }
+        },
+        "required": [
+          "offerRatePercent",
+          "responseMedianMinutes",
+          "unansweredRequests24h",
+          "cancellationRatePercent",
+          "completedJobs",
+          "gmvAmount",
+          "platformRevenueAmount",
+          "takeRatePercent"
+        ]
+      },
       "WorkspaceStatisticsActivityDto": {
         "type": "object",
         "properties": {
@@ -10822,13 +10870,17 @@
           },
           "totals": {
             "$ref": "#/components/schemas/WorkspaceStatisticsActivityTotalsDto"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsActivityMetricsDto"
           }
         },
         "required": [
           "range",
           "interval",
           "points",
-          "totals"
+          "totals",
+          "metrics"
         ]
       },
       "WorkspaceStatisticsCategoryDemandDto": {
@@ -10849,7 +10901,8 @@
           },
           "sharePercent": {
             "type": "number",
-            "example": 32
+            "example": 32,
+            "description": "Category demand share in percent, computed server-side from all published requests within selected range (24h|7d|30d|90d)."
           }
         },
         "required": [
