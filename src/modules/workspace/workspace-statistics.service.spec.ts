@@ -9,6 +9,7 @@ import { Request } from '../requests/schemas/request.schema';
 import { Contract } from '../contracts/schemas/contract.schema';
 import { Offer } from '../offers/schemas/offer.schema';
 import { Review } from '../reviews/schemas/review.schema';
+import { InsightsService } from './insights.service';
 
 describe('WorkspaceStatisticsService (unit)', () => {
   let service: WorkspaceStatisticsService;
@@ -22,6 +23,9 @@ describe('WorkspaceStatisticsService (unit)', () => {
     getPlatformActivity: jest.fn(),
     getCitySearchCounts: jest.fn(),
   };
+  const insightsMock = {
+    getInsights: jest.fn(),
+  };
   const configMock = {
     get: jest.fn((key: string) => {
       if (key === 'app.platformTakeRatePercent') return 10;
@@ -31,6 +35,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
 
   const requestModelMock = {
     aggregate: jest.fn(),
+    countDocuments: jest.fn(),
   };
 
   const contractModelMock = {
@@ -47,6 +52,23 @@ describe('WorkspaceStatisticsService (unit)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    insightsMock.getInsights.mockReturnValue([
+      {
+        id: 'top_category_demand:category:cleaning',
+        type: 'demand',
+        priority: 'medium',
+        audience: 'all',
+        score: 70,
+        title: 'Hohe Nachfrage in Cleaning',
+        body: 'Die Kategorie Cleaning zeigt aktuell besonders hohe Nachfrage.',
+        icon: 'trend-up',
+        confidence: 0.8,
+        metrics: [{ key: 'requests', value: 11 }],
+        level: 'trend',
+        code: 'top_category_demand',
+        context: 'Cleaning',
+      },
+    ]);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -54,6 +76,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
         { provide: ConfigService, useValue: configMock },
         { provide: WorkspaceService, useValue: workspaceMock },
         { provide: AnalyticsService, useValue: analyticsMock },
+        { provide: InsightsService, useValue: insightsMock },
         { provide: getModelToken(Request.name), useValue: requestModelMock },
         { provide: getModelToken(Offer.name), useValue: offerModelMock },
         { provide: getModelToken(Contract.name), useValue: contractModelMock },
@@ -123,16 +146,27 @@ describe('WorkspaceStatisticsService (unit)', () => {
           },
         ]),
       });
+    requestModelMock.countDocuments.mockResolvedValue(22);
 
-    offerModelMock.aggregate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([
-        { _id: { cityId: 'c-1', cityName: 'Berlin' }, auftragSuchenCount: 12 },
-      ]),
-    });
+    offerModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, auftragSuchenCount: 12 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 16, confirmedResponsesTotal: 6 }]),
+      });
 
-    contractModelMock.aggregate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 5, cancelledJobs: 1, gmvAmount: 1250 }]),
-    });
+    contractModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 5, cancelledJobs: 1, gmvAmount: 1250 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: null, closedContractsTotal: 9, completedJobsTotal: 5, profitAmount: 1250 },
+        ]),
+      });
 
     reviewModelMock.aggregate.mockReturnValue({
       exec: jest.fn().mockResolvedValue([{ total: 22, average: 4.6 }]),
@@ -171,6 +205,49 @@ describe('WorkspaceStatisticsService (unit)', () => {
       platformRevenueAmount: 125,
       takeRatePercent: 10,
     });
+    expect(result.profileFunnel).toMatchObject({
+      periodLabel: '30 Tage',
+      stage1: 22,
+      stage2: 16,
+      stage3: 6,
+      stage4: 9,
+      requestsTotal: 22,
+      offersTotal: 16,
+      confirmedResponsesTotal: 6,
+      closedContractsTotal: 9,
+      completedJobsTotal: 5,
+      profitAmount: 1250,
+      offerResponseRatePercent: 73,
+      confirmationRatePercent: 38,
+      contractClosureRatePercent: 100,
+      completionRatePercent: 56,
+      conversionRate: 23,
+      totalConversionPercent: 23,
+      summaryText: 'Von 22 Anfragen wurden 5 erfolgreich abgeschlossen.',
+    });
+    expect(result.profileFunnel.stages).toHaveLength(6);
+    expect(result.profileFunnel.stages[0]).toMatchObject({
+      id: 'requests',
+      label: 'Anfragen',
+      displayValue: '22',
+      widthPercent: 100,
+      rateLabel: 'Basis',
+      ratePercent: 100,
+    });
+    expect(result.profileFunnel.stages[5]).toMatchObject({
+      id: 'revenue',
+      label: 'Gewinnsumme',
+      displayValue: '1.250 €',
+      widthPercent: 22.73,
+      helperText: '250 €',
+    });
+    expect(insightsMock.getInsights).toHaveBeenCalledTimes(1);
+    expect(insightsMock.getInsights.mock.calls[0]?.[1]).toBeUndefined();
+    expect(result.insights[0]).toMatchObject({
+      code: 'top_category_demand',
+      type: 'demand',
+      title: 'Hohe Nachfrage in Cleaning',
+    });
   });
 
   it('returns personalized mode payload for authenticated user', async () => {
@@ -196,14 +273,25 @@ describe('WorkspaceStatisticsService (unit)', () => {
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+    requestModelMock.countDocuments.mockResolvedValue(3);
 
-    offerModelMock.aggregate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([]),
-    });
+    offerModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 6, confirmedResponsesTotal: 3 }]),
+      });
 
-    contractModelMock.aggregate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 2, cancelledJobs: 1, gmvAmount: 400 }]),
-    });
+    contractModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 2, cancelledJobs: 1, gmvAmount: 400 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: null, closedContractsTotal: 3, completedJobsTotal: 2, profitAmount: 400 },
+        ]),
+      });
 
     reviewModelMock.aggregate.mockReturnValue({
       exec: jest.fn().mockResolvedValue([]),
@@ -226,12 +314,39 @@ describe('WorkspaceStatisticsService (unit)', () => {
     expect(result.kpis.completedJobsTotal).toBe(3);
     expect(result.kpis.profileCompleteness).toBe(72);
     expect(result.profileFunnel).toMatchObject({
+      periodLabel: '7 Tage',
       stage1: 3,
       stage2: 6,
       stage3: 3,
       stage4: 3,
-      conversionRate: 44,
+      requestsTotal: 3,
+      offersTotal: 6,
+      confirmedResponsesTotal: 3,
+      closedContractsTotal: 3,
+      completedJobsTotal: 2,
+      profitAmount: 400,
+      offerResponseRatePercent: 100,
+      confirmationRatePercent: 50,
+      contractClosureRatePercent: 100,
+      completionRatePercent: 67,
+      conversionRate: 67,
+      totalConversionPercent: 67,
+      summaryText: 'Von 3 Anfragen wurden 2 erfolgreich abgeschlossen.',
     });
+    expect(result.profileFunnel.stages).toHaveLength(6);
+    expect(result.profileFunnel.stages[4]).toMatchObject({
+      id: 'completed',
+      rateLabel: 'Erfüllungsquote',
+      ratePercent: 67,
+      widthPercent: 66.67,
+    });
+    expect(result.profileFunnel.stages[5]).toMatchObject({
+      id: 'revenue',
+      widthPercent: 66.67,
+      helperText: '200 €',
+    });
+    expect(insightsMock.getInsights).toHaveBeenCalledTimes(1);
+    expect(insightsMock.getInsights.mock.calls[0]?.[1]).toBe('provider');
   });
 
   it('computes category sharePercent from full period category set', async () => {
@@ -269,14 +384,23 @@ describe('WorkspaceStatisticsService (unit)', () => {
       })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+    requestModelMock.countDocuments.mockResolvedValue(9);
 
-    offerModelMock.aggregate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([]),
-    });
+    offerModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 4, confirmedResponsesTotal: 1 }]),
+      });
 
-    contractModelMock.aggregate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([]),
-    });
+    contractModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, closedContractsTotal: 1, completedJobsTotal: 0, profitAmount: 0 }]),
+      });
 
     reviewModelMock.aggregate.mockReturnValue({
       exec: jest.fn().mockResolvedValue([]),

@@ -12,10 +12,12 @@ import type { AppRole } from '../users/schemas/user.schema';
 import type { WorkspacePrivateOverviewResponseDto } from './dto/workspace-private-response.dto';
 import type { WorkspaceStatisticsRange } from './dto/workspace-statistics-query.dto';
 import type {
+  WorkspaceStatisticsCategoryDemandDto,
   WorkspaceStatisticsCityDemandDto,
-  WorkspaceStatisticsInsightDto,
   WorkspaceStatisticsOverviewResponseDto,
+  WorkspaceStatisticsProfileFunnelDto,
 } from './dto/workspace-statistics-response.dto';
+import { InsightsService, type AnalyticsSnapshot } from './insights.service';
 import { WorkspaceService } from './workspace.service';
 
 @Injectable()
@@ -26,6 +28,7 @@ export class WorkspaceStatisticsService {
     private readonly config: ConfigService,
     private readonly workspace: WorkspaceService,
     private readonly analytics: AnalyticsService,
+    private readonly insightsService: InsightsService,
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
     @InjectModel(Offer.name) private readonly offerModel: Model<OfferDocument>,
     @InjectModel(Contract.name) private readonly contractModel: Model<ContractDocument>,
@@ -63,6 +66,31 @@ export class WorkspaceStatisticsService {
   private roundMoney(value: number): number {
     if (!Number.isFinite(value)) return 0;
     return Math.round(value * 100) / 100;
+  }
+
+  private roundPercent(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.round(value * 100) / 100;
+  }
+
+  private formatInt(value: number): string {
+    return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(Math.max(0, Math.round(value)));
+  }
+
+  private formatCurrency(value: number): string {
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(this.roundMoney(Math.max(0, value)));
+  }
+
+  private formatRangeLabel(range: WorkspaceStatisticsRange): string {
+    if (range === '24h') return '24h';
+    if (range === '7d') return '7 Tage';
+    if (range === '90d') return '90 Tage';
+    return '30 Tage';
   }
 
   private toMedian(values: number[]): number | null {
@@ -123,53 +151,111 @@ export class WorkspaceStatisticsService {
       .replace(/[^a-z0-9]/g, '');
   }
 
-  private buildInsights(params: {
-    mode: 'platform' | 'personalized';
-    profileCompleteness: number | null;
-    successRate: number;
-    avgResponseMinutes: number | null;
-    topCategoryName: string | null;
-    topCityName: string | null;
-  }): WorkspaceStatisticsInsightDto[] {
-    const items: WorkspaceStatisticsInsightDto[] = [];
-
-    if (params.mode === 'personalized' && params.profileCompleteness !== null && params.profileCompleteness < 80) {
-      items.push({ level: 'warning', code: 'profile_incomplete', context: String(params.profileCompleteness) });
-    }
-
-    if (params.mode === 'personalized' && params.successRate < 25) {
-      items.push({ level: 'warning', code: 'low_success_rate', context: String(params.successRate) });
-    }
-
-    if (params.mode === 'personalized' && params.avgResponseMinutes !== null) {
-      if (params.avgResponseMinutes <= 30) {
-        items.push({ level: 'trend', code: 'strong_response_time', context: String(params.avgResponseMinutes) });
-      } else {
-        items.push({ level: 'info', code: 'slow_response_time', context: String(params.avgResponseMinutes) });
-      }
-    }
-
-    if (params.topCategoryName) {
-      items.push({ level: 'trend', code: 'high_category_demand', context: params.topCategoryName });
-    }
-
-    if (params.topCityName) {
-      items.push({ level: 'info', code: 'top_city_demand', context: params.topCityName });
-    }
-
-    if (items.length === 0) {
-      items.push({ level: 'info', code: 'insufficient_data', context: null });
-    }
-
-    return items.slice(0, 4);
-  }
-
   private buildGrowthCards() {
     return [
       { key: 'highlight_profile', href: '/workspace?section=profile' },
       { key: 'local_ads', href: '/workspace?section=requests' },
       { key: 'premium_tools', href: '/provider/onboarding' },
     ];
+  }
+
+  private toCategorySnapshot(
+    categories: WorkspaceStatisticsCategoryDemandDto[],
+  ): AnalyticsSnapshot['categories'] {
+    return categories.map((item) => ({
+      categoryKey: item.categoryKey ?? item.categoryName.toLowerCase().replace(/\s+/g, '-'),
+      categoryLabel: item.categoryName,
+      requests: item.requestCount,
+      offers: 0,
+      activeProviders: 0,
+      growthPercentVsPrevPeriod: null,
+      searchCount: 0,
+      providerSearchCount: 0,
+      demandSharePercent: item.sharePercent,
+    }));
+  }
+
+  private toCitySnapshot(cities: WorkspaceStatisticsCityDemandDto[]): AnalyticsSnapshot['cities'] {
+    return cities.map((item) => {
+      const demandSupplyRatio = item.auftragSuchenCount > 0
+        ? this.roundPercent(item.anbieterSuchenCount / Math.max(1, item.auftragSuchenCount))
+        : item.anbieterSuchenCount > 0
+          ? this.roundPercent(item.anbieterSuchenCount)
+          : null;
+
+      const offerCoverageRate = item.requestCount > 0
+        ? this.clampPercent((item.auftragSuchenCount / Math.max(1, item.requestCount)) * 100)
+        : null;
+
+      return {
+        cityKey: item.citySlug,
+        cityLabel: item.cityName,
+        requests: item.requestCount,
+        offers: item.auftragSuchenCount,
+        activeProviders: 0,
+        serviceSearchCount: item.auftragSuchenCount,
+        providerSearchCount: item.anbieterSuchenCount,
+        growthPercentVsPrevPeriod: null,
+        demandSupplyRatio,
+        offerCoverageRate,
+      };
+    });
+  }
+
+  private buildInsightsSnapshot(params: {
+    range: WorkspaceStatisticsRange;
+    updatedAt: string;
+    mode: 'platform' | 'personalized';
+    role?: AppRole | null;
+    summary: WorkspaceStatisticsOverviewResponseDto['summary'];
+    kpis: WorkspaceStatisticsOverviewResponseDto['kpis'];
+    categories: WorkspaceStatisticsCategoryDemandDto[];
+    cities: WorkspaceStatisticsCityDemandDto[];
+    activityMetrics: WorkspaceStatisticsOverviewResponseDto['activity']['metrics'];
+    profileFunnel: WorkspaceStatisticsProfileFunnelDto;
+  }): AnalyticsSnapshot {
+    const role = params.mode === 'personalized'
+      ? params.role === 'provider' || params.role === 'client'
+        ? params.role
+        : 'provider'
+      : 'guest';
+
+    return {
+      period: params.range,
+      generatedAt: params.updatedAt,
+      market: {
+        totalRequests: params.kpis.requestsTotal,
+        totalOffers: params.kpis.offersTotal,
+        totalContracts: params.profileFunnel.closedContractsTotal,
+        totalCompleted: params.profileFunnel.completedJobsTotal,
+        totalRevenue: params.profileFunnel.profitAmount,
+        averageRating: params.summary.platformRatingAvg > 0 ? params.summary.platformRatingAvg : null,
+        activeProviders: params.summary.totalActiveProviders,
+        activeCities: params.summary.totalActiveCities,
+        unansweredRequestsOver24h: params.activityMetrics.unansweredRequests24h,
+        medianResponseTimeMinutes: params.activityMetrics.responseMedianMinutes,
+        successRatePercent: params.kpis.successRate,
+      },
+      categories: this.toCategorySnapshot(params.categories),
+      cities: this.toCitySnapshot(params.cities),
+      user: params.mode === 'personalized'
+        ? {
+            role,
+            profileCompleteness: params.kpis.profileCompleteness ?? 0,
+            hasProfilePhoto: true,
+            rating: null,
+            reviewCount: 0,
+            medianResponseTimeMinutes: params.kpis.avgResponseMinutes,
+            offersSent: params.profileFunnel.offersTotal,
+            confirmations: params.profileFunnel.confirmedResponsesTotal,
+            contracts: params.profileFunnel.closedContractsTotal,
+            completed: params.profileFunnel.completedJobsTotal,
+            revenue: params.profileFunnel.profitAmount,
+            profileViews: 0,
+            profileViewsGrowthPercent: null,
+          }
+        : undefined,
+    };
   }
 
   async getStatisticsOverview(
@@ -179,6 +265,18 @@ export class WorkspaceStatisticsService {
   ): Promise<WorkspaceStatisticsOverviewResponseDto> {
     const range = this.resolveRange(rangeInput);
     const { start, end } = this.resolveWindow(range);
+    const normalizedUserId = String(userId ?? '').trim();
+    const hasActorScope = normalizedUserId.length > 0;
+
+    const requestFunnelMatch = hasActorScope
+      ? { clientId: normalizedUserId }
+      : { status: 'published' };
+    const offerFunnelMatch = hasActorScope
+      ? { $or: [{ providerUserId: normalizedUserId }, { clientUserId: normalizedUserId }] }
+      : {};
+    const contractFunnelMatch = hasActorScope
+      ? { $or: [{ providerUserId: normalizedUserId }, { clientId: normalizedUserId }] }
+      : {};
 
     const [
       publicOverview,
@@ -190,6 +288,9 @@ export class WorkspaceStatisticsService {
       requestResponseRows,
       contractLifecycleRows,
       reviewSummary,
+      funnelRequestsTotal,
+      funnelOffersRows,
+      funnelContractsRows,
     ] = await Promise.all([
       this.workspace.getPublicOverview({
         page: 1,
@@ -441,6 +542,115 @@ export class WorkspaceStatisticsService {
           },
         ])
         .exec(),
+      this.requestModel.countDocuments({
+        ...requestFunnelMatch,
+        createdAt: { $gte: start, $lte: end },
+      }),
+      this.offerModel
+        .aggregate<{ _id: null; offersTotal: number; confirmedResponsesTotal: number }>([
+          {
+            $match: {
+              ...offerFunnelMatch,
+              createdAt: { $gte: start, $lte: end },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              offersTotal: { $sum: 1 },
+              confirmedResponsesTotal: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                },
+              },
+            },
+          },
+        ])
+        .exec(),
+      this.contractModel
+        .aggregate<{ _id: null; closedContractsTotal: number; completedJobsTotal: number; profitAmount: number }>([
+          {
+            $match: {
+              ...contractFunnelMatch,
+              $or: [
+                { createdAt: { $gte: start, $lte: end } },
+                { confirmedAt: { $gte: start, $lte: end } },
+                { completedAt: { $gte: start, $lte: end } },
+              ],
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              closedContractsTotal: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                        {
+                          $or: [
+                            {
+                              $and: [
+                                { $ne: ['$confirmedAt', null] },
+                                { $gte: ['$confirmedAt', start] },
+                                { $lte: ['$confirmedAt', end] },
+                              ],
+                            },
+                            {
+                              $and: [
+                                { $eq: ['$confirmedAt', null] },
+                                { $gte: ['$createdAt', start] },
+                                { $lte: ['$createdAt', end] },
+                              ],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              completedJobsTotal: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ['$status', 'completed'] },
+                        { $ne: ['$completedAt', null] },
+                        { $gte: ['$completedAt', start] },
+                        { $lte: ['$completedAt', end] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              profitAmount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ['$status', 'completed'] },
+                        { $ne: ['$completedAt', null] },
+                        { $gte: ['$completedAt', start] },
+                        { $lte: ['$completedAt', end] },
+                        { $ne: ['$priceAmount', null] },
+                        { $gt: ['$priceAmount', 0] },
+                      ],
+                    },
+                    '$priceAmount',
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ])
+        .exec(),
     ]);
 
     const activityTotals = this.toActivityTotals(activity.data);
@@ -550,7 +760,6 @@ export class WorkspaceStatisticsService {
     let mode: 'platform' | 'personalized' = 'platform';
     let privateOverview: WorkspacePrivateOverviewResponseDto | null = null;
 
-    const normalizedUserId = String(userId ?? '').trim();
     if (normalizedUserId) {
       privateOverview = await this.workspace.getPrivateOverview(normalizedUserId, role ?? 'client');
       mode = 'personalized';
@@ -592,35 +801,145 @@ export class WorkspaceStatisticsService {
       recentOffers7d: mode === 'personalized' ? privateOverview?.kpis.recentOffers7d ?? null : null,
     };
 
-    const profileFunnel = mode === 'personalized'
-      ? {
-          stage1: privateOverview?.kpis.myOpenRequests ?? 0,
-          stage2: privateOverview?.providerOffersByStatus.sent ?? 0,
-          stage3: privateOverview?.providerOffersByStatus.accepted ?? 0,
-          stage4: personalizedCompletedJobs,
-          conversionRate: privateOverview?.kpis.acceptanceRate ?? 0,
-        }
-      : {
-          stage1: activityTotals.requestsTotal,
-          stage2: activityTotals.offersTotal,
-          stage3: completedJobsRange,
-          stage4: completedJobsRange,
-          conversionRate: this.clampPercent(
-            (completedJobsRange / Math.max(1, activityTotals.requestsTotal)) * 100,
-          ),
-        };
+    const funnelOffersAgg = funnelOffersRows[0] ?? { offersTotal: 0, confirmedResponsesTotal: 0 };
+    const funnelContractsAgg = funnelContractsRows[0] ?? {
+      closedContractsTotal: 0,
+      completedJobsTotal: 0,
+      profitAmount: 0,
+    };
 
-    const insights = this.buildInsights({
-      mode,
-      profileCompleteness: kpis.profileCompleteness,
-      successRate: kpis.successRate,
-      avgResponseMinutes: kpis.avgResponseMinutes,
-      topCategoryName: categories[0]?.categoryName ?? null,
-      topCityName: cities[0]?.cityName ?? null,
-    });
+    const requestsFunnelTotal = Math.max(0, Math.round(Number(funnelRequestsTotal ?? 0)));
+    const offersFunnelTotal = Math.max(0, Math.round(Number(funnelOffersAgg.offersTotal ?? 0)));
+    const confirmedResponsesTotal = Math.max(0, Math.round(Number(funnelOffersAgg.confirmedResponsesTotal ?? 0)));
+    const closedContractsTotal = Math.max(0, Math.round(Number(funnelContractsAgg.closedContractsTotal ?? 0)));
+    const completedFunnelTotal = Math.max(0, Math.round(Number(funnelContractsAgg.completedJobsTotal ?? 0)));
+    const profitAmount = this.roundMoney(Math.max(0, Number(funnelContractsAgg.profitAmount ?? 0)));
+
+    const offerResponseRatePercent = this.clampPercent((offersFunnelTotal / Math.max(1, requestsFunnelTotal)) * 100);
+    const confirmationRatePercent = this.clampPercent((confirmedResponsesTotal / Math.max(1, offersFunnelTotal)) * 100);
+    const contractClosureRatePercent = this.clampPercent((closedContractsTotal / Math.max(1, confirmedResponsesTotal)) * 100);
+    const completionRatePercent = this.clampPercent((completedFunnelTotal / Math.max(1, closedContractsTotal)) * 100);
+    const conversionRatePercent = this.clampPercent((completedFunnelTotal / Math.max(1, requestsFunnelTotal)) * 100);
+    const avgRevenuePerCompleted = completedFunnelTotal > 0 ? this.roundMoney(profitAmount / completedFunnelTotal) : 0;
+
+    const requestsWidthPercent = 100;
+    const offersWidthPercent = this.roundPercent(
+      Math.max(0, Math.min(100, (offersFunnelTotal / Math.max(1, requestsFunnelTotal)) * 100)),
+    );
+    const confirmationsWidthPercent = this.roundPercent(
+      Math.max(0, Math.min(offersWidthPercent, (confirmedResponsesTotal / Math.max(1, requestsFunnelTotal)) * 100)),
+    );
+    const contractsWidthPercent = this.roundPercent(
+      Math.max(0, Math.min(confirmationsWidthPercent, (closedContractsTotal / Math.max(1, requestsFunnelTotal)) * 100)),
+    );
+    const completedWidthPercent = this.roundPercent(
+      Math.max(0, Math.min(contractsWidthPercent, (completedFunnelTotal / Math.max(1, requestsFunnelTotal)) * 100)),
+    );
+
+    const stages: WorkspaceStatisticsProfileFunnelDto['stages'] = [
+      {
+        id: 'requests',
+        label: 'Anfragen',
+        value: requestsFunnelTotal,
+        displayValue: this.formatInt(requestsFunnelTotal),
+        widthPercent: requestsWidthPercent,
+        rateLabel: 'Basis',
+        ratePercent: 100,
+        helperText: null,
+      },
+      {
+        id: 'offers',
+        label: 'Angebote von Anbietern',
+        value: offersFunnelTotal,
+        displayValue: this.formatInt(offersFunnelTotal),
+        widthPercent: offersWidthPercent,
+        rateLabel: 'Antwortquote',
+        ratePercent: offerResponseRatePercent,
+        helperText: null,
+      },
+      {
+        id: 'confirmations',
+        label: 'Bestätigte Rückmeldungen',
+        value: confirmedResponsesTotal,
+        displayValue: this.formatInt(confirmedResponsesTotal),
+        widthPercent: confirmationsWidthPercent,
+        rateLabel: 'Zustimmungsrate',
+        ratePercent: confirmationRatePercent,
+        helperText: null,
+      },
+      {
+        id: 'contracts',
+        label: 'Geschlossene Verträge',
+        value: closedContractsTotal,
+        displayValue: this.formatInt(closedContractsTotal),
+        widthPercent: contractsWidthPercent,
+        rateLabel: 'Abschlussrate',
+        ratePercent: contractClosureRatePercent,
+        helperText: null,
+      },
+      {
+        id: 'completed',
+        label: 'Erfolgreich abgeschlossen',
+        value: completedFunnelTotal,
+        displayValue: this.formatInt(completedFunnelTotal),
+        widthPercent: completedWidthPercent,
+        rateLabel: 'Erfüllungsquote',
+        ratePercent: completionRatePercent,
+        helperText: null,
+      },
+      {
+        id: 'revenue',
+        label: 'Gewinnsumme',
+        value: profitAmount,
+        displayValue: this.formatCurrency(profitAmount),
+        widthPercent: completedWidthPercent,
+        rateLabel: 'Ø Umsatz / Auftrag',
+        ratePercent: null,
+        helperText: completedFunnelTotal > 0 ? this.formatCurrency(avgRevenuePerCompleted) : '—',
+      },
+    ];
+
+    const profileFunnel = {
+      periodLabel: this.formatRangeLabel(range),
+      stage1: requestsFunnelTotal,
+      stage2: offersFunnelTotal,
+      stage3: confirmedResponsesTotal,
+      stage4: closedContractsTotal,
+      requestsTotal: requestsFunnelTotal,
+      offersTotal: offersFunnelTotal,
+      confirmedResponsesTotal,
+      closedContractsTotal,
+      completedJobsTotal: completedFunnelTotal,
+      profitAmount,
+      offerResponseRatePercent,
+      confirmationRatePercent,
+      contractClosureRatePercent,
+      completionRatePercent,
+      conversionRate: conversionRatePercent,
+      totalConversionPercent: conversionRatePercent,
+      summaryText: `Von ${this.formatInt(requestsFunnelTotal)} Anfragen wurden ${this.formatInt(completedFunnelTotal)} erfolgreich abgeschlossen.`,
+      stages,
+    };
+
+    const updatedAt = new Date().toISOString();
+    const insights = this.insightsService.getInsights(
+      this.buildInsightsSnapshot({
+        range,
+        updatedAt,
+        mode,
+        role,
+        summary,
+        kpis,
+        categories,
+        cities,
+        activityMetrics,
+        profileFunnel,
+      }),
+      role,
+    );
 
     return {
-      updatedAt: new Date().toISOString(),
+      updatedAt,
       mode,
       range,
       summary,
