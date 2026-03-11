@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { WorkspaceController } from './workspace.controller';
 import { WorkspaceService } from './workspace.service';
 import { WorkspaceStatisticsService } from './workspace-statistics.service';
+import { InsightsService } from './insights.service';
 import { RequestsModule } from '../requests/requests.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { UsersModule } from '../users/users.module';
@@ -33,6 +34,6 @@ import { ClientProfile, ClientProfileSchema } from '../users/schemas/client-prof
     ]),
   ],
   controllers: [WorkspaceController],
-  providers: [WorkspaceService, WorkspaceStatisticsService],
+  providers: [WorkspaceService, WorkspaceStatisticsService, InsightsService],
 })
 export class WorkspaceModule {}

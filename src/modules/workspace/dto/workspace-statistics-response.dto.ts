@@ -186,23 +186,158 @@ export class WorkspaceStatisticsDemandDto {
 }
 
 export class WorkspaceStatisticsProfileFunnelDto {
-  @ApiProperty({ example: 128 })
+  @ApiProperty({ example: '30 Tage' })
+  periodLabel: string;
+
+  @ApiProperty({ example: 128, description: 'Legacy alias for requestsTotal.' })
   stage1: number;
 
-  @ApiProperty({ example: 34 })
+  @ApiProperty({ example: 34, description: 'Legacy alias for offersTotal.' })
   stage2: number;
 
-  @ApiProperty({ example: 17 })
+  @ApiProperty({ example: 17, description: 'Legacy alias for confirmedResponsesTotal.' })
   stage3: number;
 
-  @ApiProperty({ example: 5 })
+  @ApiProperty({ example: 5, description: 'Legacy alias for closedContractsTotal.' })
   stage4: number;
+
+  @ApiProperty({ example: 128 })
+  requestsTotal: number;
+
+  @ApiProperty({ example: 34 })
+  offersTotal: number;
+
+  @ApiProperty({ example: 17 })
+  confirmedResponsesTotal: number;
+
+  @ApiProperty({ example: 9 })
+  closedContractsTotal: number;
+
+  @ApiProperty({ example: 5 })
+  completedJobsTotal: number;
+
+  @ApiProperty({ example: 6840 })
+  profitAmount: number;
+
+  @ApiProperty({ example: 27, description: 'Offers / Requests in selected period.' })
+  offerResponseRatePercent: number;
+
+  @ApiProperty({ example: 50, description: 'Confirmed responses / Offers in selected period.' })
+  confirmationRatePercent: number;
+
+  @ApiProperty({ example: 53, description: 'Closed contracts / Confirmed responses in selected period.' })
+  contractClosureRatePercent: number;
+
+  @ApiProperty({ example: 56, description: 'Completed jobs / Closed contracts in selected period.' })
+  completionRatePercent: number;
 
   @ApiProperty({ example: 29 })
   conversionRate: number;
+
+  @ApiProperty({ example: 29 })
+  totalConversionPercent: number;
+
+  @ApiProperty({ example: 'Von 80 Anfragen wurden 10 erfolgreich abgeschlossen.' })
+  summaryText: string;
+
+  @ApiProperty({ type: () => WorkspaceStatisticsProfileFunnelStageDto, isArray: true })
+  stages: WorkspaceStatisticsProfileFunnelStageDto[];
+}
+
+export class WorkspaceStatisticsProfileFunnelStageDto {
+  @ApiProperty({
+    enum: ['requests', 'offers', 'confirmations', 'contracts', 'completed', 'revenue'],
+    example: 'requests',
+  })
+  id: 'requests' | 'offers' | 'confirmations' | 'contracts' | 'completed' | 'revenue';
+
+  @ApiProperty({ example: 'Anfragen' })
+  label: string;
+
+  @ApiProperty({ example: 80 })
+  value: number;
+
+  @ApiProperty({ example: '80' })
+  displayValue: string;
+
+  @ApiProperty({ example: 100 })
+  widthPercent: number;
+
+  @ApiProperty({ example: 'Antwortquote', nullable: true })
+  rateLabel: string | null;
+
+  @ApiProperty({ example: 50, nullable: true })
+  ratePercent: number | null;
+
+  @ApiProperty({ example: '187,50 €', nullable: true })
+  helperText: string | null;
+}
+
+export class WorkspaceStatisticsInsightMetricDto {
+  @ApiProperty({ example: 'ratio' })
+  key: string;
+
+  @ApiProperty({ oneOf: [{ type: 'string' }, { type: 'number' }], example: 3 })
+  value: string | number;
+}
+
+export class WorkspaceStatisticsInsightActionDto {
+  @ApiProperty({ example: 'Städte ansehen' })
+  label: string;
+
+  @ApiProperty({ enum: ['internal_link', 'modal', 'promotion', 'none'], example: 'internal_link' })
+  actionType: 'internal_link' | 'modal' | 'promotion' | 'none';
+
+  @ApiProperty({ example: '/workspace?section=stats&focus=cities', nullable: true })
+  href?: string;
+
+  @ApiProperty({ type: 'object', additionalProperties: true, nullable: true })
+  payload?: Record<string, unknown>;
 }
 
 export class WorkspaceStatisticsInsightDto {
+  @ApiProperty({ example: 'city_opportunity_high:city-opportunity:berlin' })
+  id: string;
+
+  @ApiProperty({ enum: ['demand', 'opportunity', 'performance', 'growth', 'risk', 'promotion'], example: 'opportunity' })
+  type: 'demand' | 'opportunity' | 'performance' | 'growth' | 'risk' | 'promotion';
+
+  @ApiProperty({ enum: ['high', 'medium', 'low'], example: 'high' })
+  priority: 'high' | 'medium' | 'low';
+
+  @ApiProperty({ enum: ['all', 'provider', 'client', 'guest'], example: 'provider' })
+  audience: 'all' | 'provider' | 'client' | 'guest';
+
+  @ApiProperty({ example: 88 })
+  score: number;
+
+  @ApiProperty({ example: 'Gute Chance in Karlsruhe' })
+  title: string;
+
+  @ApiProperty({
+    example:
+      'In Karlsruhe liegt die Nachfrage aktuell über dem Angebot. Neue Anbieter haben hier besonders gute Chancen.',
+  })
+  body: string;
+
+  @ApiProperty({ example: 'Marktchance', nullable: true })
+  shortLabel?: string;
+
+  @ApiProperty({ example: 'spark' })
+  icon: string;
+
+  @ApiProperty({ example: 0.91, description: 'Signal confidence from 0 to 1.' })
+  confidence: number;
+
+  @ApiProperty({ type: () => WorkspaceStatisticsInsightMetricDto, isArray: true })
+  metrics: WorkspaceStatisticsInsightMetricDto[];
+
+  @ApiProperty({ type: () => WorkspaceStatisticsInsightActionDto, nullable: true })
+  action?: WorkspaceStatisticsInsightActionDto;
+
+  @ApiProperty({ example: '2026-03-11T10:30:00.000Z', nullable: true })
+  validUntil?: string;
+
   @ApiProperty({ enum: ['info', 'trend', 'warning'], example: 'trend' })
   level: 'info' | 'trend' | 'warning';
 

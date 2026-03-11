@@ -10985,41 +10985,318 @@
           "cities"
         ]
       },
+      "WorkspaceStatisticsProfileFunnelStageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "requests",
+              "offers",
+              "confirmations",
+              "contracts",
+              "completed",
+              "revenue"
+            ],
+            "example": "requests"
+          },
+          "label": {
+            "type": "string",
+            "example": "Anfragen"
+          },
+          "value": {
+            "type": "number",
+            "example": 80
+          },
+          "displayValue": {
+            "type": "string",
+            "example": "80"
+          },
+          "widthPercent": {
+            "type": "number",
+            "example": 100
+          },
+          "rateLabel": {
+            "type": "object",
+            "example": "Antwortquote",
+            "nullable": true
+          },
+          "ratePercent": {
+            "type": "object",
+            "example": 50,
+            "nullable": true
+          },
+          "helperText": {
+            "type": "object",
+            "example": "187,50 €",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "value",
+          "displayValue",
+          "widthPercent",
+          "rateLabel",
+          "ratePercent",
+          "helperText"
+        ]
+      },
       "WorkspaceStatisticsProfileFunnelDto": {
         "type": "object",
         "properties": {
+          "periodLabel": {
+            "type": "string",
+            "example": "30 Tage"
+          },
           "stage1": {
             "type": "number",
-            "example": 128
+            "example": 128,
+            "description": "Legacy alias for requestsTotal."
           },
           "stage2": {
             "type": "number",
-            "example": 34
+            "example": 34,
+            "description": "Legacy alias for offersTotal."
           },
           "stage3": {
             "type": "number",
-            "example": 17
+            "example": 17,
+            "description": "Legacy alias for confirmedResponsesTotal."
           },
           "stage4": {
             "type": "number",
+            "example": 5,
+            "description": "Legacy alias for closedContractsTotal."
+          },
+          "requestsTotal": {
+            "type": "number",
+            "example": 128
+          },
+          "offersTotal": {
+            "type": "number",
+            "example": 34
+          },
+          "confirmedResponsesTotal": {
+            "type": "number",
+            "example": 17
+          },
+          "closedContractsTotal": {
+            "type": "number",
+            "example": 9
+          },
+          "completedJobsTotal": {
+            "type": "number",
             "example": 5
+          },
+          "profitAmount": {
+            "type": "number",
+            "example": 6840
+          },
+          "offerResponseRatePercent": {
+            "type": "number",
+            "example": 27,
+            "description": "Offers / Requests in selected period."
+          },
+          "confirmationRatePercent": {
+            "type": "number",
+            "example": 50,
+            "description": "Confirmed responses / Offers in selected period."
+          },
+          "contractClosureRatePercent": {
+            "type": "number",
+            "example": 53,
+            "description": "Closed contracts / Confirmed responses in selected period."
+          },
+          "completionRatePercent": {
+            "type": "number",
+            "example": 56,
+            "description": "Completed jobs / Closed contracts in selected period."
           },
           "conversionRate": {
             "type": "number",
             "example": 29
+          },
+          "totalConversionPercent": {
+            "type": "number",
+            "example": 29
+          },
+          "summaryText": {
+            "type": "string",
+            "example": "Von 80 Anfragen wurden 10 erfolgreich abgeschlossen."
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsProfileFunnelStageDto"
+            }
           }
         },
         "required": [
+          "periodLabel",
           "stage1",
           "stage2",
           "stage3",
           "stage4",
-          "conversionRate"
+          "requestsTotal",
+          "offersTotal",
+          "confirmedResponsesTotal",
+          "closedContractsTotal",
+          "completedJobsTotal",
+          "profitAmount",
+          "offerResponseRatePercent",
+          "confirmationRatePercent",
+          "contractClosureRatePercent",
+          "completionRatePercent",
+          "conversionRate",
+          "totalConversionPercent",
+          "summaryText",
+          "stages"
+        ]
+      },
+      "WorkspaceStatisticsInsightMetricDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "ratio"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "example": 3
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      },
+      "WorkspaceStatisticsInsightActionDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Städte ansehen"
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "internal_link",
+              "modal",
+              "promotion",
+              "none"
+            ],
+            "example": "internal_link"
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=stats&focus=cities",
+            "nullable": true
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          }
+        },
+        "required": [
+          "label",
+          "actionType",
+          "href",
+          "payload"
         ]
       },
       "WorkspaceStatisticsInsightDto": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "example": "city_opportunity_high:city-opportunity:berlin"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "demand",
+              "opportunity",
+              "performance",
+              "growth",
+              "risk",
+              "promotion"
+            ],
+            "example": "opportunity"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "all",
+              "provider",
+              "client",
+              "guest"
+            ],
+            "example": "provider"
+          },
+          "score": {
+            "type": "number",
+            "example": 88
+          },
+          "title": {
+            "type": "string",
+            "example": "Gute Chance in Karlsruhe"
+          },
+          "body": {
+            "type": "string",
+            "example": "In Karlsruhe liegt die Nachfrage aktuell über dem Angebot. Neue Anbieter haben hier besonders gute Chancen."
+          },
+          "shortLabel": {
+            "type": "string",
+            "example": "Marktchance",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "example": "spark"
+          },
+          "confidence": {
+            "type": "number",
+            "example": 0.91,
+            "description": "Signal confidence from 0 to 1."
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsInsightMetricDto"
+            }
+          },
+          "action": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsInsightActionDto"
+              }
+            ]
+          },
+          "validUntil": {
+            "type": "string",
+            "example": "2026-03-11T10:30:00.000Z",
+            "nullable": true
+          },
           "level": {
             "type": "string",
             "enum": [
@@ -11040,6 +11317,19 @@
           }
         },
         "required": [
+          "id",
+          "type",
+          "priority",
+          "audience",
+          "score",
+          "title",
+          "body",
+          "shortLabel",
+          "icon",
+          "confidence",
+          "metrics",
+          "action",
+          "validUntil",
           "level",
           "code",
           "context"
