@@ -170,6 +170,17 @@ export class WorkspaceStatisticsCityDemandDto {
   })
   anbieterSuchenCount: number;
 
+  @ApiProperty({
+    example: 1.56,
+    nullable: true,
+    description:
+      'Demand-to-supply market balance ratio (demand activity / provider activity) used for opportunity scoring.',
+  })
+  marketBalanceRatio: number | null;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'none'], example: 'high' })
+  signal: 'high' | 'medium' | 'low' | 'none';
+
   @ApiProperty({ example: 52.52, nullable: true })
   lat: number | null;
 
@@ -183,6 +194,99 @@ export class WorkspaceStatisticsDemandDto {
 
   @ApiProperty({ type: WorkspaceStatisticsCityDemandDto, isArray: true })
   cities: WorkspaceStatisticsCityDemandDto[];
+}
+
+export class WorkspaceStatisticsOpportunityMetricDto {
+  @ApiProperty({ enum: ['demand', 'competition', 'growth', 'activity'], example: 'demand' })
+  key: 'demand' | 'competition' | 'growth' | 'activity';
+
+  @ApiProperty({ example: 8.6 })
+  value: number;
+
+  @ApiProperty({ enum: ['very-high', 'high', 'medium', 'low'], example: 'high' })
+  semanticTone: 'very-high' | 'high' | 'medium' | 'low';
+
+  @ApiProperty({ enum: ['very_high', 'high', 'noticeable', 'medium', 'low'], example: 'high' })
+  semanticKey: 'very_high' | 'high' | 'noticeable' | 'medium' | 'low';
+}
+
+export class WorkspaceStatisticsOpportunityRadarItemDto {
+  @ApiProperty({ enum: [1, 2, 3], example: 1 })
+  rank: 1 | 2 | 3;
+
+  @ApiProperty({ example: '64f0c1a2b3c4d5e6f7a8b9c0', nullable: true })
+  cityId: string | null;
+
+  @ApiProperty({ example: 'Berlin' })
+  city: string;
+
+  @ApiProperty({ example: 'cleaning', nullable: true })
+  categoryKey: string | null;
+
+  @ApiProperty({ example: 'Cleaning & Housekeeping', nullable: true })
+  category: string | null;
+
+  @ApiProperty({ example: 127 })
+  demand: number;
+
+  @ApiProperty({ example: 23, nullable: true })
+  providers: number | null;
+
+  @ApiProperty({ example: 1.56, nullable: true })
+  marketBalanceRatio: number | null;
+
+  @ApiProperty({ example: 8.2 })
+  score: number;
+
+  @ApiProperty({ example: 9.1 })
+  demandScore: number;
+
+  @ApiProperty({ example: 6.4 })
+  competitionScore: number;
+
+  @ApiProperty({ example: 7.2 })
+  growthScore: number;
+
+  @ApiProperty({ example: 6.8 })
+  activityScore: number;
+
+  @ApiProperty({ enum: ['very_high', 'good', 'balanced', 'competitive', 'low'], example: 'balanced' })
+  status: 'very_high' | 'good' | 'balanced' | 'competitive' | 'low';
+
+  @ApiProperty({ enum: ['very-high', 'high', 'balanced', 'supply-heavy'], example: 'balanced' })
+  tone: 'very-high' | 'high' | 'balanced' | 'supply-heavy';
+
+  @ApiProperty({
+    enum: ['very_high', 'good', 'balanced_competitive', 'balanced', 'competitive', 'low_demand', 'low'],
+    example: 'balanced_competitive',
+  })
+  summaryKey: 'very_high' | 'good' | 'balanced_competitive' | 'balanced' | 'competitive' | 'low_demand' | 'low';
+
+  @ApiProperty({ type: WorkspaceStatisticsOpportunityMetricDto, isArray: true })
+  metrics: WorkspaceStatisticsOpportunityMetricDto[];
+}
+
+export class WorkspaceStatisticsPriceIntelligenceDto {
+  @ApiProperty({ example: 'berlin', nullable: true })
+  citySlug: string | null;
+
+  @ApiProperty({ example: 'Berlin', nullable: true })
+  city: string | null;
+
+  @ApiProperty({ example: 'cleaning', nullable: true })
+  categoryKey: string | null;
+
+  @ApiProperty({ example: 'Cleaning & Housekeeping', nullable: true })
+  category: string | null;
+
+  @ApiProperty({ example: 65, nullable: true })
+  recommendedMin: number | null;
+
+  @ApiProperty({ example: 90, nullable: true })
+  recommendedMax: number | null;
+
+  @ApiProperty({ example: 78, nullable: true })
+  marketAverage: number | null;
 }
 
 export class WorkspaceStatisticsProfileFunnelDto {
@@ -377,6 +481,12 @@ export class WorkspaceStatisticsOverviewResponseDto {
 
   @ApiProperty({ type: WorkspaceStatisticsDemandDto })
   demand: WorkspaceStatisticsDemandDto;
+
+  @ApiProperty({ type: WorkspaceStatisticsOpportunityRadarItemDto, isArray: true })
+  opportunityRadar: WorkspaceStatisticsOpportunityRadarItemDto[];
+
+  @ApiProperty({ type: WorkspaceStatisticsPriceIntelligenceDto })
+  priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto;
 
   @ApiProperty({ type: WorkspaceStatisticsProfileFunnelDto })
   profileFunnel: WorkspaceStatisticsProfileFunnelDto;

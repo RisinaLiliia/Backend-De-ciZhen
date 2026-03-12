@@ -74,6 +74,16 @@ Domain modules are organized by business responsibility:
     - `requestCount` (Anfragen)
     - `auftragSuchenCount` (deduplicated searches for jobs in city; fallback: offer proxy)
     - `anbieterSuchenCount` (deduplicated searches for providers in city; fallback: distinct-clients proxy)
+    - `marketBalanceRatio` (backend-calculated demand/supply pressure ratio)
+    - `signal` (`high|medium|low|none`, derived from market pressure)
+  - `opportunityRadar[]` is backend-calculated (top 3 ranked opportunities):
+    - rank context: `rank`, `cityId`, `city`, `categoryKey`, `category`
+    - market data: `demand`, `providers`, `marketBalanceRatio`
+    - scoring: `score`, `demandScore`, `competitionScore`, `growthScore`, `activityScore`
+    - semantics for frontend rendering: `status`, `tone`, `summaryKey`, `metrics[]` (`key`, `value`, `semanticTone`, `semanticKey`)
+  - `priceIntelligence` is backend-calculated from selected range activity:
+    - context: `citySlug`, `city`, `categoryKey`, `category`
+    - recommendations: `recommendedMin`, `recommendedMax`, `marketAverage`
   - `profileFunnel` is backend-calculated and range-aware (`24h|7d|30d|90d`) with business funnel stages:
     - `requestsTotal`
     - `offersTotal`
