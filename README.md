@@ -164,13 +164,28 @@ Password reset:
 - `GET /health/live` (liveness probe)
 - `GET /health/ready` (readiness probe with Mongo + Redis status)
 
+## Request Logging
+- Every HTTP request is logged as structured JSON with:
+  - `event`
+  - `requestId`
+  - `method`
+  - `path` (without query string)
+  - `statusCode`
+  - `durationMs`
+  - `contentLength`
+  - `userAgent`
+- Severity mapping:
+  - `error` for `5xx`
+  - `warn` for `4xx` or slow requests
+  - `log` for successful requests
+
 Sources:
 - `legal/privacy-policy.md`
 - `legal/cookie-notice.md`
 
 ## Quick Start
 Prerequisites:
-- Node.js 18+
+- Node.js 20.20+ (recommended)
 - MongoDB
 - Redis
 
@@ -243,6 +258,7 @@ npm run swagger
 - `npm run test:e2e`
 - `npm run test:e2e:smoke`
 - `npm run swagger`
+- `npm run security:audit`
 - `npm run seed:cities`
 - `npm run seed:services`
 - `npm run seed:demo`

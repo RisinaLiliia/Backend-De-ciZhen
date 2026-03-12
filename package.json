@@ -3,6 +3,9 @@
   "version": "0.2.1",
   "description": "De’ciZhen Backend API",
   "private": true,
+  "engines": {
+    "node": ">=20.20.0"
+  },
   "license": "UNLICENSED",
   "scripts": {
     "start": "node dist/main.js",
@@ -28,6 +31,7 @@
     "seed:providers": "ts-node -r tsconfig-paths/register src/database/seeds/seed-providers.ts",
     "seed:reviews": "ts-node -r tsconfig-paths/register src/database/seeds/seed-reviews.ts",
     "lint:check": "eslint \"{src,test}/**/*.ts\"",
+    "security:audit": "npm audit --omit=dev --audit-level=high",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.build.json",
     "ci:verify": "npm run lint:check && npm run typecheck && npm run test && npm run build"
   },
