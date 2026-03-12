@@ -14,7 +14,10 @@ import type { WorkspaceStatisticsRange } from './dto/workspace-statistics-query.
 import type {
   WorkspaceStatisticsCategoryDemandDto,
   WorkspaceStatisticsCityDemandDto,
+  WorkspaceStatisticsOpportunityMetricDto,
+  WorkspaceStatisticsOpportunityRadarItemDto,
   WorkspaceStatisticsOverviewResponseDto,
+  WorkspaceStatisticsPriceIntelligenceDto,
   WorkspaceStatisticsProfileFunnelDto,
 } from './dto/workspace-statistics-response.dto';
 import { InsightsService, type AnalyticsSnapshot } from './insights.service';
@@ -71,6 +74,86 @@ export class WorkspaceStatisticsService {
   private roundPercent(value: number): number {
     if (!Number.isFinite(value)) return 0;
     return Math.round(value * 100) / 100;
+  }
+
+  private roundScore(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.round(value * 10) / 10;
+  }
+
+  private clampUnit(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(1, value));
+  }
+
+  private resolveCitySignal(params: {
+    demandActivity: number;
+    supplyActivity: number;
+  }): 'high' | 'medium' | 'low' | 'none' {
+    const demandActivity = Math.max(0, params.demandActivity);
+    const supplyActivity = Math.max(0, params.supplyActivity);
+    if (demandActivity <= 0 && supplyActivity <= 0) return 'none';
+    const pressure = demandActivity / Math.max(1, supplyActivity);
+    if (pressure >= 1.25) return 'high';
+    if (pressure <= 0.8) return 'low';
+    return 'medium';
+  }
+
+  private resolveOpportunityStatus(score: number): 'very_high' | 'good' | 'balanced' | 'competitive' | 'low' {
+    if (score >= 8.5) return 'very_high';
+    if (score >= 7) return 'good';
+    if (score >= 5) return 'balanced';
+    if (score >= 3.5) return 'competitive';
+    return 'low';
+  }
+
+  private resolveOpportunityTone(
+    status: 'very_high' | 'good' | 'balanced' | 'competitive' | 'low',
+  ): 'very-high' | 'high' | 'balanced' | 'supply-heavy' {
+    if (status === 'very_high') return 'very-high';
+    if (status === 'good') return 'high';
+    if (status === 'balanced') return 'balanced';
+    return 'supply-heavy';
+  }
+
+  private resolveOpportunityMetricSemantic(params: {
+    key: WorkspaceStatisticsOpportunityMetricDto['key'];
+    value: number;
+  }): Pick<WorkspaceStatisticsOpportunityMetricDto, 'semanticTone' | 'semanticKey'> {
+    const value = Math.max(0, Math.min(10, params.value));
+    if (params.key === 'competition') {
+      if (value >= 8) return { semanticTone: 'high', semanticKey: 'high' };
+      if (value >= 6) return { semanticTone: 'medium', semanticKey: 'noticeable' };
+      if (value >= 4) return { semanticTone: 'medium', semanticKey: 'medium' };
+      return { semanticTone: 'low', semanticKey: 'low' };
+    }
+
+    if (value >= 8) return { semanticTone: 'very-high', semanticKey: 'very_high' };
+    if (value >= 6) return { semanticTone: 'high', semanticKey: 'high' };
+    if (value >= 4) return { semanticTone: 'medium', semanticKey: 'medium' };
+    return { semanticTone: 'low', semanticKey: 'low' };
+  }
+
+  private resolveOpportunitySummaryKey(params: {
+    status: 'very_high' | 'good' | 'balanced' | 'competitive' | 'low';
+    demand: number;
+    competition: number;
+    growth: number;
+    activity: number;
+  }): WorkspaceStatisticsOpportunityRadarItemDto['summaryKey'] {
+    if (params.status === 'very_high') return 'very_high';
+    if (params.status === 'good') return 'good';
+    if (params.status === 'balanced') {
+      return params.competition >= 7 ? 'balanced_competitive' : 'balanced';
+    }
+    if (params.status === 'competitive') return 'competitive';
+    if (params.demand < 4 || params.growth < 4 || params.activity < 4) return 'low_demand';
+    return 'low';
+  }
+
+  private roundToNearestStep(value: number, step: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(step, Math.round(value / step) * step);
   }
 
   private formatInt(value: number): string {
@@ -743,13 +826,25 @@ export class WorkspaceStatisticsService {
         (resolvedCityId.length > 0 ? searchByCityId.get(resolvedCityId) : undefined) ??
         searchByCitySlug.get(citySlug);
 
+      const requestCount = Math.max(0, Math.round(row.requestCount || 0));
+      const auftragSuchenCount = searchRow ? searchRow.requestSearchCount : (auftragSuchenByCitySlug.get(citySlug) ?? 0);
+      const anbieterSuchenCount = searchRow ? searchRow.providerSearchCount : Math.max(0, Math.round(row.anbieterSuchenCount || 0));
+      const demandActivity = Math.max(0, anbieterSuchenCount) || Math.max(0, requestCount);
+      const supplyActivity = Math.max(0, auftragSuchenCount);
+      const marketBalanceRatio =
+        demandActivity <= 0 && supplyActivity <= 0
+          ? null
+          : this.roundPercent(demandActivity / Math.max(1, supplyActivity));
+
       return {
         citySlug,
         cityName,
         cityId: resolvedCityId.length > 0 ? resolvedCityId : (coords?.cityId ?? null),
-        requestCount: Math.max(0, Math.round(row.requestCount || 0)),
-        auftragSuchenCount: searchRow ? searchRow.requestSearchCount : (auftragSuchenByCitySlug.get(citySlug) ?? 0),
-        anbieterSuchenCount: searchRow ? searchRow.providerSearchCount : Math.max(0, Math.round(row.anbieterSuchenCount || 0)),
+        requestCount,
+        auftragSuchenCount,
+        anbieterSuchenCount,
+        marketBalanceRatio,
+        signal: this.resolveCitySignal({ demandActivity, supplyActivity }),
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
       };
@@ -800,6 +895,132 @@ export class WorkspaceStatisticsService {
       openRequests: mode === 'personalized' ? privateOverview?.kpis.myOpenRequests ?? null : null,
       recentOffers7d: mode === 'personalized' ? privateOverview?.kpis.recentOffers7d ?? null : null,
     };
+
+    const growthIndex = this.clampUnit(activityMetrics.offerRatePercent / 100);
+    const responseSpeedIndex =
+      typeof activityMetrics.responseMedianMinutes === 'number' && Number.isFinite(activityMetrics.responseMedianMinutes)
+        ? this.clampUnit(1 - (activityMetrics.responseMedianMinutes / 180))
+        : 0.5;
+    const categoryLeaders = categories.slice(0, 3);
+    const demandByCity = cities.map((city) => Math.max(city.requestCount, city.anbieterSuchenCount ?? 0));
+    const maxDemand = Math.max(1, ...demandByCity);
+
+    const scoredOpportunities = cities.map((city) => {
+      const demand = Math.max(city.requestCount, city.anbieterSuchenCount ?? 0);
+      const providers = city.auftragSuchenCount;
+      const demandIndex = this.clampUnit(demand / maxDemand);
+      const competitionOpportunityIndex = city.marketBalanceRatio === null
+        ? 0.5
+        : this.clampUnit(city.marketBalanceRatio / 1.5);
+
+      const demandScore = this.roundScore(demandIndex * 10);
+      const competitionScore = this.roundScore(competitionOpportunityIndex * 10);
+      const growthScore = this.roundScore(growthIndex * 10);
+      const activityScore = this.roundScore(responseSpeedIndex * 10);
+      const competitionPressureScore = this.roundScore(10 - competitionScore);
+
+      const score = this.roundScore(10 * (
+        (demandIndex * 0.4) +
+        (competitionOpportunityIndex * 0.3) +
+        (growthIndex * 0.2) +
+        (responseSpeedIndex * 0.1)
+      ));
+
+      const status = this.resolveOpportunityStatus(score);
+      const metricsBase: Array<{ key: WorkspaceStatisticsOpportunityMetricDto['key']; value: number }> = [
+        { key: 'demand', value: demandScore },
+        { key: 'competition', value: competitionPressureScore },
+        { key: 'growth', value: growthScore },
+        { key: 'activity', value: activityScore },
+      ];
+      const metrics: WorkspaceStatisticsOpportunityMetricDto[] = metricsBase.map((metric) => ({
+        ...metric,
+        ...this.resolveOpportunityMetricSemantic(metric),
+      }));
+      const summaryKey = this.resolveOpportunitySummaryKey({
+        status,
+        demand: demandScore,
+        competition: competitionPressureScore,
+        growth: growthScore,
+        activity: activityScore,
+      });
+
+      return {
+        cityId: city.cityId,
+        citySlug: city.citySlug,
+        city: city.cityName,
+        demand,
+        providers,
+        marketBalanceRatio: city.marketBalanceRatio,
+        score,
+        demandScore,
+        competitionScore,
+        growthScore,
+        activityScore,
+        status,
+        tone: this.resolveOpportunityTone(status),
+        summaryKey,
+        metrics,
+      };
+    });
+
+    const rankedOpportunities = scoredOpportunities
+      .sort((a, b) =>
+        (b.score - a.score) ||
+        (b.demand - a.demand) ||
+        a.city.localeCompare(b.city, 'de-DE'),
+      )
+      .slice(0, 3);
+
+    const opportunityRadar: WorkspaceStatisticsOpportunityRadarItemDto[] = rankedOpportunities
+      .map((item, index) => {
+        const category = categoryLeaders[index] ?? null;
+        return {
+          rank: (index + 1) as 1 | 2 | 3,
+          cityId: item.cityId,
+          city: item.city,
+          categoryKey: category?.categoryKey ?? null,
+          category: category?.categoryName ?? null,
+          demand: item.demand,
+          providers: item.providers ?? null,
+          marketBalanceRatio: item.marketBalanceRatio,
+          score: item.score,
+          demandScore: item.demandScore,
+          competitionScore: item.competitionScore,
+          growthScore: item.growthScore,
+          activityScore: item.activityScore,
+          status: item.status,
+          tone: item.tone,
+          summaryKey: item.summaryKey,
+          metrics: item.metrics,
+        };
+      });
+
+    const topOpportunity = rankedOpportunities[0] ?? null;
+    const avgRevenue = activityMetrics.completedJobs > 0
+      ? activityMetrics.gmvAmount / activityMetrics.completedJobs
+      : null;
+
+    const priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto =
+      typeof avgRevenue === 'number' && Number.isFinite(avgRevenue) && avgRevenue > 0
+        ? {
+            citySlug: topOpportunity?.citySlug ?? null,
+            city: topOpportunity?.city ?? null,
+            categoryKey: opportunityRadar[0]?.categoryKey ?? null,
+            category: opportunityRadar[0]?.category ?? null,
+            recommendedMin: this.roundToNearestStep(avgRevenue * 0.85, 5),
+            recommendedMax: this.roundToNearestStep(avgRevenue * 1.15, 5),
+            marketAverage: this.roundToNearestStep(avgRevenue, 5),
+          }
+        : {
+            citySlug: topOpportunity?.citySlug ?? null,
+            city: topOpportunity?.city ?? null,
+            categoryKey: opportunityRadar[0]?.categoryKey ?? null,
+            category: opportunityRadar[0]?.category ?? null,
+            recommendedMin: null,
+            recommendedMax: null,
+            marketAverage: null,
+          };
 
     const funnelOffersAgg = funnelOffersRows[0] ?? { offersTotal: 0, confirmedResponsesTotal: 0 };
     const funnelContractsAgg = funnelContractsRows[0] ?? {
@@ -955,6 +1176,8 @@ export class WorkspaceStatisticsService {
         categories,
         cities,
       },
+      opportunityRadar,
+      priceIntelligence,
       profileFunnel,
       insights,
       growthCards: this.buildGrowthCards(),

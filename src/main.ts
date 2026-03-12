@@ -11,6 +11,7 @@ import { RolesGuard } from "./modules/auth/guards/roles.guard";
 import { Reflector } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
+import { RequestLoggingMiddleware } from "./common/middleware/request-logging.middleware";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -33,6 +34,8 @@ async function bootstrap() {
 
   const requestIdMiddlewareInstance = new RequestIdMiddleware();
   app.use(requestIdMiddlewareInstance.use.bind(requestIdMiddlewareInstance));
+  const requestLoggingMiddlewareInstance = new RequestLoggingMiddleware();
+  app.use(requestLoggingMiddlewareInstance.use.bind(requestLoggingMiddlewareInstance));
 
   app.use(helmet());
   app.use(cookieParser());

@@ -3,6 +3,9 @@
   "version": "0.2.1",
   "description": "De’ciZhen Backend API",
   "private": true,
+  "engines": {
+    "node": ">=20.20.0"
+  },
   "license": "UNLICENSED",
   "scripts": {
     "start": "node dist/main.js",
@@ -20,12 +23,15 @@
     "seed:cities": "ts-node -r tsconfig-paths/register src/database/seeds/seed-cities.ts",
     "seed:services": "ts-node -r tsconfig-paths/register src/database/seeds/seed-services.ts",
     "seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-marketplace.ts",
+    "seed:stats-categories": "ts-node -r tsconfig-paths/register src/database/seeds/seed-statistics-categories.ts",
+    "seed:stats-funnel": "ts-node -r tsconfig-paths/register src/database/seeds/seed-statistics-funnel.ts",
     "migrate:bookings-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-bookings-indexes.ts",
     "migrate:availability-indexes": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-availability-indexes.ts",
     "migrate:requests-denorm": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-requests-denorm.ts",
     "seed:providers": "ts-node -r tsconfig-paths/register src/database/seeds/seed-providers.ts",
     "seed:reviews": "ts-node -r tsconfig-paths/register src/database/seeds/seed-reviews.ts",
     "lint:check": "eslint \"{src,test}/**/*.ts\"",
+    "security:audit": "npm audit --omit=dev --audit-level=high",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.build.json",
     "ci:verify": "npm run lint:check && npm run typecheck && npm run test && npm run build"
   },

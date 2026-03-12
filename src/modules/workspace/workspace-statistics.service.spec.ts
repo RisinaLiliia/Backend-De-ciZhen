@@ -192,8 +192,35 @@ describe('WorkspaceStatisticsService (unit)', () => {
       requestCount: 9,
       auftragSuchenCount: 21,
       anbieterSuchenCount: 14,
+      marketBalanceRatio: 0.67,
+      signal: 'low',
       lat: 52.52,
       lng: 13.405,
+    });
+    expect(result.opportunityRadar).toHaveLength(1);
+    expect(result.opportunityRadar[0]).toMatchObject({
+      rank: 1,
+      city: 'Berlin',
+      categoryKey: 'cleaning',
+      demand: 14,
+      providers: 21,
+      score: 7.6,
+      status: 'good',
+      tone: 'high',
+      summaryKey: 'good',
+    });
+    expect(result.opportunityRadar[0].metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'demand', value: 10, semanticTone: 'very-high' }),
+        expect.objectContaining({ key: 'competition', value: 5.5, semanticKey: 'medium' }),
+      ]),
+    );
+    expect(result.priceIntelligence).toMatchObject({
+      city: 'Berlin',
+      categoryKey: 'cleaning',
+      recommendedMin: 215,
+      recommendedMax: 290,
+      marketAverage: 250,
     });
     expect(result.activity.metrics).toMatchObject({
       offerRatePercent: 73,
@@ -344,6 +371,14 @@ describe('WorkspaceStatisticsService (unit)', () => {
       id: 'revenue',
       widthPercent: 66.67,
       helperText: '200 €',
+    });
+    expect(Array.isArray(result.opportunityRadar)).toBe(true);
+    expect(result.priceIntelligence).toMatchObject({
+      city: null,
+      categoryKey: null,
+      recommendedMin: 170,
+      recommendedMax: 230,
+      marketAverage: 200,
     });
     expect(insightsMock.getInsights).toHaveBeenCalledTimes(1);
     expect(insightsMock.getInsights.mock.calls[0]?.[1]).toBe('provider');

@@ -41,6 +41,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Security audit (prod deps, non-blocking)
+        run: npm run security:audit
+        continue-on-error: true
+
       - name: E2E smoke (PR and non-main pushes)
         if: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
         run: npm run test:e2e:smoke

@@ -345,9 +345,17 @@ describe('workspace (e2e)', () => {
         expect.objectContaining({
           auftragSuchenCount: expect.any(Number),
           anbieterSuchenCount: expect.any(Number),
+          signal: expect.any(String),
         }),
       );
     }
+    expect(Array.isArray(res.body.opportunityRadar)).toBe(true);
+    expect(res.body.priceIntelligence).toEqual(
+      expect.objectContaining({
+        city: expect.anything(),
+        category: expect.anything(),
+      }),
+    );
     expect(Array.isArray(res.body.growthCards)).toBe(true);
   });
 
@@ -411,6 +419,13 @@ describe('workspace (e2e)', () => {
         stage2: expect.any(Number),
         stage3: expect.any(Number),
         stage4: expect.any(Number),
+      }),
+    );
+    expect(Array.isArray(res.body.opportunityRadar)).toBe(true);
+    expect(res.body.priceIntelligence).toEqual(
+      expect.objectContaining({
+        recommendedMin: expect.anything(),
+        recommendedMax: expect.anything(),
       }),
     );
     expect(Array.isArray(res.body.insights)).toBe(true);
