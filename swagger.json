@@ -11713,6 +11713,10 @@
             ],
             "example": "30d"
           },
+          "decisionInsight": {
+            "type": "string",
+            "example": "Die Angebotsquote liegt aktuell bei 68 %, während 56 Anfragen länger als 24 Stunden unbeantwortet bleiben. Schnellere Reaktionen könnten die Abschlussrate weiter erhöhen."
+          },
           "summary": {
             "$ref": "#/components/schemas/WorkspaceStatisticsSummaryDto"
           },
@@ -11754,6 +11758,7 @@
           "updatedAt",
           "mode",
           "range",
+          "decisionInsight",
           "summary",
           "kpis",
           "activity",

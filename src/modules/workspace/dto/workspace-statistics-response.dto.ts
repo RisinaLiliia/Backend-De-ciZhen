@@ -508,6 +508,12 @@ export class WorkspaceStatisticsOverviewResponseDto {
   @ApiProperty({ enum: ['24h', '7d', '30d', '90d'], example: '30d' })
   range: WorkspaceStatisticsRange;
 
+  @ApiProperty({
+    example:
+      'Die Angebotsquote liegt aktuell bei 68 %, während 56 Anfragen länger als 24 Stunden unbeantwortet bleiben. Schnellere Reaktionen könnten die Abschlussrate weiter erhöhen.',
+  })
+  decisionInsight: string;
+
   @ApiProperty({ type: WorkspaceStatisticsSummaryDto })
   summary: WorkspaceStatisticsSummaryDto;
 

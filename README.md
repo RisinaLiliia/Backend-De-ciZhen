@@ -76,6 +76,7 @@ Domain modules are organized by business responsibility:
       - `cancellationTone`
       - `completedTone`
       - `revenueTone`
+  - `decisionInsight` is backend-generated from KPI metrics (`offerRatePercent`, `responseMedianMinutes`, `unansweredRequests24h`, conversion) and is dedicated to the `Decision Layer` KI summary (independent from city/category insight cards).
   - `demand.categories[].sharePercent` is computed on backend from **all** published requests in selected range (`24h|7d|30d|90d`), not from frontend slices.
   - category response keeps top 50 categories sorted by demand; percent base remains full-range total.
   - `demand.cities[]` now includes city-level marketplace activity metrics:

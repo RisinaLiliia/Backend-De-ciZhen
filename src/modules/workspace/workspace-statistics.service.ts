@@ -186,6 +186,49 @@ export class WorkspaceStatisticsService {
     return '30 Tage';
   }
 
+  private buildDecisionInsight(params: {
+    activityMetrics: WorkspaceStatisticsOverviewResponseDto['activity']['metrics'];
+    conversionRatePercent: number;
+  }): string {
+    const offerRatePercent = this.clampPercent(Number(params.activityMetrics.offerRatePercent ?? 0));
+    const unansweredRequests24h = Math.max(0, Math.round(Number(params.activityMetrics.unansweredRequests24h ?? 0)));
+    const responseMedianMinutesRaw = params.activityMetrics.responseMedianMinutes;
+    const responseMedianMinutes =
+      typeof responseMedianMinutesRaw === 'number' && Number.isFinite(responseMedianMinutesRaw)
+        ? Math.max(0, Math.round(responseMedianMinutesRaw))
+        : null;
+    const conversionRatePercent = this.clampPercent(Number(params.conversionRatePercent ?? 0));
+    const completedJobs = Math.max(0, Math.round(Number(params.activityMetrics.completedJobs ?? 0)));
+
+    const hasRelevantSignals =
+      offerRatePercent > 0 ||
+      unansweredRequests24h > 0 ||
+      conversionRatePercent > 0 ||
+      completedJobs > 0 ||
+      responseMedianMinutes !== null;
+    if (!hasRelevantSignals) {
+      return 'Aktuell liegen nur wenige Signale vor. Sobald mehr Anfragen und Angebote eingehen, werden präzisere Handlungsempfehlungen angezeigt.';
+    }
+
+    if (unansweredRequests24h >= 20) {
+      return `Die Angebotsquote liegt aktuell bei ${offerRatePercent} %, während ${this.formatInt(unansweredRequests24h)} Anfragen länger als 24 Stunden unbeantwortet bleiben. Schnellere Reaktionen könnten die Abschlussrate weiter erhöhen.`;
+    }
+
+    if (responseMedianMinutes !== null && responseMedianMinutes >= 720) {
+      return 'Die aktuelle Antwortzeit ist relativ hoch, wodurch mehrere Anfragen länger offen bleiben. Schnellere Reaktionen können die Anzahl erfolgreicher Abschlüsse deutlich erhöhen.';
+    }
+
+    if (conversionRatePercent >= 30 && offerRatePercent >= 60 && unansweredRequests24h <= 10) {
+      return 'Die Plattform zeigt eine stabile Abschlussquote und gute Angebotsaktivität. Weitere Aufträge können vor allem durch höhere Sichtbarkeit der Anbieter entstehen.';
+    }
+
+    if (unansweredRequests24h >= 10) {
+      return 'Mehrere Anfragen bleiben aktuell länger als 24 Stunden unbeantwortet. Dies deutet auf ungenutzte Marktchancen hin.';
+    }
+
+    return 'Die Nachfrage bleibt stabil, jedoch bleiben einige Anfragen ohne Angebot. Schnellere Reaktionen und mehr aktive Anbieter könnten die Abschlussrate erhöhen.';
+  }
+
   private toProfitPotentialStatus(
     score: number | null,
   ): WorkspaceStatisticsPriceIntelligenceDto['profitPotentialStatus'] {
@@ -1598,6 +1641,10 @@ export class WorkspaceStatisticsService {
     };
 
     const updatedAt = new Date().toISOString();
+    const decisionInsight = this.buildDecisionInsight({
+      activityMetrics,
+      conversionRatePercent,
+    });
     const insights = this.insightsService.getInsights(
       this.buildInsightsSnapshot({
         range,
@@ -1618,6 +1665,7 @@ export class WorkspaceStatisticsService {
       updatedAt,
       mode,
       range,
+      decisionInsight,
       summary,
       kpis,
       activity: {
