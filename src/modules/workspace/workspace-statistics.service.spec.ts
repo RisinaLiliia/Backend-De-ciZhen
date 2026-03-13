@@ -87,6 +87,88 @@ describe('WorkspaceStatisticsService (unit)', () => {
     service = moduleRef.get(WorkspaceStatisticsService);
   });
 
+  it('builds decision insight for high unanswered backlog', () => {
+    const insight = (
+      service as unknown as {
+        buildDecisionInsight: (params: {
+          activityMetrics: {
+            offerRatePercent: number;
+            responseMedianMinutes: number | null;
+            unansweredRequests24h: number;
+            completedJobs: number;
+          };
+          conversionRatePercent: number;
+        }) => string;
+      }
+    ).buildDecisionInsight({
+      activityMetrics: {
+        offerRatePercent: 68,
+        responseMedianMinutes: 10_500,
+        unansweredRequests24h: 56,
+        completedJobs: 38,
+      } as never,
+      conversionRatePercent: 26,
+    });
+
+    expect(insight).toContain('68 %');
+    expect(insight).toContain('56 Anfragen');
+    expect(insight).toContain('unbeantwortet');
+  });
+
+  it('builds decision insight for slow response-time signal', () => {
+    const insight = (
+      service as unknown as {
+        buildDecisionInsight: (params: {
+          activityMetrics: {
+            offerRatePercent: number;
+            responseMedianMinutes: number | null;
+            unansweredRequests24h: number;
+            completedJobs: number;
+          };
+          conversionRatePercent: number;
+        }) => string;
+      }
+    ).buildDecisionInsight({
+      activityMetrics: {
+        offerRatePercent: 52,
+        responseMedianMinutes: 950,
+        unansweredRequests24h: 8,
+        completedJobs: 14,
+      } as never,
+      conversionRatePercent: 19,
+    });
+
+    expect(insight).toContain('Antwortzeit');
+    expect(insight).toContain('Schnellere Reaktionen');
+  });
+
+  it('builds decision insight for strong conversion signal', () => {
+    const insight = (
+      service as unknown as {
+        buildDecisionInsight: (params: {
+          activityMetrics: {
+            offerRatePercent: number;
+            responseMedianMinutes: number | null;
+            unansweredRequests24h: number;
+            completedJobs: number;
+          };
+          conversionRatePercent: number;
+        }) => string;
+      }
+    ).buildDecisionInsight({
+      activityMetrics: {
+        offerRatePercent: 72,
+        responseMedianMinutes: 80,
+        unansweredRequests24h: 3,
+        completedJobs: 20,
+      } as never,
+      conversionRatePercent: 41,
+    });
+
+    expect(insight).toContain('stabile Abschlussquote');
+    expect(insight).toContain('Sichtbarkeit');
+  });
+
   it('returns platform mode payload for guest', async () => {
     workspaceMock.getPublicOverview.mockResolvedValue({
       summary: {
@@ -95,7 +177,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
       },
       cityActivity: {
         items: [
-          { citySlug: 'berlin', cityName: 'Berlin', cityId: 'c-1', requestCount: 9, lat: 52.52, lng: 13.405 },
+          { citySlug: 'berlin', cityName: 'Berlin', cityId: 'public-c-1', requestCount: 9, lat: 52.52, lng: 13.405 },
         ],
       },
     });
@@ -221,7 +303,12 @@ describe('WorkspaceStatisticsService (unit)', () => {
       recommendedMin: 215,
       recommendedMax: 290,
       marketAverage: 250,
+      optimalMin: 241,
+      optimalMax: 268,
+      profitPotentialScore: 10,
+      profitPotentialStatus: 'high',
     });
+    expect(result.priceIntelligence.recommendation).toContain('höchste Abschlussrate in Berlin');
     expect(result.activity.metrics).toMatchObject({
       offerRatePercent: 73,
       responseMedianMinutes: 30,
@@ -231,6 +318,12 @@ describe('WorkspaceStatisticsService (unit)', () => {
       gmvAmount: 1250,
       platformRevenueAmount: 125,
       takeRatePercent: 10,
+      offerRateTone: 'positive',
+      responseMedianTone: 'positive',
+      unansweredTone: 'warning',
+      cancellationTone: 'neutral',
+      completedTone: 'positive',
+      revenueTone: 'positive',
     });
     expect(result.profileFunnel).toMatchObject({
       periodLabel: '30 Tage',
@@ -268,6 +361,8 @@ describe('WorkspaceStatisticsService (unit)', () => {
       widthPercent: 22.73,
       helperText: '250 €',
     });
+    expect(typeof result.decisionInsight).toBe('string');
+    expect(result.decisionInsight.length).toBeGreaterThan(0);
     expect(insightsMock.getInsights).toHaveBeenCalledTimes(1);
     expect(insightsMock.getInsights.mock.calls[0]?.[1]).toBeUndefined();
     expect(result.insights[0]).toMatchObject({
@@ -379,7 +474,13 @@ describe('WorkspaceStatisticsService (unit)', () => {
       recommendedMin: 170,
       recommendedMax: 230,
       marketAverage: 200,
+      optimalMin: 191,
+      optimalMax: 212,
+      profitPotentialScore: null,
+      profitPotentialStatus: null,
     });
+    expect(result.decisionInsight).toContain('Abschlussrate');
+    expect(result.decisionInsight).not.toContain('Berlin');
     expect(insightsMock.getInsights).toHaveBeenCalledTimes(1);
     expect(insightsMock.getInsights.mock.calls[0]?.[1]).toBe('provider');
   });
@@ -643,7 +744,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
     });
     expect(result.demand.cities[0]).toMatchObject({
       cityName: 'Berlin',
-      requestCount: 2,
+      requestCount: 9,
       auftragSuchenCount: 6,
       anbieterSuchenCount: 10,
       marketBalanceRatio: 1.67,
@@ -661,6 +762,9 @@ describe('WorkspaceStatisticsService (unit)', () => {
       recommendedMax: 260,
       marketAverage: 225,
     });
+    expect(typeof result.priceIntelligence.profitPotentialScore).toBe('number');
+    expect((result.priceIntelligence.profitPotentialScore ?? 0)).toBeGreaterThan(0);
+    expect(result.priceIntelligence.profitPotentialStatus).toBeDefined();
     expect(workspaceMock.getPublicOverview).toHaveBeenCalledTimes(2);
     expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(1, '24h');
     expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(2, '30d');

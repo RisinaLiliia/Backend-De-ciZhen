@@ -10828,6 +10828,60 @@
           "takeRatePercent": {
             "type": "number",
             "example": 10
+          },
+          "offerRateTone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "positive"
+          },
+          "responseMedianTone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "warning"
+          },
+          "unansweredTone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "warning"
+          },
+          "cancellationTone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "positive"
+          },
+          "completedTone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "positive"
+          },
+          "revenueTone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "positive"
           }
         },
         "required": [
@@ -10838,7 +10892,13 @@
           "completedJobs",
           "gmvAmount",
           "platformRevenueAmount",
-          "takeRatePercent"
+          "takeRatePercent",
+          "offerRateTone",
+          "responseMedianTone",
+          "unansweredTone",
+          "cancellationTone",
+          "completedTone",
+          "revenueTone"
         ]
       },
       "WorkspaceStatisticsActivityDto": {
@@ -10933,14 +10993,16 @@
             "example": 14
           },
           "auftragSuchenCount": {
-            "type": "number",
+            "type": "object",
             "example": 22,
-            "description": "Provider-side demand activity: deduplicated searches for jobs in this city (target=request). Falls back to offer-based proxy if event data is missing."
+            "description": "Provider-side demand activity: deduplicated searches for jobs in this city (target=request). Falls back to offer-based proxy if event data is missing.",
+            "nullable": true
           },
           "anbieterSuchenCount": {
-            "type": "number",
+            "type": "object",
             "example": 9,
-            "description": "Client-side demand activity: deduplicated searches for providers in this city (target=provider). Falls back to distinct client-request proxy if event data is missing."
+            "description": "Client-side demand activity: deduplicated searches for providers in this city (target=provider). Falls back to distinct client-request proxy if event data is missing.",
+            "nullable": true
           },
           "marketBalanceRatio": {
             "type": "object",
@@ -11212,6 +11274,36 @@
             "type": "object",
             "example": 78,
             "nullable": true
+          },
+          "optimalMin": {
+            "type": "object",
+            "example": 86,
+            "nullable": true
+          },
+          "optimalMax": {
+            "type": "object",
+            "example": 101,
+            "nullable": true
+          },
+          "recommendation": {
+            "type": "object",
+            "example": "Preise im Bereich von 86 € – 101 € erzielen aktuell die höchste Abschlussrate in Berlin.",
+            "nullable": true
+          },
+          "profitPotentialScore": {
+            "type": "object",
+            "example": 7.2,
+            "nullable": true
+          },
+          "profitPotentialStatus": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "nullable": true,
+            "example": "high"
           }
         },
         "required": [
@@ -11221,7 +11313,12 @@
           "category",
           "recommendedMin",
           "recommendedMax",
-          "marketAverage"
+          "marketAverage",
+          "optimalMin",
+          "optimalMax",
+          "recommendation",
+          "profitPotentialScore",
+          "profitPotentialStatus"
         ]
       },
       "WorkspaceStatisticsProfileFunnelStageDto": {
@@ -11616,6 +11713,10 @@
             ],
             "example": "30d"
           },
+          "decisionInsight": {
+            "type": "string",
+            "example": "Die Angebotsquote liegt aktuell bei 68 %, während 56 Anfragen länger als 24 Stunden unbeantwortet bleiben. Schnellere Reaktionen könnten die Abschlussrate weiter erhöhen."
+          },
           "summary": {
             "$ref": "#/components/schemas/WorkspaceStatisticsSummaryDto"
           },
@@ -11657,6 +11758,7 @@
           "updatedAt",
           "mode",
           "range",
+          "decisionInsight",
           "summary",
           "kpis",
           "activity",
