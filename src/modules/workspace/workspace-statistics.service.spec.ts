@@ -95,7 +95,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
       },
       cityActivity: {
         items: [
-          { citySlug: 'berlin', cityName: 'Berlin', cityId: 'c-1', requestCount: 9, lat: 52.52, lng: 13.405 },
+          { citySlug: 'berlin', cityName: 'Berlin', cityId: 'public-c-1', requestCount: 9, lat: 52.52, lng: 13.405 },
         ],
       },
     });
@@ -221,7 +221,12 @@ describe('WorkspaceStatisticsService (unit)', () => {
       recommendedMin: 215,
       recommendedMax: 290,
       marketAverage: 250,
+      optimalMin: 241,
+      optimalMax: 268,
+      profitPotentialScore: 10,
+      profitPotentialStatus: 'high',
     });
+    expect(result.priceIntelligence.recommendation).toContain('höchste Abschlussrate in Berlin');
     expect(result.activity.metrics).toMatchObject({
       offerRatePercent: 73,
       responseMedianMinutes: 30,
@@ -231,6 +236,12 @@ describe('WorkspaceStatisticsService (unit)', () => {
       gmvAmount: 1250,
       platformRevenueAmount: 125,
       takeRatePercent: 10,
+      offerRateTone: 'positive',
+      responseMedianTone: 'positive',
+      unansweredTone: 'warning',
+      cancellationTone: 'neutral',
+      completedTone: 'positive',
+      revenueTone: 'positive',
     });
     expect(result.profileFunnel).toMatchObject({
       periodLabel: '30 Tage',
@@ -379,6 +390,10 @@ describe('WorkspaceStatisticsService (unit)', () => {
       recommendedMin: 170,
       recommendedMax: 230,
       marketAverage: 200,
+      optimalMin: 191,
+      optimalMax: 212,
+      profitPotentialScore: null,
+      profitPotentialStatus: null,
     });
     expect(insightsMock.getInsights).toHaveBeenCalledTimes(1);
     expect(insightsMock.getInsights.mock.calls[0]?.[1]).toBe('provider');
@@ -643,7 +658,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
     });
     expect(result.demand.cities[0]).toMatchObject({
       cityName: 'Berlin',
-      requestCount: 2,
+      requestCount: 9,
       auftragSuchenCount: 6,
       anbieterSuchenCount: 10,
       marketBalanceRatio: 1.67,
@@ -661,6 +676,9 @@ describe('WorkspaceStatisticsService (unit)', () => {
       recommendedMax: 260,
       marketAverage: 225,
     });
+    expect(typeof result.priceIntelligence.profitPotentialScore).toBe('number');
+    expect((result.priceIntelligence.profitPotentialScore ?? 0)).toBeGreaterThan(0);
+    expect(result.priceIntelligence.profitPotentialStatus).toBeDefined();
     expect(workspaceMock.getPublicOverview).toHaveBeenCalledTimes(2);
     expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(1, '24h');
     expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(2, '30d');

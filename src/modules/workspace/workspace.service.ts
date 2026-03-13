@@ -256,6 +256,22 @@ export class WorkspaceService {
     return { start, end };
   }
 
+  private resolveRangeWindow(range: PlatformActivityRange): { start: Date; end: Date } {
+    const now = new Date();
+    const end = now;
+    const start = new Date(now);
+    if (range === '24h') {
+      start.setHours(now.getHours() - 24);
+    } else if (range === '7d') {
+      start.setDate(now.getDate() - 7);
+    } else if (range === '90d') {
+      start.setDate(now.getDate() - 90);
+    } else {
+      start.setDate(now.getDate() - 30);
+    }
+    return { start, end };
+  }
+
   private buildDelta(current: number, previous: number): { kind: 'percent' | 'new' | 'none'; percent: number | null } {
     if (previous <= 0) {
       if (current <= 0) return { kind: 'none', percent: null };
@@ -299,6 +315,7 @@ export class WorkspaceService {
     const cityActivityLimit = Math.min(Math.max(query.cityActivityLimit ?? 20, 1), 5000);
     const cityAggregationLimit = Math.min(cityActivityLimit * 5, 25000);
     const activityRange: PlatformActivityRange = query.activityRange ?? '30d';
+    const { start: cityStart, end: cityEnd } = this.resolveRangeWindow(activityRange);
 
     const filters = {
       cityId: query.cityId,
@@ -319,7 +336,12 @@ export class WorkspaceService {
       this.analytics.getPlatformActivity(activityRange),
       this.requestModel
         .aggregate<{ _id: { cityName?: string | null; cityId?: string | null }; count: number; lat?: number | null; lng?: number | null }>([
-          { $match: { status: 'published' } },
+          {
+            $match: {
+              status: 'published',
+              createdAt: { $gte: cityStart, $lte: cityEnd },
+            },
+          },
           {
             $group: {
               _id: { cityId: '$cityId', cityName: '$cityName' },

@@ -55,6 +55,7 @@ Domain modules are organized by business responsibility:
   Returns one aggregated payload for public workspace:
   request page, platform counters, city demand map points, and activity chart.
   Supports `activityRange=24h|7d|30d|90d` and `cityActivityLimit=1..5000` for full cities ranking payloads.
+  - `cityActivity.items[]` is now range-aware (same selected `activityRange`) instead of all-time city totals.
 - `GET /workspace/statistics` (optional Bearer auth)
   Unified Statistik contract for both guests and authenticated users.
   - guest -> `mode=platform` with platform-level KPI/demand/funnel
@@ -68,14 +69,22 @@ Domain modules are organized by business responsibility:
     - `gmvAmount`
     - `platformRevenueAmount` (`gmvAmount * PLATFORM_TAKE_RATE_PERCENT`)
     - `takeRatePercent`
+    - semantic tones for UI state mapping:
+      - `offerRateTone`
+      - `responseMedianTone`
+      - `unansweredTone`
+      - `cancellationTone`
+      - `completedTone`
+      - `revenueTone`
   - `demand.categories[].sharePercent` is computed on backend from **all** published requests in selected range (`24h|7d|30d|90d`), not from frontend slices.
   - category response keeps top 50 categories sorted by demand; percent base remains full-range total.
   - `demand.cities[]` now includes city-level marketplace activity metrics:
     - `requestCount` (Anfragen)
-    - `auftragSuchenCount` (deduplicated searches for jobs in city; fallback: offer proxy)
-    - `anbieterSuchenCount` (deduplicated searches for providers in city; fallback: distinct-clients proxy)
+    - `auftragSuchenCount` (deduplicated searches for jobs in city; fallback: offer proxy, nullable when no reliable signal)
+    - `anbieterSuchenCount` (deduplicated searches for providers in city; fallback: distinct-clients proxy, nullable when no reliable signal)
     - `marketBalanceRatio` (backend-calculated demand/supply pressure ratio)
     - `signal` (`high|medium|low|none`, derived from market pressure)
+    - city ranking is merged with `/workspace/public` city activity so short windows (`24h`) still keep complete market ordering.
   - `opportunityRadar[]` is backend-calculated (top 3 ranked opportunities):
     - rank context: `rank`, `cityId`, `city`, `categoryKey`, `category`
     - market data: `demand`, `providers`, `marketBalanceRatio`
@@ -84,6 +93,8 @@ Domain modules are organized by business responsibility:
   - `priceIntelligence` is backend-calculated from selected range activity:
     - context: `citySlug`, `city`, `categoryKey`, `category`
     - recommendations: `recommendedMin`, `recommendedMax`, `marketAverage`
+    - strategy fields: `optimalMin`, `optimalMax`, `recommendation`
+    - monetization signal: `profitPotentialScore`, `profitPotentialStatus`
   - `profileFunnel` is backend-calculated and range-aware (`24h|7d|30d|90d`) with business funnel stages:
     - `requestsTotal`
     - `offersTotal`

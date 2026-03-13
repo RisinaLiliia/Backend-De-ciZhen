@@ -106,6 +106,24 @@ export class WorkspaceStatisticsActivityMetricsDto {
 
   @ApiProperty({ example: 10 })
   takeRatePercent: number;
+
+  @ApiProperty({ enum: ['positive', 'neutral', 'warning'], example: 'positive' })
+  offerRateTone: 'positive' | 'neutral' | 'warning';
+
+  @ApiProperty({ enum: ['positive', 'neutral', 'warning'], example: 'warning' })
+  responseMedianTone: 'positive' | 'neutral' | 'warning';
+
+  @ApiProperty({ enum: ['positive', 'neutral', 'warning'], example: 'warning' })
+  unansweredTone: 'positive' | 'neutral' | 'warning';
+
+  @ApiProperty({ enum: ['positive', 'neutral', 'warning'], example: 'positive' })
+  cancellationTone: 'positive' | 'neutral' | 'warning';
+
+  @ApiProperty({ enum: ['positive', 'neutral', 'warning'], example: 'positive' })
+  completedTone: 'positive' | 'neutral' | 'warning';
+
+  @ApiProperty({ enum: ['positive', 'neutral', 'warning'], example: 'positive' })
+  revenueTone: 'positive' | 'neutral' | 'warning';
 }
 
 export class WorkspaceStatisticsActivityDto {
@@ -160,15 +178,17 @@ export class WorkspaceStatisticsCityDemandDto {
     example: 22,
     description:
       'Provider-side demand activity: deduplicated searches for jobs in this city (target=request). Falls back to offer-based proxy if event data is missing.',
+    nullable: true,
   })
-  auftragSuchenCount: number;
+  auftragSuchenCount: number | null;
 
   @ApiProperty({
     example: 9,
     description:
       'Client-side demand activity: deduplicated searches for providers in this city (target=provider). Falls back to distinct client-request proxy if event data is missing.',
+    nullable: true,
   })
-  anbieterSuchenCount: number;
+  anbieterSuchenCount: number | null;
 
   @ApiProperty({
     example: 1.56,
@@ -287,6 +307,24 @@ export class WorkspaceStatisticsPriceIntelligenceDto {
 
   @ApiProperty({ example: 78, nullable: true })
   marketAverage: number | null;
+
+  @ApiProperty({ example: 86, nullable: true })
+  optimalMin: number | null;
+
+  @ApiProperty({ example: 101, nullable: true })
+  optimalMax: number | null;
+
+  @ApiProperty({
+    example: 'Preise im Bereich von 86 € – 101 € erzielen aktuell die höchste Abschlussrate in Berlin.',
+    nullable: true,
+  })
+  recommendation: string | null;
+
+  @ApiProperty({ example: 7.2, nullable: true })
+  profitPotentialScore: number | null;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low'], nullable: true, example: 'high' })
+  profitPotentialStatus: 'high' | 'medium' | 'low' | null;
 }
 
 export class WorkspaceStatisticsProfileFunnelDto {

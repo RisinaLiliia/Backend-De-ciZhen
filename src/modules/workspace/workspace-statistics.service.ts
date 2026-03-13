@@ -11,6 +11,7 @@ import { Review, type ReviewDocument } from '../reviews/schemas/review.schema';
 import type { AppRole } from '../users/schemas/user.schema';
 import type { WorkspacePrivateOverviewResponseDto } from './dto/workspace-private-response.dto';
 import type { WorkspaceStatisticsRange } from './dto/workspace-statistics-query.dto';
+import type { WorkspacePublicCityActivityItemDto } from './dto/workspace-public-response.dto';
 import type {
   WorkspaceStatisticsCategoryDemandDto,
   WorkspaceStatisticsCityDemandDto,
@@ -99,6 +100,15 @@ export class WorkspaceStatisticsService {
     return 'medium';
   }
 
+  private resolveSignalTone(value: number, thresholds: {
+    positiveWhen: (value: number) => boolean;
+    warningWhen: (value: number) => boolean;
+  }): 'positive' | 'neutral' | 'warning' {
+    if (thresholds.positiveWhen(value)) return 'positive';
+    if (thresholds.warningWhen(value)) return 'warning';
+    return 'neutral';
+  }
+
   private resolveOpportunityStatus(score: number): 'very_high' | 'good' | 'balanced' | 'competitive' | 'low' {
     if (score >= 8.5) return 'very_high';
     if (score >= 7) return 'good';
@@ -174,6 +184,118 @@ export class WorkspaceStatisticsService {
     if (range === '7d') return '7 Tage';
     if (range === '90d') return '90 Tage';
     return '30 Tage';
+  }
+
+  private toProfitPotentialStatus(
+    score: number | null,
+  ): WorkspaceStatisticsPriceIntelligenceDto['profitPotentialStatus'] {
+    if (typeof score !== 'number' || !Number.isFinite(score)) return null;
+    if (score >= 7.5) return 'high';
+    if (score >= 5.5) return 'medium';
+    return 'low';
+  }
+
+  private buildPriceIntelligence(params: {
+    avgRevenue: number | null;
+    topOpportunity: {
+      citySlug: string;
+      city: string;
+      score: number;
+      demandScore: number;
+      competitionScore: number;
+    } | null;
+    topCategoryKey: string | null;
+    topCategoryLabel: string | null;
+  }): WorkspaceStatisticsPriceIntelligenceDto {
+    const base = {
+      citySlug: params.topOpportunity?.citySlug ?? null,
+      city: params.topOpportunity?.city ?? null,
+      categoryKey: params.topCategoryKey,
+      category: params.topCategoryLabel,
+    } as const;
+
+    const opportunityScore =
+      typeof params.topOpportunity?.score === 'number' && Number.isFinite(params.topOpportunity.score)
+        ? Math.max(0, Math.min(10, params.topOpportunity.score))
+        : null;
+    const demandFactor =
+      typeof params.topOpportunity?.demandScore === 'number' && Number.isFinite(params.topOpportunity.demandScore)
+        ? Math.max(0.35, Math.min(1.25, params.topOpportunity.demandScore / 10))
+        : 0.75;
+    const competitionFactor =
+      typeof params.topOpportunity?.competitionScore === 'number' && Number.isFinite(params.topOpportunity.competitionScore)
+        ? Math.max(0.45, Math.min(1.35, params.topOpportunity.competitionScore / 10))
+        : 0.8;
+
+    const hasAverageRevenue =
+      typeof params.avgRevenue === 'number' && Number.isFinite(params.avgRevenue) && params.avgRevenue > 0;
+    const averageRevenueValue = hasAverageRevenue ? params.avgRevenue : null;
+    const recommendedMin =
+      averageRevenueValue !== null ? this.roundToNearestStep(averageRevenueValue * 0.85, 5) : null;
+    const recommendedMax =
+      averageRevenueValue !== null ? this.roundToNearestStep(averageRevenueValue * 1.15, 5) : null;
+    const marketAverage =
+      averageRevenueValue !== null ? this.roundToNearestStep(averageRevenueValue, 5) : null;
+    const rangeSpan =
+      typeof recommendedMin === 'number' && typeof recommendedMax === 'number'
+        ? Math.max(0, recommendedMax - recommendedMin)
+        : 0;
+    const optimalMin =
+      typeof recommendedMin === 'number' && rangeSpan > 0
+        ? Math.max(0, Math.round(recommendedMin + rangeSpan * 0.35))
+        : null;
+    const optimalMax =
+      typeof recommendedMin === 'number' && rangeSpan > 0
+        ? Math.max(0, Math.round(recommendedMin + rangeSpan * 0.7))
+        : null;
+
+    const recommendation =
+      typeof optimalMin === 'number' && typeof optimalMax === 'number'
+        ? `Preise im Bereich von ${this.formatCurrency(optimalMin)} – ${this.formatCurrency(optimalMax)} erzielen aktuell die höchste Abschlussrate${params.topOpportunity?.city ? ` in ${params.topOpportunity.city}` : ''}.`
+        : null;
+
+    const priceScore =
+      typeof recommendedMin === 'number' &&
+      typeof recommendedMax === 'number' &&
+      typeof marketAverage === 'number' &&
+      recommendedMax > recommendedMin
+        ? (() => {
+            const midpoint = (recommendedMin + recommendedMax) / 2;
+            const halfRange = (recommendedMax - recommendedMin) / 2;
+            const distance = Math.abs(marketAverage - midpoint);
+            const normalized = Math.max(0, Math.min(1, 1 - (distance / Math.max(1, halfRange))));
+            return 0.7 + normalized * 0.3;
+          })()
+        : 0.78;
+
+    const profitPotentialScore =
+      opportunityScore !== null
+        ? Math.max(
+            0,
+            Math.min(
+              10,
+              Number(
+                (
+                  ((opportunityScore / 10) * priceScore * (0.72 + demandFactor * 0.28)) /
+                  competitionFactor *
+                  10
+                ).toFixed(1),
+              ),
+            ),
+          )
+        : null;
+
+    return {
+      ...base,
+      recommendedMin,
+      recommendedMax,
+      marketAverage,
+      optimalMin,
+      optimalMax,
+      recommendation,
+      profitPotentialScore,
+      profitPotentialStatus: this.toProfitPotentialStatus(profitPotentialScore),
+    };
   }
 
   private toMedian(values: number[]): number | null {
@@ -260,24 +382,33 @@ export class WorkspaceStatisticsService {
 
   private toCitySnapshot(cities: WorkspaceStatisticsCityDemandDto[]): AnalyticsSnapshot['cities'] {
     return cities.map((item) => {
-      const demandSupplyRatio = item.auftragSuchenCount > 0
-        ? this.roundPercent(item.anbieterSuchenCount / Math.max(1, item.auftragSuchenCount))
-        : item.anbieterSuchenCount > 0
-          ? this.roundPercent(item.anbieterSuchenCount)
+      const requestSearchCount =
+        typeof item.auftragSuchenCount === 'number' && Number.isFinite(item.auftragSuchenCount)
+          ? Math.max(0, Math.round(item.auftragSuchenCount))
+          : 0;
+      const providerSearchCount =
+        typeof item.anbieterSuchenCount === 'number' && Number.isFinite(item.anbieterSuchenCount)
+          ? Math.max(0, Math.round(item.anbieterSuchenCount))
+          : 0;
+
+      const demandSupplyRatio = requestSearchCount > 0
+        ? this.roundPercent(providerSearchCount / Math.max(1, requestSearchCount))
+        : providerSearchCount > 0
+          ? this.roundPercent(providerSearchCount)
           : null;
 
       const offerCoverageRate = item.requestCount > 0
-        ? this.clampPercent((item.auftragSuchenCount / Math.max(1, item.requestCount)) * 100)
+        ? this.clampPercent((requestSearchCount / Math.max(1, item.requestCount)) * 100)
         : null;
 
       return {
         cityKey: item.citySlug,
         cityLabel: item.cityName,
         requests: item.requestCount,
-        offers: item.auftragSuchenCount,
+        offers: requestSearchCount,
         activeProviders: 0,
-        serviceSearchCount: item.auftragSuchenCount,
-        providerSearchCount: item.anbieterSuchenCount,
+        serviceSearchCount: requestSearchCount,
+        providerSearchCount,
         growthPercentVsPrevPeriod: null,
         demandSupplyRatio,
         offerCoverageRate,
@@ -287,10 +418,81 @@ export class WorkspaceStatisticsService {
 
   private hasCitySearchSignals(cities: WorkspaceStatisticsCityDemandDto[]): boolean {
     return cities.some(
-      (city) =>
-        (Number.isFinite(city.auftragSuchenCount) && city.auftragSuchenCount > 0) ||
-        (Number.isFinite(city.anbieterSuchenCount) && city.anbieterSuchenCount > 0),
+      (city) => {
+        const requestSearchCount =
+          typeof city.auftragSuchenCount === 'number' && Number.isFinite(city.auftragSuchenCount)
+            ? city.auftragSuchenCount
+            : 0;
+        const providerSearchCount =
+          typeof city.anbieterSuchenCount === 'number' && Number.isFinite(city.anbieterSuchenCount)
+            ? city.anbieterSuchenCount
+            : 0;
+        return requestSearchCount > 0 || providerSearchCount > 0;
+      },
     );
+  }
+
+  private toOptionalCount(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+    return Math.max(0, Math.round(value));
+  }
+
+  private resolveCitySearchMetrics(params: {
+    requestCount: number;
+    auftragSuchenCount: number | null | undefined;
+    anbieterSuchenCount: number | null | undefined;
+  }): Pick<WorkspaceStatisticsCityDemandDto, 'auftragSuchenCount' | 'anbieterSuchenCount' | 'marketBalanceRatio' | 'signal'> {
+    const requestCount = Math.max(0, Math.round(params.requestCount ?? 0));
+    let auftragSuchenCount = this.toOptionalCount(params.auftragSuchenCount);
+    let anbieterSuchenCount = this.toOptionalCount(params.anbieterSuchenCount);
+
+    const hasAnySignal = auftragSuchenCount !== null || anbieterSuchenCount !== null;
+    if (!hasAnySignal) {
+      return {
+        auftragSuchenCount: null,
+        anbieterSuchenCount: null,
+        marketBalanceRatio: null,
+        signal: 'none',
+      };
+    }
+
+    if (auftragSuchenCount === null) {
+      const proxySupply = requestCount > 0 ? requestCount : Math.max(0, anbieterSuchenCount ?? 0);
+      auftragSuchenCount = Math.max(1, proxySupply);
+    }
+
+    if (anbieterSuchenCount === null) {
+      const proxyDemand = requestCount > 0 ? requestCount : Math.max(0, auftragSuchenCount ?? 0);
+      anbieterSuchenCount = Math.max(1, proxyDemand);
+    }
+
+    const demandActivity = Math.max(0, anbieterSuchenCount) || Math.max(0, requestCount);
+    const supplyActivity = Math.max(0, auftragSuchenCount);
+    const marketBalanceRatio =
+      demandActivity <= 0 && supplyActivity <= 0
+        ? null
+        : this.roundPercent(demandActivity / Math.max(1, supplyActivity));
+    const signal = marketBalanceRatio === null
+      ? 'none'
+      : this.resolveCitySignal({ demandActivity, supplyActivity });
+
+    return {
+      auftragSuchenCount,
+      anbieterSuchenCount,
+      marketBalanceRatio,
+      signal,
+    };
+  }
+
+  private hasIncompleteCitySearchSignals(cities: WorkspaceStatisticsCityDemandDto[]): boolean {
+    return cities.some((city) => {
+      if (city.requestCount <= 0) return false;
+      const hasRequestSearchCount =
+        typeof city.auftragSuchenCount === 'number' && Number.isFinite(city.auftragSuchenCount);
+      const hasProviderSearchCount =
+        typeof city.anbieterSuchenCount === 'number' && Number.isFinite(city.anbieterSuchenCount);
+      return !hasRequestSearchCount || !hasProviderSearchCount;
+    });
   }
 
   private hasPriceSignal(priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto): boolean {
@@ -301,16 +503,79 @@ export class WorkspaceStatisticsService {
     );
   }
 
+  private hasProfitPotentialSignal(priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto): boolean {
+    return Number.isFinite(priceIntelligence.profitPotentialScore);
+  }
+
   private hasOpportunityCategoryData(opportunityRadar: WorkspaceStatisticsOpportunityRadarItemDto[]): boolean {
     return opportunityRadar.some((item) => Boolean(item.categoryKey || item.category));
   }
 
-  private cityIdentity(city: Pick<WorkspaceStatisticsCityDemandDto, 'cityId' | 'citySlug' | 'cityName'>): string {
-    const cityId = String(city.cityId ?? '').trim();
-    if (cityId) return `id:${cityId}`;
-    const slug = String(city.citySlug ?? '').trim().toLowerCase();
-    if (slug) return `slug:${slug}`;
-    return `name:${String(city.cityName ?? '').trim().toLowerCase()}`;
+  private cityIdKey(value: string | null | undefined): string {
+    return String(value ?? '').trim();
+  }
+
+  private citySlugKey(value: string | null | undefined): string {
+    return String(value ?? '').trim().toLowerCase();
+  }
+
+  private cityNameKey(value: string | null | undefined): string {
+    return String(value ?? '').trim().toLowerCase();
+  }
+
+  private mergeCityRankingWithPublicOverview(params: {
+    statsCities: WorkspaceStatisticsCityDemandDto[];
+    publicCities: WorkspacePublicCityActivityItemDto[];
+  }): WorkspaceStatisticsCityDemandDto[] {
+    if (params.publicCities.length === 0) return params.statsCities;
+
+    const statsById = new Map<string, WorkspaceStatisticsCityDemandDto>();
+    const statsBySlug = new Map<string, WorkspaceStatisticsCityDemandDto>();
+    const statsByName = new Map<string, WorkspaceStatisticsCityDemandDto>();
+    for (const city of params.statsCities) {
+      const cityId = this.cityIdKey(city.cityId);
+      const citySlug = this.citySlugKey(city.citySlug);
+      const cityName = this.cityNameKey(city.cityName);
+      if (cityId.length > 0 && !statsById.has(cityId)) statsById.set(cityId, city);
+      if (citySlug.length > 0 && !statsBySlug.has(citySlug)) statsBySlug.set(citySlug, city);
+      if (cityName.length > 0 && !statsByName.has(cityName)) statsByName.set(cityName, city);
+    }
+
+    return params.publicCities
+      .slice()
+      .sort((a, b) => b.requestCount - a.requestCount)
+      .map((publicCity) => {
+        const publicCityId = this.cityIdKey(publicCity.cityId);
+        const publicCitySlug = this.citySlugKey(publicCity.citySlug);
+        const publicCityName = this.cityNameKey(publicCity.cityName);
+        const statsCity =
+          (publicCityId.length > 0 ? statsById.get(publicCityId) : undefined) ??
+          (publicCitySlug.length > 0 ? statsBySlug.get(publicCitySlug) : undefined) ??
+          (publicCityName.length > 0 ? statsByName.get(publicCityName) : undefined);
+
+        const metrics = this.resolveCitySearchMetrics({
+          requestCount: publicCity.requestCount,
+          auftragSuchenCount: statsCity?.auftragSuchenCount ?? null,
+          anbieterSuchenCount: statsCity?.anbieterSuchenCount ?? null,
+        });
+        const marketBalanceRatio =
+          typeof statsCity?.marketBalanceRatio === 'number' && Number.isFinite(statsCity.marketBalanceRatio)
+            ? statsCity.marketBalanceRatio
+            : metrics.marketBalanceRatio;
+
+        return {
+          citySlug: publicCity.citySlug,
+          cityName: publicCity.cityName,
+          cityId: publicCity.cityId,
+          requestCount: Math.max(0, Math.round(publicCity.requestCount ?? 0)),
+          auftragSuchenCount: metrics.auftragSuchenCount,
+          anbieterSuchenCount: metrics.anbieterSuchenCount,
+          marketBalanceRatio,
+          signal: statsCity?.signal ?? metrics.signal,
+          lat: publicCity.lat,
+          lng: publicCity.lng,
+        };
+      });
   }
 
   private mergeCitySearchSignals(
@@ -320,35 +585,63 @@ export class WorkspaceStatisticsService {
     if (cities.length === 0) return baselineCities.slice();
     if (baselineCities.length === 0) return cities;
 
-    const baselineByIdentity = new Map<string, WorkspaceStatisticsCityDemandDto>();
+    const baselineById = new Map<string, WorkspaceStatisticsCityDemandDto>();
+    const baselineBySlug = new Map<string, WorkspaceStatisticsCityDemandDto>();
+    const baselineByName = new Map<string, WorkspaceStatisticsCityDemandDto>();
     for (const city of baselineCities) {
-      baselineByIdentity.set(this.cityIdentity(city), city);
+      const cityId = this.cityIdKey(city.cityId);
+      const citySlug = this.citySlugKey(city.citySlug);
+      const cityName = this.cityNameKey(city.cityName);
+      if (cityId.length > 0 && !baselineById.has(cityId)) baselineById.set(cityId, city);
+      if (citySlug.length > 0 && !baselineBySlug.has(citySlug)) baselineBySlug.set(citySlug, city);
+      if (cityName.length > 0 && !baselineByName.has(cityName)) baselineByName.set(cityName, city);
     }
 
     return cities.map((city) => {
-      const baseline = baselineByIdentity.get(this.cityIdentity(city));
+      const cityId = this.cityIdKey(city.cityId);
+      const citySlug = this.citySlugKey(city.citySlug);
+      const cityName = this.cityNameKey(city.cityName);
+      const baseline =
+        (cityId.length > 0 ? baselineById.get(cityId) : undefined) ??
+        (citySlug.length > 0 ? baselineBySlug.get(citySlug) : undefined) ??
+        (cityName.length > 0 ? baselineByName.get(cityName) : undefined);
       if (!baseline) return city;
-      const auftragSuchenCount =
-        Number.isFinite(city.auftragSuchenCount) && city.auftragSuchenCount > 0
+      const cityRequestSearchCount =
+        typeof city.auftragSuchenCount === 'number' && Number.isFinite(city.auftragSuchenCount)
           ? city.auftragSuchenCount
-          : baseline.auftragSuchenCount;
-      const anbieterSuchenCount =
-        Number.isFinite(city.anbieterSuchenCount) && city.anbieterSuchenCount > 0
+          : null;
+      const cityProviderSearchCount =
+        typeof city.anbieterSuchenCount === 'number' && Number.isFinite(city.anbieterSuchenCount)
           ? city.anbieterSuchenCount
-          : baseline.anbieterSuchenCount;
-      const demandActivity = Math.max(0, anbieterSuchenCount) || Math.max(0, city.requestCount);
-      const supplyActivity = Math.max(0, auftragSuchenCount);
-      const marketBalanceRatio =
-        demandActivity <= 0 && supplyActivity <= 0
-          ? null
-          : this.roundPercent(demandActivity / Math.max(1, supplyActivity));
+          : null;
+      const baselineRequestSearchCount =
+        typeof baseline.auftragSuchenCount === 'number' && Number.isFinite(baseline.auftragSuchenCount)
+          ? baseline.auftragSuchenCount
+          : null;
+      const baselineProviderSearchCount =
+        typeof baseline.anbieterSuchenCount === 'number' && Number.isFinite(baseline.anbieterSuchenCount)
+          ? baseline.anbieterSuchenCount
+          : null;
+      const auftragSuchenCount =
+        typeof cityRequestSearchCount === 'number' && typeof baselineRequestSearchCount === 'number'
+          ? Math.max(cityRequestSearchCount, baselineRequestSearchCount)
+          : cityRequestSearchCount ?? baselineRequestSearchCount;
+      const anbieterSuchenCount =
+        typeof cityProviderSearchCount === 'number' && typeof baselineProviderSearchCount === 'number'
+          ? Math.max(cityProviderSearchCount, baselineProviderSearchCount)
+          : cityProviderSearchCount ?? baselineProviderSearchCount;
+      const metrics = this.resolveCitySearchMetrics({
+        requestCount: city.requestCount,
+        auftragSuchenCount,
+        anbieterSuchenCount,
+      });
 
       return {
         ...city,
-        auftragSuchenCount,
-        anbieterSuchenCount,
-        marketBalanceRatio,
-        signal: this.resolveCitySignal({ demandActivity, supplyActivity }),
+        auftragSuchenCount: metrics.auftragSuchenCount,
+        anbieterSuchenCount: metrics.anbieterSuchenCount,
+        marketBalanceRatio: metrics.marketBalanceRatio,
+        signal: metrics.signal,
       };
     });
   }
@@ -823,18 +1116,44 @@ export class WorkspaceStatisticsService {
     const cancelledJobsRange = Math.max(0, Math.round(contractLifecycle.cancelledJobs ?? 0));
     const gmvAmount = this.roundMoney(Math.max(0, Number(contractLifecycle.gmvAmount ?? 0)));
     const takeRatePercent = this.getPlatformTakeRatePercent();
+    const offerRatePercent = this.clampPercent((activityTotals.offersTotal / Math.max(1, activityTotals.requestsTotal)) * 100);
+    const cancellationRatePercent = this.clampPercent(
+      (cancelledJobsRange / Math.max(1, completedJobsRange + cancelledJobsRange)) * 100,
+    );
 
-    const activityMetrics = {
-      offerRatePercent: this.clampPercent((activityTotals.offersTotal / Math.max(1, activityTotals.requestsTotal)) * 100),
+    const activityMetrics: WorkspaceStatisticsOverviewResponseDto['activity']['metrics'] = {
+      offerRatePercent,
       responseMedianMinutes,
       unansweredRequests24h,
-      cancellationRatePercent: this.clampPercent(
-        (cancelledJobsRange / Math.max(1, completedJobsRange + cancelledJobsRange)) * 100,
-      ),
+      cancellationRatePercent,
       completedJobs: completedJobsRange,
       gmvAmount,
       platformRevenueAmount: this.roundMoney((gmvAmount * takeRatePercent) / 100),
       takeRatePercent,
+      offerRateTone: this.resolveSignalTone(
+        offerRatePercent,
+        {
+          positiveWhen: (value) => value >= 60,
+          warningWhen: (value) => value < 30,
+        },
+      ),
+      responseMedianTone:
+        typeof responseMedianMinutes === 'number' && Number.isFinite(responseMedianMinutes)
+          ? this.resolveSignalTone(responseMedianMinutes, {
+              positiveWhen: (value) => value <= 30,
+              warningWhen: (value) => value > 90,
+            })
+          : 'neutral',
+      unansweredTone: unansweredRequests24h > 0 ? 'warning' : 'positive',
+      cancellationTone: this.resolveSignalTone(
+        cancellationRatePercent,
+        {
+          positiveWhen: (value) => value <= 10,
+          warningWhen: (value) => value >= 25,
+        },
+      ),
+      completedTone: completedJobsRange > 0 ? 'positive' : 'neutral',
+      revenueTone: gmvAmount > 0 ? 'positive' : 'neutral',
     };
 
     const normalizedCategoryRows = categoryRows
@@ -885,6 +1204,7 @@ export class WorkspaceStatisticsService {
         .map((row) => [String(row.cityId), row] as const),
     );
 
+    let hasCitySignalCoverageGap = false;
     let cities: WorkspaceStatisticsCityDemandDto[] = cityRows.map((row) => {
       const cityName = String(row._id?.cityName ?? '').trim();
       const citySlug = this.slugifyCityName(cityName);
@@ -895,27 +1215,43 @@ export class WorkspaceStatisticsService {
         searchByCitySlug.get(citySlug);
 
       const requestCount = Math.max(0, Math.round(row.requestCount || 0));
-      const auftragSuchenCount = searchRow ? searchRow.requestSearchCount : (auftragSuchenByCitySlug.get(citySlug) ?? 0);
-      const anbieterSuchenCount = searchRow ? searchRow.providerSearchCount : Math.max(0, Math.round(row.anbieterSuchenCount || 0));
-      const demandActivity = Math.max(0, anbieterSuchenCount) || Math.max(0, requestCount);
-      const supplyActivity = Math.max(0, auftragSuchenCount);
-      const marketBalanceRatio =
-        demandActivity <= 0 && supplyActivity <= 0
-          ? null
-          : this.roundPercent(demandActivity / Math.max(1, supplyActivity));
+      const offerProxyCount = auftragSuchenByCitySlug.get(citySlug);
+      const auftragSuchenRaw = searchRow
+        ? Math.max(0, Math.round(searchRow.requestSearchCount))
+        : (offerProxyCount ?? null);
+      const anbieterSuchenRaw = searchRow
+        ? Math.max(0, Math.round(searchRow.providerSearchCount))
+        : Math.max(0, Math.round(row.anbieterSuchenCount || 0));
+      if (requestCount > 0) {
+        const hasRawSupplySignal = Boolean(searchRow) || typeof offerProxyCount === 'number';
+        const hasRawDemandSignal = Boolean(searchRow);
+        if (!hasRawSupplySignal || !hasRawDemandSignal) {
+          hasCitySignalCoverageGap = true;
+        }
+      }
+      const metrics = this.resolveCitySearchMetrics({
+        requestCount,
+        auftragSuchenCount: auftragSuchenRaw,
+        anbieterSuchenCount: anbieterSuchenRaw,
+      });
 
       return {
         citySlug,
         cityName,
         cityId: resolvedCityId.length > 0 ? resolvedCityId : (coords?.cityId ?? null),
         requestCount,
-        auftragSuchenCount,
-        anbieterSuchenCount,
-        marketBalanceRatio,
-        signal: this.resolveCitySignal({ demandActivity, supplyActivity }),
+        auftragSuchenCount: metrics.auftragSuchenCount,
+        anbieterSuchenCount: metrics.anbieterSuchenCount,
+        marketBalanceRatio: metrics.marketBalanceRatio,
+        signal: metrics.signal,
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
       };
+    });
+
+    cities = this.mergeCityRankingWithPublicOverview({
+      statsCities: cities,
+      publicCities: publicOverview.cityActivity.items,
     });
 
     const ratingAgg = reviewSummary[0] ?? { total: 0, average: 0 };
@@ -1069,33 +1405,23 @@ export class WorkspaceStatisticsService {
       ? activityMetrics.gmvAmount / activityMetrics.completedJobs
       : null;
 
-    let priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto =
-      typeof avgRevenue === 'number' && Number.isFinite(avgRevenue) && avgRevenue > 0
-        ? {
-            citySlug: topOpportunity?.citySlug ?? null,
-            city: topOpportunity?.city ?? null,
-            categoryKey: opportunityRadar[0]?.categoryKey ?? null,
-            category: opportunityRadar[0]?.category ?? null,
-            recommendedMin: this.roundToNearestStep(avgRevenue * 0.85, 5),
-            recommendedMax: this.roundToNearestStep(avgRevenue * 1.15, 5),
-            marketAverage: this.roundToNearestStep(avgRevenue, 5),
-          }
-        : {
-            citySlug: topOpportunity?.citySlug ?? null,
-            city: topOpportunity?.city ?? null,
-            categoryKey: opportunityRadar[0]?.categoryKey ?? null,
-            category: opportunityRadar[0]?.category ?? null,
-            recommendedMin: null,
-            recommendedMax: null,
-            marketAverage: null,
-          };
+    let priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto = this.buildPriceIntelligence({
+      avgRevenue,
+      topOpportunity,
+      topCategoryKey: opportunityRadar[0]?.categoryKey ?? null,
+      topCategoryLabel: opportunityRadar[0]?.category ?? null,
+    });
 
     if (range === '24h') {
       const shouldBackfillCategories = categories.length === 0;
-      const shouldBackfillCitySignals = !this.hasCitySearchSignals(cities);
+      const shouldBackfillCitySignals =
+        hasCitySignalCoverageGap ||
+        !this.hasCitySearchSignals(cities) ||
+        this.hasIncompleteCitySearchSignals(cities);
       const shouldBackfillOpportunity =
         opportunityRadar.length === 0 || !this.hasOpportunityCategoryData(opportunityRadar);
-      const shouldBackfillPrice = !this.hasPriceSignal(priceIntelligence);
+      const shouldBackfillPrice =
+        !this.hasPriceSignal(priceIntelligence) || !this.hasProfitPotentialSignal(priceIntelligence);
 
       if (
         shouldBackfillCategories ||
@@ -1122,9 +1448,26 @@ export class WorkspaceStatisticsService {
         if (shouldBackfillOpportunity && baseline.opportunityRadar.length > 0) {
           opportunityRadar = baseline.opportunityRadar.slice();
         }
-        if (shouldBackfillPrice && this.hasPriceSignal(baseline.priceIntelligence)) {
+        if (
+          shouldBackfillPrice &&
+          (this.hasPriceSignal(baseline.priceIntelligence) ||
+            this.hasProfitPotentialSignal(baseline.priceIntelligence))
+        ) {
           priceIntelligence = { ...baseline.priceIntelligence };
         }
+      }
+    } else if (range !== '30d' && (hasCitySignalCoverageGap || this.hasIncompleteCitySearchSignals(cities))) {
+      const baseline = await this.getStatisticsOverview(
+        '30d',
+        hasActorScope ? normalizedUserId : undefined,
+        role,
+      );
+      if (baseline.demand.cities.length > 0) {
+        cities = this.mergeCitySearchSignals(cities, baseline.demand.cities);
+        summary = {
+          ...summary,
+          totalActiveCities: Math.max(summary.totalActiveCities, cities.length),
+        };
       }
     }
 
