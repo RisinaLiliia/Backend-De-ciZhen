@@ -285,6 +285,74 @@ export class WorkspaceStatisticsService {
     });
   }
 
+  private hasCitySearchSignals(cities: WorkspaceStatisticsCityDemandDto[]): boolean {
+    return cities.some(
+      (city) =>
+        (Number.isFinite(city.auftragSuchenCount) && city.auftragSuchenCount > 0) ||
+        (Number.isFinite(city.anbieterSuchenCount) && city.anbieterSuchenCount > 0),
+    );
+  }
+
+  private hasPriceSignal(priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto): boolean {
+    return (
+      Number.isFinite(priceIntelligence.marketAverage) ||
+      Number.isFinite(priceIntelligence.recommendedMin) ||
+      Number.isFinite(priceIntelligence.recommendedMax)
+    );
+  }
+
+  private hasOpportunityCategoryData(opportunityRadar: WorkspaceStatisticsOpportunityRadarItemDto[]): boolean {
+    return opportunityRadar.some((item) => Boolean(item.categoryKey || item.category));
+  }
+
+  private cityIdentity(city: Pick<WorkspaceStatisticsCityDemandDto, 'cityId' | 'citySlug' | 'cityName'>): string {
+    const cityId = String(city.cityId ?? '').trim();
+    if (cityId) return `id:${cityId}`;
+    const slug = String(city.citySlug ?? '').trim().toLowerCase();
+    if (slug) return `slug:${slug}`;
+    return `name:${String(city.cityName ?? '').trim().toLowerCase()}`;
+  }
+
+  private mergeCitySearchSignals(
+    cities: WorkspaceStatisticsCityDemandDto[],
+    baselineCities: WorkspaceStatisticsCityDemandDto[],
+  ): WorkspaceStatisticsCityDemandDto[] {
+    if (cities.length === 0) return baselineCities.slice();
+    if (baselineCities.length === 0) return cities;
+
+    const baselineByIdentity = new Map<string, WorkspaceStatisticsCityDemandDto>();
+    for (const city of baselineCities) {
+      baselineByIdentity.set(this.cityIdentity(city), city);
+    }
+
+    return cities.map((city) => {
+      const baseline = baselineByIdentity.get(this.cityIdentity(city));
+      if (!baseline) return city;
+      const auftragSuchenCount =
+        Number.isFinite(city.auftragSuchenCount) && city.auftragSuchenCount > 0
+          ? city.auftragSuchenCount
+          : baseline.auftragSuchenCount;
+      const anbieterSuchenCount =
+        Number.isFinite(city.anbieterSuchenCount) && city.anbieterSuchenCount > 0
+          ? city.anbieterSuchenCount
+          : baseline.anbieterSuchenCount;
+      const demandActivity = Math.max(0, anbieterSuchenCount) || Math.max(0, city.requestCount);
+      const supplyActivity = Math.max(0, auftragSuchenCount);
+      const marketBalanceRatio =
+        demandActivity <= 0 && supplyActivity <= 0
+          ? null
+          : this.roundPercent(demandActivity / Math.max(1, supplyActivity));
+
+      return {
+        ...city,
+        auftragSuchenCount,
+        anbieterSuchenCount,
+        marketBalanceRatio,
+        signal: this.resolveCitySignal({ demandActivity, supplyActivity }),
+      };
+    });
+  }
+
   private buildInsightsSnapshot(params: {
     range: WorkspaceStatisticsRange;
     updatedAt: string;
@@ -777,7 +845,7 @@ export class WorkspaceStatisticsService {
       .sort((a, b) => b.count - a.count);
     const categoryTotal = normalizedCategoryRows.reduce((sum, row) => sum + row.count, 0);
 
-    const categories = normalizedCategoryRows.map((row) => {
+    let categories = normalizedCategoryRows.map((row) => {
       const categoryName =
         String(row._id?.categoryName ?? '').trim() ||
         String(row._id?.subcategoryName ?? '').trim() ||
@@ -817,7 +885,7 @@ export class WorkspaceStatisticsService {
         .map((row) => [String(row.cityId), row] as const),
     );
 
-    const cities: WorkspaceStatisticsCityDemandDto[] = cityRows.map((row) => {
+    let cities: WorkspaceStatisticsCityDemandDto[] = cityRows.map((row) => {
       const cityName = String(row._id?.cityName ?? '').trim();
       const citySlug = this.slugifyCityName(cityName);
       const coords = coordsBySlug.get(citySlug);
@@ -860,7 +928,7 @@ export class WorkspaceStatisticsService {
       mode = 'personalized';
     }
 
-    const summary = {
+    let summary = {
       totalPublishedRequests: publicOverview.summary.totalPublishedRequests,
       totalActiveProviders: publicOverview.summary.totalActiveProviders,
       totalActiveCities: cities.length,
@@ -972,7 +1040,7 @@ export class WorkspaceStatisticsService {
       )
       .slice(0, 3);
 
-    const opportunityRadar: WorkspaceStatisticsOpportunityRadarItemDto[] = rankedOpportunities
+    let opportunityRadar: WorkspaceStatisticsOpportunityRadarItemDto[] = rankedOpportunities
       .map((item, index) => {
         const category = categoryLeaders[index] ?? null;
         return {
@@ -1001,7 +1069,7 @@ export class WorkspaceStatisticsService {
       ? activityMetrics.gmvAmount / activityMetrics.completedJobs
       : null;
 
-    const priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto =
+    let priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto =
       typeof avgRevenue === 'number' && Number.isFinite(avgRevenue) && avgRevenue > 0
         ? {
             citySlug: topOpportunity?.citySlug ?? null,
@@ -1022,6 +1090,44 @@ export class WorkspaceStatisticsService {
             marketAverage: null,
           };
 
+    if (range === '24h') {
+      const shouldBackfillCategories = categories.length === 0;
+      const shouldBackfillCitySignals = !this.hasCitySearchSignals(cities);
+      const shouldBackfillOpportunity =
+        opportunityRadar.length === 0 || !this.hasOpportunityCategoryData(opportunityRadar);
+      const shouldBackfillPrice = !this.hasPriceSignal(priceIntelligence);
+
+      if (
+        shouldBackfillCategories ||
+        shouldBackfillCitySignals ||
+        shouldBackfillOpportunity ||
+        shouldBackfillPrice
+      ) {
+        const baseline = await this.getStatisticsOverview(
+          '30d',
+          hasActorScope ? normalizedUserId : undefined,
+          role,
+        );
+
+        if (shouldBackfillCategories && baseline.demand.categories.length > 0) {
+          categories = baseline.demand.categories.slice();
+        }
+        if (shouldBackfillCitySignals && baseline.demand.cities.length > 0) {
+          cities = this.mergeCitySearchSignals(cities, baseline.demand.cities);
+          summary = {
+            ...summary,
+            totalActiveCities: Math.max(summary.totalActiveCities, cities.length),
+          };
+        }
+        if (shouldBackfillOpportunity && baseline.opportunityRadar.length > 0) {
+          opportunityRadar = baseline.opportunityRadar.slice();
+        }
+        if (shouldBackfillPrice && this.hasPriceSignal(baseline.priceIntelligence)) {
+          priceIntelligence = { ...baseline.priceIntelligence };
+        }
+      }
+    }
+
     const funnelOffersAgg = funnelOffersRows[0] ?? { offersTotal: 0, confirmedResponsesTotal: 0 };
     const funnelContractsAgg = funnelContractsRows[0] ?? {
       closedContractsTotal: 0,
@@ -1029,7 +1135,13 @@ export class WorkspaceStatisticsService {
       profitAmount: 0,
     };
 
-    const requestsFunnelTotal = Math.max(0, Math.round(Number(funnelRequestsTotal ?? 0)));
+    const rawRequestsFunnelTotal = Math.max(0, Math.round(Number(funnelRequestsTotal ?? 0)));
+    const fallbackPlatformRequestsTotal =
+      mode === 'platform' && range === '24h'
+        ? Math.max(0, Math.round(Number(summary.totalPublishedRequests ?? 0)))
+        : 0;
+    const requestsFunnelTotal =
+      rawRequestsFunnelTotal > 0 ? rawRequestsFunnelTotal : fallbackPlatformRequestsTotal;
     const offersFunnelTotal = Math.max(0, Math.round(Number(funnelOffersAgg.offersTotal ?? 0)));
     const confirmedResponsesTotal = Math.max(0, Math.round(Number(funnelOffersAgg.confirmedResponsesTotal ?? 0)));
     const closedContractsTotal = Math.max(0, Math.round(Number(funnelContractsAgg.closedContractsTotal ?? 0)));

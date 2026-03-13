@@ -447,4 +447,222 @@ describe('WorkspaceStatisticsService (unit)', () => {
     expect(result.demand.categories[0].sharePercent).toBe(11);
     expect(result.demand.categories[8].sharePercent).toBe(11);
   });
+
+  it('keeps 24h funnel visible with active platform requests even when window flow is zero', async () => {
+    workspaceMock.getPublicOverview.mockResolvedValue({
+      summary: {
+        totalPublishedRequests: 149,
+        totalActiveProviders: 44,
+      },
+      cityActivity: {
+        items: [
+          { citySlug: 'berlin', cityName: 'Berlin', cityId: 'c-1', requestCount: 12, lat: 52.52, lng: 13.405 },
+        ],
+      },
+    });
+
+    analyticsMock.getPlatformActivity.mockResolvedValue({
+      range: '24h',
+      interval: 'hour',
+      source: 'real',
+      updatedAt: '2026-03-10T10:00:00.000Z',
+      data: [{ timestamp: '2026-03-10T09:00:00.000Z', requests: 2, offers: 0 }],
+    });
+
+    analyticsMock.getCitySearchCounts.mockResolvedValue([
+      {
+        cityId: 'c-1',
+        cityName: 'Berlin',
+        citySlug: 'berlin',
+        requestSearchCount: 3,
+        providerSearchCount: 9,
+      },
+    ]);
+
+    requestModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { categoryKey: 'cleaning', categoryName: 'Cleaning' }, count: 2 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, requestCount: 2, anbieterSuchenCount: 1 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+    requestModelMock.countDocuments.mockResolvedValue(0);
+
+    offerModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, auftragSuchenCount: 3 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+    contractModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 1, cancelledJobs: 0, gmvAmount: 300 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+    reviewModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+
+    const result = await service.getStatisticsOverview('24h');
+
+    expect(result.profileFunnel.stage1).toBe(149);
+    expect(result.profileFunnel.requestsTotal).toBe(149);
+    expect(result.profileFunnel.stages[0]).toMatchObject({
+      id: 'requests',
+      value: 149,
+      displayValue: '149',
+      widthPercent: 100,
+    });
+    expect(result.profileFunnel.summaryText).toContain('149');
+    expect(workspaceMock.getPublicOverview).toHaveBeenCalledTimes(1);
+    expect(analyticsMock.getPlatformActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it('backfills sparse 24h market sections from 30d baseline', async () => {
+    workspaceMock.getPublicOverview.mockResolvedValue({
+      summary: {
+        totalPublishedRequests: 120,
+        totalActiveProviders: 25,
+      },
+      cityActivity: {
+        items: [
+          { citySlug: 'berlin', cityName: 'Berlin', cityId: 'c-1', requestCount: 9, lat: 52.52, lng: 13.405 },
+        ],
+      },
+    });
+
+    analyticsMock.getPlatformActivity.mockImplementation(async (range: '24h' | '7d' | '30d' | '90d') => ({
+      range,
+      interval: range === '24h' ? 'hour' : 'day',
+      source: 'real',
+      updatedAt: '2026-03-10T10:00:00.000Z',
+      data:
+        range === '24h'
+          ? [{ timestamp: '2026-03-10T09:00:00.000Z', requests: 2, offers: 0 }]
+          : [{ timestamp: '2026-03-10T00:00:00.000Z', requests: 12, offers: 8 }],
+    }));
+
+    analyticsMock.getCitySearchCounts.mockImplementation(async (range: '24h' | '7d' | '30d' | '90d') => {
+      if (range === '24h') return [];
+      return [
+        {
+          cityId: 'c-1',
+          cityName: 'Berlin',
+          citySlug: 'berlin',
+          requestSearchCount: 6,
+          providerSearchCount: 10,
+        },
+      ];
+    });
+
+    requestModelMock.aggregate
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, requestCount: 2, anbieterSuchenCount: 0 },
+        ]),
+      })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { categoryKey: 'cleaning', categoryName: 'Cleaning' }, count: 12 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, requestCount: 12, anbieterSuchenCount: 3 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          {
+            createdAt: new Date('2026-03-09T08:00:00.000Z'),
+            firstOfferAt: new Date('2026-03-09T08:30:00.000Z'),
+            responseMinutes: 30,
+          },
+        ]),
+      });
+
+    requestModelMock.countDocuments
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(20);
+
+    offerModelMock.aggregate
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 1, confirmedResponsesTotal: 0 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, auftragSuchenCount: 6 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 8, confirmedResponsesTotal: 4 }]),
+      });
+
+    contractModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 0, cancelledJobs: 0, gmvAmount: 0 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, closedContractsTotal: 0, completedJobsTotal: 0, profitAmount: 0 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 4, cancelledJobs: 1, gmvAmount: 900 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, closedContractsTotal: 5, completedJobsTotal: 4, profitAmount: 900 }]),
+      });
+
+    reviewModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([{ total: 22, average: 4.6 }]),
+    });
+
+    const result = await service.getStatisticsOverview('24h');
+
+    expect(result.range).toBe('24h');
+    expect(result.demand.categories[0]).toMatchObject({
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      requestCount: 12,
+    });
+    expect(result.demand.cities[0]).toMatchObject({
+      cityName: 'Berlin',
+      requestCount: 2,
+      auftragSuchenCount: 6,
+      anbieterSuchenCount: 10,
+      marketBalanceRatio: 1.67,
+      signal: 'high',
+    });
+    expect(result.opportunityRadar[0]).toMatchObject({
+      city: 'Berlin',
+      categoryKey: 'cleaning',
+      category: 'Cleaning',
+    });
+    expect(result.priceIntelligence).toMatchObject({
+      city: 'Berlin',
+      categoryKey: 'cleaning',
+      recommendedMin: 190,
+      recommendedMax: 260,
+      marketAverage: 225,
+    });
+    expect(workspaceMock.getPublicOverview).toHaveBeenCalledTimes(2);
+    expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(1, '24h');
+    expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(2, '30d');
+  });
 });
