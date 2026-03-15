@@ -57,9 +57,28 @@ Domain modules are organized by business responsibility:
   Supports `activityRange=24h|7d|30d|90d` and `cityActivityLimit=1..5000` for full cities ranking payloads.
   - `cityActivity.items[]` is now range-aware (same selected `activityRange`) instead of all-time city totals.
 - `GET /workspace/statistics` (optional Bearer auth)
-  Unified Statistik contract for both guests and authenticated users.
+  Unified backend-driven Decision Dashboard contract for both guests and authenticated users.
+  Supports one global decision context:
+  - `range=24h|7d|30d|90d`
+  - `cityId=<city-id>` optional focus
+  - `categoryKey=<category-key>` optional focus
+  - `regionId=<region-id>` optional contract field; currently informational until region-level aggregation is available
   - guest -> `mode=platform` with platform-level KPI/demand/funnel
   - authenticated -> `mode=personalized` with private KPI/funnel fields
+  - all analytics blocks are now returned from one server-side source of truth for the selected context
+  - new top-level contract sections:
+    - `decisionContext`
+      - selected `period`, `city`, `region`, `category`, `service`
+      - `mode=global|focus`
+      - `title`, `subtitle`, `stickyLabel`, `scopeLabel`
+      - `health[]` for demand / competition / activity
+      - `lowData` state for honest empty-state UX
+    - `filterOptions`
+      - backend-owned city/category/service options for the control bar
+    - `sectionMeta`
+      - context-aware titles/subtitles for dependent sections
+    - `exportMeta`
+      - backend-generated export filename metadata
   - `activity.metrics` provides backend-calculated decision metrics for selected range:
     - `offerRatePercent`
     - `responseMedianMinutes`
@@ -94,7 +113,8 @@ Domain modules are organized by business responsibility:
   - `priceIntelligence` is backend-calculated from selected range activity:
     - context: `citySlug`, `city`, `categoryKey`, `category`
     - recommendations: `recommendedMin`, `recommendedMax`, `marketAverage`
-    - strategy fields: `optimalMin`, `optimalMax`, `recommendation`
+    - strategy fields: `optimalMin`, `optimalMax`, `smartRecommendedPrice`, `smartSignalTone`, `recommendation`
+    - reliability fields: `analyzedRequestsCount`, `confidenceLevel`
     - monetization signal: `profitPotentialScore`, `profitPotentialStatus`
   - `profileFunnel` is backend-calculated and range-aware (`24h|7d|30d|90d`) with business funnel stages:
     - `requestsTotal`

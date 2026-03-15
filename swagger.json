@@ -7301,6 +7301,36 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "cityId",
+            "required": false,
+            "in": "query",
+            "description": "Optional city focus for the decision dashboard context.",
+            "schema": {
+              "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "regionId",
+            "required": false,
+            "in": "query",
+            "description": "Optional region focus. Accepted for contract completeness; currently informational until region data is available.",
+            "schema": {
+              "example": "de-berlin",
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryKey",
+            "required": false,
+            "in": "query",
+            "description": "Optional category focus for the decision dashboard context.",
+            "schema": {
+              "example": "cleaning",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -10639,6 +10669,266 @@
           "requests"
         ]
       },
+      "WorkspaceStatisticsSelectedFilterDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "example": "berlin",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "example": "Berlin"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ]
+      },
+      "WorkspaceStatisticsContextHealthDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "demand",
+              "competition",
+              "activity"
+            ],
+            "example": "demand"
+          },
+          "value": {
+            "type": "string",
+            "enum": [
+              "rising",
+              "stable",
+              "limited",
+              "high",
+              "balanced",
+              "low"
+            ],
+            "example": "stable"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "neutral"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "tone"
+        ]
+      },
+      "WorkspaceStatisticsLowDataDto": {
+        "type": "object",
+        "properties": {
+          "isLowData": {
+            "type": "boolean",
+            "example": false
+          },
+          "title": {
+            "type": "object",
+            "example": "Zu wenig Daten für eine verlässliche Segmentanalyse",
+            "nullable": true
+          },
+          "body": {
+            "type": "object",
+            "example": "Erweitern Sie den Zeitraum oder wechseln Sie zu Alle Städte bzw. Alle Kategorien.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "isLowData"
+        ]
+      },
+      "WorkspaceStatisticsDecisionContextDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "global",
+              "focus"
+            ],
+            "example": "focus"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d",
+              "90d"
+            ],
+            "example": "30d"
+          },
+          "city": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsSelectedFilterDto"
+          },
+          "region": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsSelectedFilterDto"
+              }
+            ]
+          },
+          "category": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsSelectedFilterDto"
+          },
+          "service": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsSelectedFilterDto"
+              }
+            ]
+          },
+          "scopeLabel": {
+            "type": "object",
+            "example": "Berlin · Cleaning",
+            "nullable": true
+          },
+          "title": {
+            "type": "object",
+            "example": "Globaler Markt",
+            "nullable": true
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Ein gemeinsamer Marktfilter steuert KPI, Chancen, Preise und Empfehlungen.",
+            "nullable": true
+          },
+          "stickyLabel": {
+            "type": "object",
+            "example": "30 Tage · Berlin · Cleaning",
+            "nullable": true
+          },
+          "health": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsContextHealthDto"
+            }
+          },
+          "lowData": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsLowDataDto"
+          }
+        },
+        "required": [
+          "mode",
+          "period",
+          "city",
+          "category",
+          "health"
+        ]
+      },
+      "WorkspaceStatisticsFilterOptionDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "example": "berlin"
+          },
+          "label": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "disabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ]
+      },
+      "WorkspaceStatisticsFilterOptionsDto": {
+        "type": "object",
+        "properties": {
+          "cities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsFilterOptionDto"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsFilterOptionDto"
+            }
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsFilterOptionDto"
+            }
+          }
+        },
+        "required": [
+          "cities",
+          "categories",
+          "services"
+        ]
+      },
+      "WorkspaceStatisticsSectionMetaDto": {
+        "type": "object",
+        "properties": {
+          "decisionSubtitle": {
+            "type": "object",
+            "example": "Operative Kennzahlen für Markt- und Wachstumsentscheidungen.",
+            "nullable": true
+          },
+          "demandSubtitle": {
+            "type": "object",
+            "example": "Wo aktuell die meiste Nachfrage entsteht.",
+            "nullable": true
+          },
+          "citiesSubtitle": {
+            "type": "object",
+            "example": "Regionen mit aktuellem Nachfrage- und Wettbewerbssignal.",
+            "nullable": true
+          },
+          "opportunityTitle": {
+            "type": "object",
+            "example": "Opportunity Radar für Berlin",
+            "nullable": true
+          },
+          "priceTitle": {
+            "type": "object",
+            "example": "Preis-Intelligenz für Cleaning in Berlin",
+            "nullable": true
+          },
+          "insightsSubtitle": {
+            "type": "object",
+            "example": "Empfehlungen basierend auf dem aktuellen Kontext · Berlin · Cleaning",
+            "nullable": true
+          },
+          "growthSubtitle": {
+            "type": "object",
+            "example": "Wachstum & Promotion · Berlin · Cleaning",
+            "nullable": true
+          }
+        }
+      },
+      "WorkspaceStatisticsExportMetaDto": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "object",
+            "example": "workspace-statistics-30d-berlin-cleaning-2026-03-15.csv",
+            "nullable": true
+          }
+        }
+      },
       "WorkspaceStatisticsSummaryDto": {
         "type": "object",
         "properties": {
@@ -11285,6 +11575,36 @@
             "example": 101,
             "nullable": true
           },
+          "smartRecommendedPrice": {
+            "type": "object",
+            "example": 95,
+            "nullable": true
+          },
+          "smartSignalTone": {
+            "type": "string",
+            "enum": [
+              "visibility",
+              "balanced",
+              "premium"
+            ],
+            "nullable": true,
+            "example": "balanced"
+          },
+          "analyzedRequestsCount": {
+            "type": "object",
+            "example": 126,
+            "nullable": true
+          },
+          "confidenceLevel": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "nullable": true,
+            "example": "high"
+          },
           "recommendation": {
             "type": "object",
             "example": "Preise im Bereich von 86 € – 101 € erzielen aktuell die höchste Abschlussrate in Berlin.",
@@ -11316,6 +11636,10 @@
           "marketAverage",
           "optimalMin",
           "optimalMax",
+          "smartRecommendedPrice",
+          "smartSignalTone",
+          "analyzedRequestsCount",
+          "confidenceLevel",
           "recommendation",
           "profitPotentialScore",
           "profitPotentialStatus"
@@ -11691,6 +12015,18 @@
       "WorkspaceStatisticsOverviewResponseDto": {
         "type": "object",
         "properties": {
+          "decisionContext": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsDecisionContextDto"
+          },
+          "filterOptions": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsFilterOptionsDto"
+          },
+          "sectionMeta": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsSectionMetaDto"
+          },
+          "exportMeta": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsExportMetaDto"
+          },
           "updatedAt": {
             "type": "string",
             "example": "2026-03-10T12:00:00.000Z"
@@ -11755,6 +12091,10 @@
           }
         },
         "required": [
+          "decisionContext",
+          "filterOptions",
+          "sectionMeta",
+          "exportMeta",
           "updatedAt",
           "mode",
           "range",
