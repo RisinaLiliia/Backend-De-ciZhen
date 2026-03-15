@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import type { WorkspaceStatisticsRange } from './workspace-statistics-query.dto';
 
@@ -161,6 +161,130 @@ export class WorkspaceStatisticsCategoryDemandDto {
   sharePercent: number;
 }
 
+export class WorkspaceStatisticsFilterOptionDto {
+  @ApiProperty({ example: 'berlin' })
+  value: string;
+
+  @ApiProperty({ example: 'Berlin' })
+  label: string;
+
+  @ApiPropertyOptional({ example: false })
+  disabled?: boolean;
+}
+
+export class WorkspaceStatisticsSelectedFilterDto {
+  @ApiProperty({ example: 'berlin', nullable: true })
+  value: string | null;
+
+  @ApiProperty({ example: 'Berlin' })
+  label: string;
+}
+
+export class WorkspaceStatisticsContextHealthDto {
+  @ApiProperty({ enum: ['demand', 'competition', 'activity'], example: 'demand' })
+  key: 'demand' | 'competition' | 'activity';
+
+  @ApiProperty({ enum: ['rising', 'stable', 'limited', 'high', 'balanced', 'low'], example: 'stable' })
+  value: 'rising' | 'stable' | 'limited' | 'high' | 'balanced' | 'low';
+
+  @ApiProperty({ enum: ['positive', 'neutral', 'warning'], example: 'neutral' })
+  tone: 'positive' | 'neutral' | 'warning';
+}
+
+export class WorkspaceStatisticsLowDataDto {
+  @ApiProperty({ example: false })
+  isLowData: boolean;
+
+  @ApiPropertyOptional({ example: 'Zu wenig Daten für eine verlässliche Segmentanalyse', nullable: true })
+  title?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Erweitern Sie den Zeitraum oder wechseln Sie zu Alle Städte bzw. Alle Kategorien.',
+    nullable: true,
+  })
+  body?: string | null;
+}
+
+export class WorkspaceStatisticsDecisionContextDto {
+  @ApiProperty({ enum: ['global', 'focus'], example: 'focus' })
+  mode: 'global' | 'focus';
+
+  @ApiProperty({ enum: ['24h', '7d', '30d', '90d'], example: '30d' })
+  period: WorkspaceStatisticsRange;
+
+  @ApiProperty({ type: WorkspaceStatisticsSelectedFilterDto })
+  city: WorkspaceStatisticsSelectedFilterDto;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsSelectedFilterDto, nullable: true })
+  region?: WorkspaceStatisticsSelectedFilterDto | null;
+
+  @ApiProperty({ type: WorkspaceStatisticsSelectedFilterDto })
+  category: WorkspaceStatisticsSelectedFilterDto;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsSelectedFilterDto, nullable: true })
+  service?: WorkspaceStatisticsSelectedFilterDto | null;
+
+  @ApiPropertyOptional({ example: 'Berlin · Cleaning', nullable: true })
+  scopeLabel?: string | null;
+
+  @ApiPropertyOptional({ example: 'Globaler Markt', nullable: true })
+  title?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Ein gemeinsamer Marktfilter steuert KPI, Chancen, Preise und Empfehlungen.',
+    nullable: true,
+  })
+  subtitle?: string | null;
+
+  @ApiPropertyOptional({ example: '30 Tage · Berlin · Cleaning', nullable: true })
+  stickyLabel?: string | null;
+
+  @ApiProperty({ type: WorkspaceStatisticsContextHealthDto, isArray: true })
+  health: WorkspaceStatisticsContextHealthDto[];
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsLowDataDto })
+  lowData?: WorkspaceStatisticsLowDataDto;
+}
+
+export class WorkspaceStatisticsFilterOptionsDto {
+  @ApiProperty({ type: WorkspaceStatisticsFilterOptionDto, isArray: true })
+  cities: WorkspaceStatisticsFilterOptionDto[];
+
+  @ApiProperty({ type: WorkspaceStatisticsFilterOptionDto, isArray: true })
+  categories: WorkspaceStatisticsFilterOptionDto[];
+
+  @ApiProperty({ type: WorkspaceStatisticsFilterOptionDto, isArray: true })
+  services: WorkspaceStatisticsFilterOptionDto[];
+}
+
+export class WorkspaceStatisticsSectionMetaDto {
+  @ApiPropertyOptional({ example: 'Operative Kennzahlen für Markt- und Wachstumsentscheidungen.', nullable: true })
+  decisionSubtitle?: string | null;
+
+  @ApiPropertyOptional({ example: 'Wo aktuell die meiste Nachfrage entsteht.', nullable: true })
+  demandSubtitle?: string | null;
+
+  @ApiPropertyOptional({ example: 'Regionen mit aktuellem Nachfrage- und Wettbewerbssignal.', nullable: true })
+  citiesSubtitle?: string | null;
+
+  @ApiPropertyOptional({ example: 'Opportunity Radar für Berlin', nullable: true })
+  opportunityTitle?: string | null;
+
+  @ApiPropertyOptional({ example: 'Preis-Intelligenz für Cleaning in Berlin', nullable: true })
+  priceTitle?: string | null;
+
+  @ApiPropertyOptional({ example: 'Empfehlungen basierend auf dem aktuellen Kontext · Berlin · Cleaning', nullable: true })
+  insightsSubtitle?: string | null;
+
+  @ApiPropertyOptional({ example: 'Wachstum & Promotion · Berlin · Cleaning', nullable: true })
+  growthSubtitle?: string | null;
+}
+
+export class WorkspaceStatisticsExportMetaDto {
+  @ApiPropertyOptional({ example: 'workspace-statistics-30d-berlin-cleaning-2026-03-15.csv', nullable: true })
+  filename?: string | null;
+}
+
 export class WorkspaceStatisticsCityDemandDto {
   @ApiProperty({ example: 'berlin' })
   citySlug: string;
@@ -313,6 +437,18 @@ export class WorkspaceStatisticsPriceIntelligenceDto {
 
   @ApiProperty({ example: 101, nullable: true })
   optimalMax: number | null;
+
+  @ApiProperty({ example: 95, nullable: true })
+  smartRecommendedPrice: number | null;
+
+  @ApiProperty({ enum: ['visibility', 'balanced', 'premium'], nullable: true, example: 'balanced' })
+  smartSignalTone: 'visibility' | 'balanced' | 'premium' | null;
+
+  @ApiProperty({ example: 126, nullable: true })
+  analyzedRequestsCount: number | null;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low'], nullable: true, example: 'high' })
+  confidenceLevel: 'high' | 'medium' | 'low' | null;
 
   @ApiProperty({
     example: 'Preise im Bereich von 86 € – 101 € erzielen aktuell die höchste Abschlussrate in Berlin.',
@@ -499,6 +635,18 @@ export class WorkspaceStatisticsGrowthCardDto {
 }
 
 export class WorkspaceStatisticsOverviewResponseDto {
+  @ApiProperty({ type: WorkspaceStatisticsDecisionContextDto })
+  decisionContext: WorkspaceStatisticsDecisionContextDto;
+
+  @ApiProperty({ type: WorkspaceStatisticsFilterOptionsDto })
+  filterOptions: WorkspaceStatisticsFilterOptionsDto;
+
+  @ApiProperty({ type: WorkspaceStatisticsSectionMetaDto })
+  sectionMeta: WorkspaceStatisticsSectionMetaDto;
+
+  @ApiProperty({ type: WorkspaceStatisticsExportMetaDto })
+  exportMeta: WorkspaceStatisticsExportMetaDto;
+
   @ApiProperty({ example: '2026-03-10T12:00:00.000Z' })
   updatedAt: string;
 

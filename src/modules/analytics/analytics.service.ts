@@ -34,6 +34,11 @@ export type PlatformActivityResponse = {
   updatedAt: string;
 };
 
+export type PlatformScopeFilters = {
+  cityId?: string | null;
+  categoryKey?: string | null;
+};
+
 export type PlatformLiveFeedItem = {
   id: string;
   text: string;
@@ -96,6 +101,11 @@ export class AnalyticsService {
       return { points: 30, stepMs: 24 * 60 * 60 * 1000, interval: 'day' as const };
     }
     return { points: 7, stepMs: 24 * 60 * 60 * 1000, interval: 'day' as const };
+  }
+
+  private normalizeScopeFilter(value: string | null | undefined): string | null {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized.length > 0 ? normalized : null;
   }
 
   private normalizeText(value: unknown, options?: { lowercase?: boolean; max?: number }): string | null {
@@ -274,12 +284,24 @@ export class AnalyticsService {
     };
   }
 
-  async getCitySearchCounts(range: PlatformActivityRange): Promise<CitySearchCountsRow[]> {
+  async getCitySearchCounts(
+    range: PlatformActivityRange,
+    filters?: PlatformScopeFilters,
+  ): Promise<CitySearchCountsRow[]> {
     const now = Date.now();
     const cfg = this.getRangeConfig(range);
     const startMs = now - (cfg.points - 1) * cfg.stepMs;
     const start = new Date(startMs);
     const end = new Date(now);
+    const cityId = this.normalizeScopeFilter(filters?.cityId);
+    const categoryKey = this.normalizeScopeFilter(filters?.categoryKey);
+
+    const match: Record<string, unknown> = {
+      bucketStart: { $gte: start, $lte: end },
+      $or: [{ cityId: { $nin: [null, ''] } }, { citySlug: { $nin: [null, ''] } }],
+    };
+    if (cityId) match.cityId = cityId;
+    if (categoryKey) match.categoryKey = categoryKey;
 
     const rows = await this.searchAggregateModel
       .aggregate<{
@@ -289,8 +311,7 @@ export class AnalyticsService {
       }>([
         {
           $match: {
-            bucketStart: { $gte: start, $lte: end },
-            $or: [{ cityId: { $nin: [null, ''] } }, { citySlug: { $nin: [null, ''] } }],
+            ...match,
           },
         },
         {
@@ -338,16 +359,61 @@ export class AnalyticsService {
       .filter((row) => row.citySlug.length > 0);
   }
 
-  async getPlatformActivity(range: PlatformActivityRange): Promise<PlatformActivityResponse> {
+  async getPlatformActivity(
+    range: PlatformActivityRange,
+    filters?: PlatformScopeFilters,
+  ): Promise<PlatformActivityResponse> {
     const now = Date.now();
     const cfg = this.getRangeConfig(range);
     const startMs = now - (cfg.points - 1) * cfg.stepMs;
     const end = new Date(now);
     const start = new Date(startMs);
+    const cityId = this.normalizeScopeFilter(filters?.cityId);
+    const categoryKey = this.normalizeScopeFilter(filters?.categoryKey);
+    const requestMatch: Record<string, unknown> = {
+      status: 'published',
+      createdAt: { $gte: start, $lte: end },
+    };
+    if (cityId) requestMatch.cityId = cityId;
+    if (categoryKey) requestMatch.categoryKey = categoryKey;
+    const requestRefMatch: Record<string, unknown> = {};
+    if (cityId) requestRefMatch['requestRef.cityId'] = cityId;
+    if (categoryKey) requestRefMatch['requestRef.categoryKey'] = categoryKey;
+
+    const requestQuery = this.requestModel.find(requestMatch).select({ createdAt: 1 }).lean().exec();
+    const offerPipeline: any[] = [
+      { $match: { createdAt: { $gte: start, $lte: end } } },
+      {
+        $lookup: {
+          from: 'requests',
+          let: { requestId: '$requestId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                cityId: '$cityId',
+                categoryKey: '$categoryKey',
+              },
+            },
+          ],
+          as: 'requestRef',
+        },
+      },
+      { $unwind: '$requestRef' },
+    ];
+    if (Object.keys(requestRefMatch).length > 0) {
+      offerPipeline.push({ $match: requestRefMatch });
+    }
+    offerPipeline.push({ $project: { _id: 0, createdAt: 1 } });
 
     const [requestsRaw, offersRaw] = await Promise.all([
-      this.requestModel.find({ createdAt: { $gte: start, $lte: end } }).select({ createdAt: 1 }).lean().exec(),
-      this.offerModel.find({ createdAt: { $gte: start, $lte: end } }).select({ createdAt: 1 }).lean().exec(),
+      requestQuery,
+      this.offerModel.aggregate<{ createdAt?: Date | string }>(offerPipeline).exec(),
     ]);
 
     const requestCounts = new Array<number>(cfg.points).fill(0);

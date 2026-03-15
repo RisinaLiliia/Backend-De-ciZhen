@@ -56,7 +56,7 @@ export class WorkspaceController {
     @Query() query: WorkspaceStatisticsQueryDto,
     @CurrentUser() user?: CurrentUserPayload | null,
   ): Promise<WorkspaceStatisticsOverviewResponseDto> {
-    return this.statistics.getStatisticsOverview(query.range, user?.userId, user?.role);
+    return this.statistics.getStatisticsOverview(query, user?.userId, user?.role);
   }
 
   @Post('public/requests-batch')
