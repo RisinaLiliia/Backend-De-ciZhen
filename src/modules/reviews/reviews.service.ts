@@ -15,6 +15,7 @@ export type ReviewSummaryResult = {
 };
 
 export type ReviewListSort = 'created_desc' | 'rating_desc';
+export type PlatformReviewRange = '24h' | '7d' | '30d' | '90d';
 
 export type ReviewOverviewResult = {
   items: ReviewDocument[];
@@ -55,6 +56,30 @@ export class ReviewsService {
     const raw = String(value ?? '').trim();
     if (!raw) return null;
     return raw.slice(0, 120);
+  }
+
+  private resolveRangeStart(range?: PlatformReviewRange): Date | null {
+    if (!range) return null;
+    const now = new Date();
+    const start = new Date(now);
+
+    if (range === '24h') {
+      start.setHours(now.getHours() - 24);
+      return start;
+    }
+
+    if (range === '7d') {
+      start.setDate(now.getDate() - 7);
+      return start;
+    }
+
+    if (range === '90d') {
+      start.setDate(now.getDate() - 90);
+      return start;
+    }
+
+    start.setDate(now.getDate() - 30);
+    return start;
   }
 
   async createForProvider(
@@ -178,6 +203,9 @@ export class ReviewsService {
     limit?: number,
     offset?: number,
     sort: ReviewListSort = 'created_desc',
+    options?: {
+      createdFrom?: Date | null;
+    },
   ): Promise<ReviewOverviewResult> {
     const id = String(targetUserId ?? '').trim();
     if (!id && targetRole !== 'platform') {
@@ -189,6 +217,9 @@ export class ReviewsService {
         ? { targetRole: 'platform' }
         : { targetUserId: id };
     if (targetRole && targetRole !== 'platform') q.targetRole = targetRole;
+    if (options?.createdFrom) {
+      q.createdAt = { $gte: options.createdFrom };
+    }
 
     const safeLimit = Math.min(Math.max(limit ?? 20, 1), 100);
     const safeOffset = Math.max(offset ?? 0, 0);
@@ -278,8 +309,11 @@ export class ReviewsService {
     limit?: number,
     offset?: number,
     sort: ReviewListSort = 'created_desc',
+    range?: PlatformReviewRange,
   ): Promise<ReviewOverviewResult> {
-    return this.getOverviewByTarget('', 'platform', limit, offset, sort);
+    return this.getOverviewByTarget('', 'platform', limit, offset, sort, {
+      createdFrom: this.resolveRangeStart(range),
+    });
   }
 
   async listMyReceived(

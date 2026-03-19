@@ -6,6 +6,7 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
 import { ReviewsService } from './reviews.service';
+import type { PlatformReviewRange } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreatePlatformReviewDto } from './dto/create-platform-review.dto';
 import { ReviewResponseDto } from './dto/review-response.dto';
@@ -52,6 +53,12 @@ class ReviewsQueryDto {
 }
 
 class PlatformReviewsQueryDto {
+  @ApiPropertyOptional({ enum: ['24h', '7d', '30d', '90d'], example: '30d' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['24h', '7d', '30d', '90d'])
+  range?: PlatformReviewRange;
+
   @ApiPropertyOptional({ enum: ['created_desc', 'rating_desc'], example: 'created_desc' })
   @IsOptional()
   @IsString()
@@ -296,7 +303,7 @@ export class ReviewsController {
   @ApiOkResponse({ type: ReviewOverviewDto })
   @ApiPublicErrors()
   async platformOverview(@Query() q: PlatformReviewsQueryDto): Promise<ReviewOverviewDto> {
-    const overview = await this.reviews.getPlatformOverview(q.limit, q.offset, q.sort);
+    const overview = await this.reviews.getPlatformOverview(q.limit, q.offset, q.sort, q.range);
     const authorById = await this.buildAuthorMap(overview.items as any[]);
     const items = this.mapItemsWithAuthors(overview.items as any[], authorById);
 

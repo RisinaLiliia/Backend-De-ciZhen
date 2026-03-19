@@ -6066,6 +6066,21 @@
         "summary": "Get public platform reviews page + summary",
         "parameters": [
           {
+            "name": "range",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "30d",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "sort",
             "required": false,
             "in": "query",

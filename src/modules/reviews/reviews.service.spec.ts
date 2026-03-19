@@ -250,4 +250,19 @@ describe('ReviewsService', () => {
     expect(res.items).toHaveLength(1);
     expect(res.summary.averageRating).toBe(4);
   });
+
+  it('getPlatformOverview applies createdAt filter for selected range', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-19T12:00:00.000Z'));
+    reviewModelMock.aggregate.mockReturnValue(execWrap([]));
+
+    await service.getPlatformOverview(10, 0, 'created_desc', '7d');
+
+    const pipeline = reviewModelMock.aggregate.mock.calls[0][0];
+    expect(pipeline[0]?.$match).toEqual({
+      targetRole: 'platform',
+      createdAt: { $gte: new Date('2026-03-12T12:00:00.000Z') },
+    });
+
+    jest.useRealTimers();
+  });
 });

@@ -281,6 +281,16 @@ npm run start:dev
 - Returned by `GET /providers/me/profile`, `PATCH /providers/me/profile`, and nested in `POST /offers`/`PATCH /offers/:id` responses.
 - Computed on backend from profile data completeness (`displayName`, `cityId`, `serviceKeys`, `basePrice`) and should be treated as the source of truth for offer-readiness UX.
 
+## Platform Reviews Overview Contract
+- `GET /reviews/platform/overview` supports workspace reviews filtering directly on the backend.
+- Query parameters:
+  - `range`: `24h | 7d | 30d | 90d`
+  - `sort`: `created_desc | rating_desc`
+  - `limit`: `1..100`
+  - `offset`: `0..n`
+- Filtering happens before pagination and before summary aggregation, so `items`, `total`, and `summary.distribution` always describe the same selected period.
+- This is the contract consumed by `/workspace?section=reviews`.
+
 ## API Docs
 - Local/remote Swagger: `/docs`
 - Static spec generation:
