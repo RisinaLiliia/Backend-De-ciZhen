@@ -175,6 +175,52 @@ describe('reviews (e2e)', () => {
     });
   });
 
+  it('GET /reviews/platform/overview filters platform reviews by range before pagination', async () => {
+    await reviewModel.create([
+      {
+        targetRole: 'platform',
+        rating: 5,
+        text: 'Recent review',
+        authorName: 'Recent',
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      },
+      {
+        targetRole: 'platform',
+        rating: 4,
+        text: 'Old review',
+        authorName: 'Old',
+        createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
+      },
+    ]);
+
+    const res = await request(app.getHttpServer())
+      .get('/reviews/platform/overview')
+      .query({ range: '7d', limit: 10, offset: 0, sort: 'created_desc' })
+      .expect(200);
+
+    expect(res.body).toMatchObject({
+      total: 1,
+      limit: 10,
+      offset: 0,
+      summary: {
+        total: 1,
+        averageRating: 5,
+        distribution: {
+          '1': 0,
+          '2': 0,
+          '3': 0,
+          '4': 0,
+          '5': 1,
+        },
+      },
+    });
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0]).toMatchObject({
+      targetRole: 'platform',
+      text: 'Recent review',
+    });
+  });
+
   it('GET /reviews (legacy) is removed and returns 404', async () => {
     await request(app.getHttpServer())
       .get('/reviews')

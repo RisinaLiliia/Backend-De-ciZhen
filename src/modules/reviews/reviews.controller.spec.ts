@@ -159,12 +159,13 @@ describe('ReviewsController (unit)', () => {
     });
 
     const res = await controller.platformOverview({
+      range: '30d',
       limit: 10,
       offset: 0,
       sort: 'created_desc',
     } as any);
 
-    expect(svcMock.getPlatformOverview).toHaveBeenCalledWith(10, 0, 'created_desc');
+    expect(svcMock.getPlatformOverview).toHaveBeenCalledWith(10, 0, 'created_desc', '30d');
     expect(res.items[0]).toEqual(
       expect.objectContaining({
         id: 'rp1',
