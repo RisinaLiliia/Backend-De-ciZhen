@@ -3365,6 +3365,7 @@ export class WorkspaceStatisticsService {
       providerActivityRowsPromise,
     ]);
 
+    const unansweredThreshold = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     let viewerScopedResponseMinutes: number | null = null;
     let viewerScopedUnansweredOver24h: number | null = null;
 
@@ -3517,7 +3518,6 @@ export class WorkspaceStatisticsService {
       .map((row) => row.responseMinutes)
       .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0);
     const responseMedianMinutes = this.toMedian(activityResponseMinutes);
-    const unansweredThreshold = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     const unansweredRequests24h = requestResponseRows.filter((row) => {
       const createdAt = row.createdAt ? new Date(row.createdAt) : null;
       if (!createdAt || !Number.isFinite(createdAt.getTime()) || createdAt > unansweredThreshold) {
