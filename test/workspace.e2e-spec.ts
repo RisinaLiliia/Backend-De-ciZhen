@@ -254,6 +254,110 @@ describe('workspace (e2e)', () => {
       expect(price.recommendedMax).toEqual(expect.any(Number));
     }
 
+    expect(res.body.viewerMode).toBe('provider');
+    expect(res.body.activityComparison).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        subtitle: expect.any(String),
+        hasReliableSeries: expect.any(Boolean),
+        points: expect.any(Array),
+      }),
+    );
+    expect(res.body.activityComparison).toHaveProperty('peakTimestamp');
+    expect(res.body.activityComparison).toHaveProperty('bestWindowTimestamp');
+    expect(res.body.activityComparison).toHaveProperty('updatedAt');
+    expect(res.body.activityComparison.points[0]).toEqual(
+      expect.objectContaining({
+        timestamp: expect.any(String),
+      }),
+    );
+    expect(res.body.activityComparison.points[0]).toHaveProperty('clientActivity');
+    expect(res.body.activityComparison.points[0]).toHaveProperty('providerActivity');
+    expect(res.body.decisionLayer).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        metrics: expect.any(Array),
+      }),
+    );
+    expect(res.body.decisionLayer.metrics).toHaveLength(6);
+    const offerRateMetric = res.body.decisionLayer.metrics.find((metric: { id: string }) => metric.id === 'offer_rate');
+    const completedMetric = res.body.decisionLayer.metrics.find((metric: { id: string }) => metric.id === 'completed_jobs');
+    const offersStage = res.body.funnelComparison.stages.find((stage: { key: string }) => stage.key === 'offers');
+    const completedStage = res.body.funnelComparison.stages.find((stage: { key: string }) => stage.key === 'completed');
+    expect(offerRateMetric.userValue).toBe(offersStage.userRateFromPrev ?? null);
+    expect(offerRateMetric.marketValue).toBe(offersStage.marketRateFromPrev ?? null);
+    expect(completedMetric.userValue).toBe(completedStage.userCount ?? null);
+    expect(completedMetric.marketValue).toBe(completedStage.marketCount ?? null);
+    expect(res.body.decisionInsight).toBe(res.body.decisionLayer.primaryInsight);
+    expect(res.body.personalizedPricing).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        comparisonReliability: expect.stringMatching(/^(high|medium|low|unavailable)$/),
+      }),
+    );
+    expect(res.body.categoryFit).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        hasReliableItems: expect.any(Boolean),
+        items: expect.any(Array),
+      }),
+    );
+    expect(res.body.categoryFit.items[0]).toEqual(
+      expect.objectContaining({
+        reliability: expect.stringMatching(/^(high|medium|low|unknown)$/),
+      }),
+    );
+    expect(res.body.cityComparison).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        hasReliableItems: expect.any(Boolean),
+        items: expect.any(Array),
+      }),
+    );
+    expect(res.body.cityComparison.items[0]).toEqual(
+      expect.objectContaining({
+        reliability: expect.stringMatching(/^(high|medium|low|unknown)$/),
+      }),
+    );
+    expect(res.body.funnelComparison).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        stages: expect.any(Array),
+      }),
+    );
+    expect(res.body.funnelComparison.stages).toHaveLength(5);
+    const userStageCounts = res.body.funnelComparison.stages.map((stage: { userCount: number }) => stage.userCount);
+    const marketStageCounts = res.body.funnelComparison.stages.map((stage: { marketCount: number }) => stage.marketCount);
+    expect(userStageCounts[4]).toBeLessThanOrEqual(userStageCounts[3]);
+    expect(userStageCounts[3]).toBeLessThanOrEqual(userStageCounts[2]);
+    expect(userStageCounts[2]).toBeLessThanOrEqual(userStageCounts[1]);
+    expect(userStageCounts[1]).toBeLessThanOrEqual(userStageCounts[0]);
+    expect(marketStageCounts[4]).toBeLessThanOrEqual(marketStageCounts[3]);
+    expect(marketStageCounts[3]).toBeLessThanOrEqual(marketStageCounts[2]);
+    expect(marketStageCounts[2]).toBeLessThanOrEqual(marketStageCounts[1]);
+    expect(marketStageCounts[1]).toBeLessThanOrEqual(marketStageCounts[0]);
+    expect(res.body.risks).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        hasReliableItems: expect.any(Boolean),
+        items: expect.any(Array),
+      }),
+    );
+    expect(res.body.opportunities).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        hasReliableItems: expect.any(Boolean),
+        items: expect.any(Array),
+      }),
+    );
+    expect(res.body.nextSteps).toEqual(
+      expect.objectContaining({
+        title: expect.any(String),
+        hasReliableItems: expect.any(Boolean),
+        items: expect.any(Array),
+      }),
+    );
+
     expect(Array.isArray(res.body.insights)).toBe(true);
   });
 });

@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export type WorkspaceStatisticsRange = '24h' | '7d' | '30d' | '90d';
+export type WorkspaceStatisticsViewerMode = 'provider' | 'customer';
 
 export class WorkspaceStatisticsQueryDto {
   @ApiPropertyOptional({ enum: ['24h', '7d', '30d', '90d'], example: '30d' })
@@ -32,4 +33,13 @@ export class WorkspaceStatisticsQueryDto {
   @IsOptional()
   @IsString()
   categoryKey?: string;
+
+  @ApiPropertyOptional({
+    enum: ['provider', 'customer'],
+    example: 'provider',
+    description: 'Personalized statistics perspective for authenticated Analyse.',
+  })
+  @IsOptional()
+  @IsIn(['provider', 'customer'])
+  viewerMode?: WorkspaceStatisticsViewerMode;
 }
