@@ -438,17 +438,17 @@ describe('WorkspaceStatisticsService (unit)', () => {
       stage1: 22,
       stage2: 16,
       stage3: 6,
-      stage4: 9,
+      stage4: 6,
       requestsTotal: 22,
       offersTotal: 16,
       confirmedResponsesTotal: 6,
-      closedContractsTotal: 9,
+      closedContractsTotal: 6,
       completedJobsTotal: 5,
       profitAmount: 1250,
       offerResponseRatePercent: 73,
       confirmationRatePercent: 38,
       contractClosureRatePercent: 100,
-      completionRatePercent: 56,
+      completionRatePercent: 83,
       conversionRate: 23,
       totalConversionPercent: 23,
       summaryText: 'Von 22 Anfragen wurden 5 erfolgreich abgeschlossen.',
@@ -602,6 +602,20 @@ describe('WorkspaceStatisticsService (unit)', () => {
       key: 'responses',
       label: 'Rückmeldungen',
     });
+    expect(result.profileFunnel.completedJobsTotal).toBeLessThanOrEqual(result.profileFunnel.closedContractsTotal);
+    expect(result.profileFunnel.closedContractsTotal).toBeLessThanOrEqual(result.profileFunnel.confirmedResponsesTotal);
+    expect(result.profileFunnel.confirmedResponsesTotal).toBeLessThanOrEqual(result.profileFunnel.offersTotal);
+    expect(result.profileFunnel.offersTotal).toBeLessThanOrEqual(result.profileFunnel.requestsTotal);
+    const personalizedUserStageCounts = result.funnelComparison?.stages.map((stage) => stage.userCount) ?? [];
+    const personalizedMarketStageCounts = result.funnelComparison?.stages.map((stage) => stage.marketCount) ?? [];
+    expect(personalizedUserStageCounts[4]).toBeLessThanOrEqual(personalizedUserStageCounts[3]);
+    expect(personalizedUserStageCounts[3]).toBeLessThanOrEqual(personalizedUserStageCounts[2]);
+    expect(personalizedUserStageCounts[2]).toBeLessThanOrEqual(personalizedUserStageCounts[1]);
+    expect(personalizedUserStageCounts[1]).toBeLessThanOrEqual(personalizedUserStageCounts[0]);
+    expect(personalizedMarketStageCounts[4]).toBeLessThanOrEqual(personalizedMarketStageCounts[3]);
+    expect(personalizedMarketStageCounts[3]).toBeLessThanOrEqual(personalizedMarketStageCounts[2]);
+    expect(personalizedMarketStageCounts[2]).toBeLessThanOrEqual(personalizedMarketStageCounts[1]);
+    expect(personalizedMarketStageCounts[1]).toBeLessThanOrEqual(personalizedMarketStageCounts[0]);
     expect(result.personalizedPricing).toMatchObject({
       title: 'Preisstrategie',
       comparisonReliability: expect.stringMatching(/^(high|medium|low|unavailable)$/),

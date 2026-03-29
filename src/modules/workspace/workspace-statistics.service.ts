@@ -394,6 +394,23 @@ export class WorkspaceStatisticsService {
     return `Du liegst bei ${params.label} aktuell nahe am Markt.`;
   }
 
+
+  private normalizeFunnelStageCounts(counts: FunnelStageCounts): FunnelStageCounts {
+    const requests = Math.max(0, Math.round(Number(counts.requests ?? 0)));
+    const offers = Math.min(Math.max(0, Math.round(Number(counts.offers ?? 0))), requests);
+    const responses = Math.min(Math.max(0, Math.round(Number(counts.responses ?? 0))), offers);
+    const contracts = Math.min(Math.max(0, Math.round(Number(counts.contracts ?? 0))), responses);
+    const completed = Math.min(Math.max(0, Math.round(Number(counts.completed ?? 0))), contracts);
+
+    return {
+      requests,
+      offers,
+      responses,
+      contracts,
+      completed,
+    };
+  }
+
   private buildFunnelComparison(params: {
     viewerMode: WorkspaceStatisticsViewerMode;
     marketCounts: FunnelStageCounts;
@@ -1973,10 +1990,13 @@ export class WorkspaceStatisticsService {
     const requestRefScopeMatch: Record<string, unknown> = {};
     if (cityId) requestRefScopeMatch['requestRef.cityId'] = cityId;
     if (categoryKey) requestRefScopeMatch['requestRef.categoryKey'] = categoryKey;
+    const funnelRequestRefScopeMatch: Record<string, unknown> = {
+      'requestRef.createdAt': { $gte: start, $lte: end },
+      ...requestRefScopeMatch,
+    };
 
     const marketFunnelRequestsPromise = hasActorScope
       ? this.requestModel.countDocuments({
-          status: 'published',
           ...(cityId ? { cityId } : {}),
           ...(categoryKey ? { categoryKey } : {}),
           createdAt: { $gte: start, $lte: end },
@@ -1986,11 +2006,6 @@ export class WorkspaceStatisticsService {
     const marketFunnelOffersPromise = hasActorScope
       ? this.offerModel
           .aggregate<{ _id: null; offersTotal: number; confirmedResponsesTotal: number }>([
-            {
-              $match: {
-                createdAt: { $gte: start, $lte: end },
-              },
-            },
             {
               $lookup: {
                 from: 'requests',
@@ -2004,6 +2019,7 @@ export class WorkspaceStatisticsService {
                   {
                     $project: {
                       _id: 0,
+                      createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
                     },
@@ -2013,16 +2029,22 @@ export class WorkspaceStatisticsService {
               },
             },
             { $unwind: '$requestRef' },
-            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            { $match: funnelRequestRefScopeMatch },
+            {
+              $group: {
+                _id: '$requestId',
+                hasAcceptedResponse: {
+                  $max: {
+                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                  },
+                },
+              },
+            },
             {
               $group: {
                 _id: null,
                 offersTotal: { $sum: 1 },
-                confirmedResponsesTotal: {
-                  $sum: {
-                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
-                  },
-                },
+                confirmedResponsesTotal: { $sum: '$hasAcceptedResponse' },
               },
             },
           ])
@@ -2045,6 +2067,7 @@ export class WorkspaceStatisticsService {
                   {
                     $project: {
                       _id: 0,
+                      createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
                     },
@@ -2054,14 +2077,68 @@ export class WorkspaceStatisticsService {
               },
             },
             { $unwind: '$requestRef' },
-            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            { $match: funnelRequestRefScopeMatch },
             {
-              $match: {
-                $or: [
-                  { createdAt: { $gte: start, $lte: end } },
-                  { confirmedAt: { $gte: start, $lte: end } },
-                  { completedAt: { $gte: start, $lte: end } },
+              $lookup: {
+                from: 'offers',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          { $eq: ['$requestId', '$$requestId'] },
+                          { $eq: ['$status', 'accepted'] },
+                        ],
+                      },
+                    },
+                  },
+                  { $limit: 1 },
                 ],
+                as: 'acceptedOfferRef',
+              },
+            },
+            {
+              $group: {
+                _id: '$requestId',
+                hasAcceptedResponse: {
+                  $max: {
+                    $cond: [{ $gt: [{ $size: '$acceptedOfferRef' }, 0] }, 1, 0],
+                  },
+                },
+                hasContract: {
+                  $max: {
+                    $cond: [
+                      { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                hasCompleted: {
+                  $max: {
+                    $cond: [
+                      { $eq: ['$status', 'completed'] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                completedRevenue: {
+                  $max: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$priceAmount', null] },
+                          { $gt: ['$priceAmount', 0] },
+                        ],
+                      },
+                      '$priceAmount',
+                      0,
+                    ],
+                  },
+                },
               },
             },
             {
@@ -2072,25 +2149,8 @@ export class WorkspaceStatisticsService {
                     $cond: [
                       {
                         $and: [
-                          { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
-                          {
-                            $or: [
-                              {
-                                $and: [
-                                  { $ne: ['$confirmedAt', null] },
-                                  { $gte: ['$confirmedAt', start] },
-                                  { $lte: ['$confirmedAt', end] },
-                                ],
-                              },
-                              {
-                                $and: [
-                                  { $eq: ['$confirmedAt', null] },
-                                  { $gte: ['$createdAt', start] },
-                                  { $lte: ['$createdAt', end] },
-                                ],
-                              },
-                            ],
-                          },
+                          { $eq: ['$hasAcceptedResponse', 1] },
+                          { $eq: ['$hasContract', 1] },
                         ],
                       },
                       1,
@@ -2103,10 +2163,8 @@ export class WorkspaceStatisticsService {
                     $cond: [
                       {
                         $and: [
-                          { $eq: ['$status', 'completed'] },
-                          { $ne: ['$completedAt', null] },
-                          { $gte: ['$completedAt', start] },
-                          { $lte: ['$completedAt', end] },
+                          { $eq: ['$hasAcceptedResponse', 1] },
+                          { $eq: ['$hasCompleted', 1] },
                         ],
                       },
                       1,
@@ -2119,15 +2177,11 @@ export class WorkspaceStatisticsService {
                     $cond: [
                       {
                         $and: [
-                          { $eq: ['$status', 'completed'] },
-                          { $ne: ['$completedAt', null] },
-                          { $gte: ['$completedAt', start] },
-                          { $lte: ['$completedAt', end] },
-                          { $ne: ['$priceAmount', null] },
-                          { $gt: ['$priceAmount', 0] },
+                          { $eq: ['$hasAcceptedResponse', 1] },
+                          { $eq: ['$hasCompleted', 1] },
                         ],
                       },
-                      '$priceAmount',
+                      '$completedRevenue',
                       0,
                     ],
                   },
@@ -2144,7 +2198,6 @@ export class WorkspaceStatisticsService {
             {
               $match: {
                 providerUserId: normalizedUserId,
-                createdAt: { $gte: start, $lte: end },
               },
             },
             {
@@ -2160,6 +2213,7 @@ export class WorkspaceStatisticsService {
                   {
                     $project: {
                       _id: 0,
+                      createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
                     },
@@ -2169,25 +2223,23 @@ export class WorkspaceStatisticsService {
               },
             },
             { $unwind: '$requestRef' },
-            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            { $match: funnelRequestRefScopeMatch },
             {
               $group: {
-                _id: null,
-                requestIds: { $addToSet: '$requestId' },
-                offersTotal: { $sum: 1 },
-                confirmedResponsesTotal: {
-                  $sum: {
+                _id: '$requestId',
+                hasAcceptedResponse: {
+                  $max: {
                     $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
                   },
                 },
               },
             },
             {
-              $project: {
+              $group: {
                 _id: 1,
-                requestsTotal: { $size: '$requestIds' },
-                offersTotal: 1,
-                confirmedResponsesTotal: 1,
+                requestsTotal: { $sum: 1 },
+                offersTotal: { $sum: 1 },
+                confirmedResponsesTotal: { $sum: '$hasAcceptedResponse' },
               },
             },
           ])
@@ -2210,6 +2262,7 @@ export class WorkspaceStatisticsService {
                   {
                     $project: {
                       _id: 0,
+                      createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
                     },
@@ -2219,15 +2272,70 @@ export class WorkspaceStatisticsService {
               },
             },
             { $unwind: '$requestRef' },
-            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            { $match: funnelRequestRefScopeMatch },
             {
               $match: {
                 providerUserId: normalizedUserId,
-                $or: [
-                  { createdAt: { $gte: start, $lte: end } },
-                  { confirmedAt: { $gte: start, $lte: end } },
-                  { completedAt: { $gte: start, $lte: end } },
+              },
+            },
+            {
+              $lookup: {
+                from: 'offers',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      providerUserId: normalizedUserId,
+                      status: 'accepted',
+                      $expr: { $eq: ['$requestId', '$$requestId'] },
+                    },
+                  },
+                  { $limit: 1 },
                 ],
+                as: 'acceptedOfferRef',
+              },
+            },
+            {
+              $group: {
+                _id: '$requestId',
+                hasAcceptedResponse: {
+                  $max: {
+                    $cond: [{ $gt: [{ $size: '$acceptedOfferRef' }, 0] }, 1, 0],
+                  },
+                },
+                hasContract: {
+                  $max: {
+                    $cond: [
+                      { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                hasCompleted: {
+                  $max: {
+                    $cond: [
+                      { $eq: ['$status', 'completed'] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                completedRevenue: {
+                  $max: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$priceAmount', null] },
+                          { $gt: ['$priceAmount', 0] },
+                        ],
+                      },
+                      '$priceAmount',
+                      0,
+                    ],
+                  },
+                },
               },
             },
             {
@@ -2236,7 +2344,12 @@ export class WorkspaceStatisticsService {
                 contractsTotal: {
                   $sum: {
                     $cond: [
-                      { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                      {
+                        $and: [
+                          { $eq: ['$hasAcceptedResponse', 1] },
+                          { $eq: ['$hasContract', 1] },
+                        ],
+                      },
                       1,
                       0,
                     ],
@@ -2247,10 +2360,8 @@ export class WorkspaceStatisticsService {
                     $cond: [
                       {
                         $and: [
-                          { $eq: ['$status', 'completed'] },
-                          { $ne: ['$completedAt', null] },
-                          { $gte: ['$completedAt', start] },
-                          { $lte: ['$completedAt', end] },
+                          { $eq: ['$hasAcceptedResponse', 1] },
+                          { $eq: ['$hasCompleted', 1] },
                         ],
                       },
                       1,
@@ -2263,15 +2374,11 @@ export class WorkspaceStatisticsService {
                     $cond: [
                       {
                         $and: [
-                          { $eq: ['$status', 'completed'] },
-                          { $ne: ['$completedAt', null] },
-                          { $gte: ['$completedAt', start] },
-                          { $lte: ['$completedAt', end] },
-                          { $ne: ['$priceAmount', null] },
-                          { $gt: ['$priceAmount', 0] },
+                          { $eq: ['$hasAcceptedResponse', 1] },
+                          { $eq: ['$hasCompleted', 1] },
                         ],
                       },
-                      '$priceAmount',
+                      '$completedRevenue',
                       0,
                     ],
                   },
@@ -2295,12 +2402,6 @@ export class WorkspaceStatisticsService {
       ? this.offerModel
           .aggregate<{ _id: null; offersTotal: number; acceptedOffersTotal: number }>([
             {
-              $match: {
-                clientUserId: normalizedUserId,
-                createdAt: { $gte: start, $lte: end },
-              },
-            },
-            {
               $lookup: {
                 from: 'requests',
                 let: { requestId: '$requestId' },
@@ -2313,6 +2414,8 @@ export class WorkspaceStatisticsService {
                   {
                     $project: {
                       _id: 0,
+                      createdAt: '$createdAt',
+                      clientId: '$clientId',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
                     },
@@ -2322,16 +2425,27 @@ export class WorkspaceStatisticsService {
               },
             },
             { $unwind: '$requestRef' },
-            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $match: {
+                ...funnelRequestRefScopeMatch,
+                'requestRef.clientId': normalizedUserId,
+              },
+            },
+            {
+              $group: {
+                _id: '$requestId',
+                hasAcceptedOffer: {
+                  $max: {
+                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                  },
+                },
+              },
+            },
             {
               $group: {
                 _id: null,
                 offersTotal: { $sum: 1 },
-                acceptedOffersTotal: {
-                  $sum: {
-                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
-                  },
-                },
+                acceptedOffersTotal: { $sum: '$hasAcceptedOffer' },
               },
             },
           ])
@@ -2354,6 +2468,8 @@ export class WorkspaceStatisticsService {
                   {
                     $project: {
                       _id: 0,
+                      createdAt: '$createdAt',
+                      clientId: '$clientId',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
                     },
@@ -2363,15 +2479,69 @@ export class WorkspaceStatisticsService {
               },
             },
             { $unwind: '$requestRef' },
-            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
             {
               $match: {
-                clientId: normalizedUserId,
-                $or: [
-                  { createdAt: { $gte: start, $lte: end } },
-                  { confirmedAt: { $gte: start, $lte: end } },
-                  { completedAt: { $gte: start, $lte: end } },
+                ...funnelRequestRefScopeMatch,
+                'requestRef.clientId': normalizedUserId,
+              },
+            },
+            {
+              $lookup: {
+                from: 'offers',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      status: 'accepted',
+                      $expr: { $eq: ['$requestId', '$$requestId'] },
+                    },
+                  },
+                  { $limit: 1 },
                 ],
+                as: 'acceptedOfferRef',
+              },
+            },
+            {
+              $group: {
+                _id: '$requestId',
+                hasAcceptedOffer: {
+                  $max: {
+                    $cond: [{ $gt: [{ $size: '$acceptedOfferRef' }, 0] }, 1, 0],
+                  },
+                },
+                hasContract: {
+                  $max: {
+                    $cond: [
+                      { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                hasCompleted: {
+                  $max: {
+                    $cond: [
+                      { $eq: ['$status', 'completed'] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                completedRevenue: {
+                  $max: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$priceAmount', null] },
+                          { $gt: ['$priceAmount', 0] },
+                        ],
+                      },
+                      '$priceAmount',
+                      0,
+                    ],
+                  },
+                },
               },
             },
             {
@@ -2380,7 +2550,12 @@ export class WorkspaceStatisticsService {
                 contractsTotal: {
                   $sum: {
                     $cond: [
-                      { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                      {
+                        $and: [
+                          { $eq: ['$hasAcceptedOffer', 1] },
+                          { $eq: ['$hasContract', 1] },
+                        ],
+                      },
                       1,
                       0,
                     ],
@@ -2391,10 +2566,8 @@ export class WorkspaceStatisticsService {
                     $cond: [
                       {
                         $and: [
-                          { $eq: ['$status', 'completed'] },
-                          { $ne: ['$completedAt', null] },
-                          { $gte: ['$completedAt', start] },
-                          { $lte: ['$completedAt', end] },
+                          { $eq: ['$hasAcceptedOffer', 1] },
+                          { $eq: ['$hasCompleted', 1] },
                         ],
                       },
                       1,
@@ -2407,15 +2580,11 @@ export class WorkspaceStatisticsService {
                     $cond: [
                       {
                         $and: [
-                          { $eq: ['$status', 'completed'] },
-                          { $ne: ['$completedAt', null] },
-                          { $gte: ['$completedAt', start] },
-                          { $lte: ['$completedAt', end] },
-                          { $ne: ['$priceAmount', null] },
-                          { $gt: ['$priceAmount', 0] },
+                          { $eq: ['$hasAcceptedOffer', 1] },
+                          { $eq: ['$hasCompleted', 1] },
                         ],
                       },
-                      '$priceAmount',
+                      '$completedRevenue',
                       0,
                     ],
                   },
@@ -3615,7 +3784,7 @@ export class WorkspaceStatisticsService {
         ? Math.max(0, Math.round(Number(summary.totalPublishedRequests ?? 0)))
         : 0;
     const baseMarketRequestsTotal = rawRequestsFunnelTotal > 0 ? rawRequestsFunnelTotal : fallbackPlatformRequestsTotal;
-    const marketCounts: FunnelStageCounts = {
+    const marketCounts: FunnelStageCounts = this.normalizeFunnelStageCounts({
       requests: hasActorScope
         ? Math.max(0, Math.round(Number(marketFunnelRequestsTotal ?? 0)))
         : baseMarketRequestsTotal,
@@ -3631,35 +3800,35 @@ export class WorkspaceStatisticsService {
       completed: hasActorScope
         ? Math.max(0, Math.round(Number(marketFunnelContractsAgg.completedJobsTotal ?? 0)))
         : Math.max(0, Math.round(Number(funnelContractsAgg.completedJobsTotal ?? 0))),
-    };
+    });
     const marketRevenueAmount = hasActorScope
       ? this.roundMoney(Math.max(0, Number(marketFunnelContractsAgg.profitAmount ?? 0)))
       : this.roundMoney(Math.max(0, Number(funnelContractsAgg.profitAmount ?? 0)));
 
-    const providerCounts: FunnelStageCounts = {
+    const providerCounts: FunnelStageCounts = this.normalizeFunnelStageCounts({
       requests: Math.max(0, Math.round(Number(providerFunnelOffersAgg.requestsTotal ?? 0))),
       offers: Math.max(0, Math.round(Number(providerFunnelOffersAgg.offersTotal ?? 0))),
       responses: Math.max(0, Math.round(Number(providerFunnelOffersAgg.confirmedResponsesTotal ?? 0))),
       contracts: Math.max(0, Math.round(Number(providerFunnelContractsAgg.contractsTotal ?? 0))),
       completed: Math.max(0, Math.round(Number(providerFunnelContractsAgg.completedTotal ?? 0))),
-    };
+    });
     const providerRevenueAmount = this.roundMoney(Math.max(0, Number(providerFunnelContractsAgg.revenueAmount ?? 0)));
 
-    const customerCounts: FunnelStageCounts = {
+    const customerCounts: FunnelStageCounts = this.normalizeFunnelStageCounts({
       requests: Math.max(0, Math.round(Number(customerFunnelRequestsTotal ?? 0))),
       offers: Math.max(0, Math.round(Number(customerFunnelOffersAgg.offersTotal ?? 0))),
       responses: Math.max(0, Math.round(Number(customerFunnelOffersAgg.acceptedOffersTotal ?? 0))),
       contracts: Math.max(0, Math.round(Number(customerFunnelContractsAgg.contractsTotal ?? 0))),
       completed: Math.max(0, Math.round(Number(customerFunnelContractsAgg.completedTotal ?? 0))),
-    };
+    });
     const customerRevenueAmount = this.roundMoney(Math.max(0, Number(customerFunnelContractsAgg.revenueAmount ?? 0)));
-    const legacyPersonalizedCounts: FunnelStageCounts = {
+    const legacyPersonalizedCounts: FunnelStageCounts = this.normalizeFunnelStageCounts({
       requests: rawRequestsFunnelTotal,
       offers: Math.max(0, Math.round(Number(funnelOffersAgg.offersTotal ?? 0))),
       responses: Math.max(0, Math.round(Number(funnelOffersAgg.confirmedResponsesTotal ?? 0))),
       contracts: Math.max(0, Math.round(Number(funnelContractsAgg.closedContractsTotal ?? 0))),
       completed: Math.max(0, Math.round(Number(funnelContractsAgg.completedJobsTotal ?? 0))),
-    };
+    });
     const legacyPersonalizedRevenueAmount = this.roundMoney(Math.max(0, Number(funnelContractsAgg.profitAmount ?? 0)));
     const viewerModeCounts = viewerMode === 'customer' ? customerCounts : providerCounts;
     const hasViewerModeCounts = Object.values(viewerModeCounts).some((value) => value > 0);

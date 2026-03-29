@@ -318,6 +318,16 @@ describe('workspace (e2e)', () => {
       }),
     );
     expect(res.body.funnelComparison.stages).toHaveLength(5);
+    const userStageCounts = res.body.funnelComparison.stages.map((stage: { userCount: number }) => stage.userCount);
+    const marketStageCounts = res.body.funnelComparison.stages.map((stage: { marketCount: number }) => stage.marketCount);
+    expect(userStageCounts[4]).toBeLessThanOrEqual(userStageCounts[3]);
+    expect(userStageCounts[3]).toBeLessThanOrEqual(userStageCounts[2]);
+    expect(userStageCounts[2]).toBeLessThanOrEqual(userStageCounts[1]);
+    expect(userStageCounts[1]).toBeLessThanOrEqual(userStageCounts[0]);
+    expect(marketStageCounts[4]).toBeLessThanOrEqual(marketStageCounts[3]);
+    expect(marketStageCounts[3]).toBeLessThanOrEqual(marketStageCounts[2]);
+    expect(marketStageCounts[2]).toBeLessThanOrEqual(marketStageCounts[1]);
+    expect(marketStageCounts[1]).toBeLessThanOrEqual(marketStageCounts[0]);
     expect(res.body.risks).toEqual(
       expect.objectContaining({
         title: expect.any(String),
