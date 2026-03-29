@@ -3365,6 +3365,152 @@ export class WorkspaceStatisticsService {
       providerActivityRowsPromise,
     ]);
 
+    let viewerScopedResponseMinutes: number | null = null;
+    let viewerScopedUnansweredOver24h: number | null = null;
+
+    if (hasActorScope && viewerMode === 'provider') {
+      const providerDecisionRows = await this.offerModel
+        .aggregate<{ requestCreatedAt: Date | null; firstOfferAt: Date | null; hasAcceptedResponse: number }>([
+          {
+            $match: {
+              providerUserId: normalizedUserId,
+            },
+          },
+          {
+            $lookup: {
+              from: 'requests',
+              let: { requestId: '$requestId' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    createdAt: '$createdAt',
+                    cityId: '$cityId',
+                    categoryKey: '$categoryKey',
+                  },
+                },
+              ],
+              as: 'requestRef',
+            },
+          },
+          { $unwind: '$requestRef' },
+          { $match: funnelRequestRefScopeMatch },
+          {
+            $group: {
+              _id: '$requestId',
+              requestCreatedAt: { $min: '$requestRef.createdAt' },
+              firstOfferAt: { $min: '$createdAt' },
+              hasAcceptedResponse: {
+                $max: {
+                  $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              requestCreatedAt: 1,
+              firstOfferAt: 1,
+              hasAcceptedResponse: 1,
+            },
+          },
+        ])
+        .exec();
+
+      const providerResponseMinutes = providerDecisionRows
+        .map((row) => {
+          const requestCreatedAt = row.requestCreatedAt ? new Date(row.requestCreatedAt) : null;
+          const firstOfferAt = row.firstOfferAt ? new Date(row.firstOfferAt) : null;
+          if (!requestCreatedAt || !firstOfferAt) return null;
+          if (!Number.isFinite(requestCreatedAt.getTime()) || !Number.isFinite(firstOfferAt.getTime())) return null;
+          if (firstOfferAt < requestCreatedAt) return null;
+          return (firstOfferAt.getTime() - requestCreatedAt.getTime()) / 60000;
+        })
+        .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0);
+
+      viewerScopedResponseMinutes = this.toMedian(providerResponseMinutes);
+      viewerScopedUnansweredOver24h = providerDecisionRows.filter((row) => {
+        const firstOfferAt = row.firstOfferAt ? new Date(row.firstOfferAt) : null;
+        if (!firstOfferAt || !Number.isFinite(firstOfferAt.getTime())) return false;
+        if (firstOfferAt > unansweredThreshold) return false;
+        return row.hasAcceptedResponse === 0;
+      }).length;
+    }
+
+    if (hasActorScope && viewerMode === 'customer') {
+      const customerDecisionRows = await this.requestModel
+        .aggregate<{ createdAt: Date | null; firstOfferAt: Date | null }>([
+          {
+            $match: {
+              clientId: normalizedUserId,
+              ...(cityId ? { cityId } : {}),
+              ...(categoryKey ? { categoryKey } : {}),
+              createdAt: { $gte: start, $lte: end },
+            },
+          },
+          {
+            $project: {
+              createdAt: 1,
+              requestId: { $toString: '$_id' },
+            },
+          },
+          {
+            $lookup: {
+              from: 'offers',
+              let: { requestId: '$requestId' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: { $eq: ['$requestId', '$$requestId'] },
+                  },
+                },
+                {
+                  $group: {
+                    _id: null,
+                    firstOfferAt: { $min: '$createdAt' },
+                  },
+                },
+              ],
+              as: 'offerStats',
+            },
+          },
+          {
+            $project: {
+              createdAt: 1,
+              firstOfferAt: {
+                $ifNull: [{ $arrayElemAt: ['$offerStats.firstOfferAt', 0] }, null],
+              },
+            },
+          },
+        ])
+        .exec();
+
+      const customerResponseMinutes = customerDecisionRows
+        .map((row) => {
+          const createdAt = row.createdAt ? new Date(row.createdAt) : null;
+          const firstOfferAt = row.firstOfferAt ? new Date(row.firstOfferAt) : null;
+          if (!createdAt || !firstOfferAt) return null;
+          if (!Number.isFinite(createdAt.getTime()) || !Number.isFinite(firstOfferAt.getTime())) return null;
+          if (firstOfferAt < createdAt) return null;
+          return (firstOfferAt.getTime() - createdAt.getTime()) / 60000;
+        })
+        .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0);
+
+      viewerScopedResponseMinutes = this.toMedian(customerResponseMinutes);
+      viewerScopedUnansweredOver24h = customerDecisionRows.filter((row) => {
+        const createdAt = row.createdAt ? new Date(row.createdAt) : null;
+        if (!createdAt || !Number.isFinite(createdAt.getTime())) return false;
+        if (createdAt > unansweredThreshold) return false;
+        return row.firstOfferAt === null;
+      }).length;
+    }
+
     const activityTotals = this.toActivityTotals(activity.data);
     const activityConfig = this.getActivityConfig(range);
     const activityResponseMinutes = requestResponseRows
@@ -3569,9 +3715,13 @@ export class WorkspaceStatisticsService {
         : this.clampPercent(
             (completedJobsRange / Math.max(1, activityTotals.requestsTotal)) * 100,
           ),
-      avgResponseMinutes: mode === 'personalized' ? privateOverview?.kpis.avgResponseMinutes ?? null : null,
+      avgResponseMinutes: mode === 'personalized'
+        ? (viewerScopedResponseMinutes ?? privateOverview?.kpis.avgResponseMinutes ?? null)
+        : null,
       profileCompleteness: mode === 'personalized' ? personalizedProfileCompleteness : null,
-      openRequests: mode === 'personalized' ? privateOverview?.kpis.myOpenRequests ?? null : null,
+      openRequests: mode === 'personalized'
+        ? (viewerScopedUnansweredOver24h ?? privateOverview?.kpis.myOpenRequests ?? null)
+        : null,
       recentOffers7d: mode === 'personalized' ? privateOverview?.kpis.recentOffers7d ?? null : null,
     };
 
@@ -3976,14 +4126,8 @@ export class WorkspaceStatisticsService {
       marketRevenueAmount,
       userCounts: selectedUserCounts,
       userRevenueAmount: selectedUserRevenueAmount,
-      userResponseMinutes: viewerMode === 'provider'
-        ? (privateOverview?.kpis.avgResponseMinutes ?? null)
-        : null,
-      userUnansweredOver24h: viewerMode === 'customer'
-        ? (privateOverview?.kpis.myOpenRequests ?? null)
-        : viewerMode === 'provider'
-          ? (privateOverview?.kpis.myOpenRequests ?? null)
-          : null,
+      userResponseMinutes: viewerScopedResponseMinutes,
+      userUnansweredOver24h: viewerScopedUnansweredOver24h,
       reliableComparison: !isViewerModeFallback,
     });
     const userCategoryActivityRows = viewerMode === 'customer'

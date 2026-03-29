@@ -280,6 +280,14 @@ describe('workspace (e2e)', () => {
       }),
     );
     expect(res.body.decisionLayer.metrics).toHaveLength(6);
+    const offerRateMetric = res.body.decisionLayer.metrics.find((metric: { id: string }) => metric.id === 'offer_rate');
+    const completedMetric = res.body.decisionLayer.metrics.find((metric: { id: string }) => metric.id === 'completed_jobs');
+    const offersStage = res.body.funnelComparison.stages.find((stage: { key: string }) => stage.key === 'offers');
+    const completedStage = res.body.funnelComparison.stages.find((stage: { key: string }) => stage.key === 'completed');
+    expect(offerRateMetric.userValue).toBe(offersStage.userRateFromPrev ?? null);
+    expect(offerRateMetric.marketValue).toBe(offersStage.marketRateFromPrev ?? null);
+    expect(completedMetric.userValue).toBe(completedStage.userCount ?? null);
+    expect(completedMetric.marketValue).toBe(completedStage.marketCount ?? null);
     expect(res.body.decisionInsight).toBe(res.body.decisionLayer.primaryInsight);
     expect(res.body.personalizedPricing).toEqual(
       expect.objectContaining({

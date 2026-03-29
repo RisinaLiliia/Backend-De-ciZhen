@@ -589,8 +589,16 @@ describe('WorkspaceStatisticsService (unit)', () => {
     expect(result.decisionLayer?.metrics[1]).toMatchObject({
       id: 'avg_response_time',
       label: 'Median Antwortzeit',
-      userValue: 18,
+      userValue: null,
     });
+    const offerRateMetric = result.decisionLayer?.metrics.find((metric) => metric.id === 'offer_rate');
+    const completedMetric = result.decisionLayer?.metrics.find((metric) => metric.id === 'completed_jobs');
+    const offersStage = result.funnelComparison?.stages.find((stage) => stage.key === 'offers');
+    const completedStage = result.funnelComparison?.stages.find((stage) => stage.key === 'completed');
+    expect(offerRateMetric?.userValue).toBe(offersStage?.userRateFromPrev ?? null);
+    expect(offerRateMetric?.marketValue).toBe(offersStage?.marketRateFromPrev ?? null);
+    expect(completedMetric?.userValue).toBe(completedStage?.userCount ?? null);
+    expect(completedMetric?.marketValue).toBe(completedStage?.marketCount ?? null);
     expect(result.decisionLayer?.primaryInsight).toBeTruthy();
     expect(result.decisionLayer?.metrics.every((metric) => Object.prototype.hasOwnProperty.call(metric, 'marketValue'))).toBe(true);
     expect(result.decisionLayer?.metrics.every((metric) => Object.prototype.hasOwnProperty.call(metric, 'primaryActionCode'))).toBe(true);
