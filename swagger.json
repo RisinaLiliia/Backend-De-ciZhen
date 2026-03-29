@@ -7346,6 +7346,20 @@
               "example": "cleaning",
               "type": "string"
             }
+          },
+          {
+            "name": "viewerMode",
+            "required": false,
+            "in": "query",
+            "description": "Personalized statistics perspective for authenticated Analyse.",
+            "schema": {
+              "example": "provider",
+              "enum": [
+                "provider",
+                "customer"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -10944,6 +10958,579 @@
           }
         }
       },
+      "WorkspaceStatisticsDecisionLayerMetricDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "offer_rate",
+              "avg_response_time",
+              "unanswered_over_24h",
+              "completed_jobs",
+              "revenue",
+              "average_order_value"
+            ],
+            "example": "offer_rate"
+          },
+          "label": {
+            "type": "string",
+            "example": "Angebotsquote"
+          },
+          "marketValue": {
+            "type": "object",
+            "example": 68,
+            "nullable": true
+          },
+          "userValue": {
+            "type": "object",
+            "example": 100,
+            "nullable": true
+          },
+          "gapAbsolute": {
+            "type": "object",
+            "example": 32,
+            "nullable": true
+          },
+          "gapPercent": {
+            "type": "object",
+            "example": 47.06,
+            "nullable": true
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "percent",
+              "minutes",
+              "currency",
+              "count"
+            ],
+            "example": "percent"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "better",
+              "worse",
+              "neutral"
+            ],
+            "example": "better"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "good",
+              "warning",
+              "critical",
+              "neutral"
+            ],
+            "example": "good"
+          },
+          "signalCodes": {
+            "example": [
+              "slow_response"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "primaryActionCode": {
+            "type": "object",
+            "example": "respond_faster",
+            "nullable": true
+          },
+          "summary": {
+            "type": "object",
+            "example": "Du reagierst schneller als der Markt.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "marketValue",
+          "userValue",
+          "gapAbsolute",
+          "gapPercent",
+          "unit",
+          "direction",
+          "status",
+          "signalCodes",
+          "primaryActionCode",
+          "summary"
+        ]
+      },
+      "WorkspaceStatisticsActionLinkDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "follow_up_requests"
+          },
+          "label": {
+            "type": "string",
+            "example": "Offene Anfragen priorisieren"
+          },
+          "target": {
+            "type": "object",
+            "example": "/workspace?tab=my-requests",
+            "nullable": true
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "target"
+        ]
+      },
+      "WorkspaceStatisticsDecisionLayerDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "object",
+            "example": "Decision Layer",
+            "nullable": true
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "User vs Market im aktuellen Kontext",
+            "nullable": true
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsDecisionLayerMetricDto"
+            }
+          },
+          "primaryInsight": {
+            "type": "object",
+            "example": "Zu viele Anfragen bleiben länger als 24 Stunden offen.",
+            "nullable": true
+          },
+          "primaryAction": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsActionLinkDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "title",
+          "subtitle",
+          "metrics",
+          "primaryInsight",
+          "primaryAction"
+        ]
+      },
+      "WorkspaceStatisticsPersonalizedPricingDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "object",
+            "example": "Preisstrategie",
+            "nullable": true
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Wie dein Preis im aktuellen Markt einzuordnen ist.",
+            "nullable": true
+          },
+          "contextLabel": {
+            "type": "object",
+            "example": "Berlin · Cleaning",
+            "nullable": true
+          },
+          "marketAverage": {
+            "type": "object",
+            "example": 220,
+            "nullable": true
+          },
+          "recommendedMin": {
+            "type": "object",
+            "example": 190,
+            "nullable": true
+          },
+          "recommendedMax": {
+            "type": "object",
+            "example": 260,
+            "nullable": true
+          },
+          "userPrice": {
+            "type": "object",
+            "example": 240,
+            "nullable": true
+          },
+          "gapAbsolute": {
+            "type": "object",
+            "example": 20,
+            "nullable": true
+          },
+          "comparisonReliability": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "unavailable"
+            ],
+            "example": "medium"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "below",
+              "within",
+              "above",
+              "unknown"
+            ],
+            "example": "within"
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "positive"
+          },
+          "actionCode": {
+            "type": "object",
+            "example": "adjust_price",
+            "nullable": true
+          },
+          "summary": {
+            "type": "object",
+            "example": "Dein Preis liegt im empfohlenen Bereich.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "title",
+          "subtitle",
+          "contextLabel",
+          "marketAverage",
+          "recommendedMin",
+          "recommendedMax",
+          "userPrice",
+          "gapAbsolute",
+          "comparisonReliability",
+          "position",
+          "effect",
+          "actionCode",
+          "summary"
+        ]
+      },
+      "WorkspaceStatisticsCategoryFitItemDto": {
+        "type": "object",
+        "properties": {
+          "categoryKey": {
+            "type": "object",
+            "example": "cleaning",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "example": "Cleaning"
+          },
+          "marketDemandShare": {
+            "type": "object",
+            "example": 32,
+            "nullable": true
+          },
+          "reliability": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "unknown"
+            ],
+            "example": "medium"
+          },
+          "userFit": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "unknown"
+            ],
+            "example": "medium"
+          },
+          "opportunity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "unknown"
+            ],
+            "example": "high"
+          },
+          "actionCode": {
+            "type": "object",
+            "example": "focus_market",
+            "nullable": true
+          },
+          "summary": {
+            "type": "object",
+            "example": "Starke Nachfrage bei noch ausbaufähiger Präsenz.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "categoryKey",
+          "label",
+          "marketDemandShare",
+          "reliability",
+          "userFit",
+          "opportunity",
+          "actionCode",
+          "summary"
+        ]
+      },
+      "WorkspaceStatisticsCategoryFitDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "object",
+            "example": "Kategorien-Fit",
+            "nullable": true
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Wie gut deine Präsenz zur aktuellen Nachfrage passt.",
+            "nullable": true
+          },
+          "hasReliableItems": {
+            "type": "boolean",
+            "example": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsCategoryFitItemDto"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "subtitle",
+          "hasReliableItems",
+          "items"
+        ]
+      },
+      "WorkspaceStatisticsCityComparisonItemDto": {
+        "type": "object",
+        "properties": {
+          "cityId": {
+            "type": "object",
+            "example": "berlin-city",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "marketRequests": {
+            "type": "object",
+            "example": 48,
+            "nullable": true
+          },
+          "reliability": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "unknown"
+            ],
+            "example": "medium"
+          },
+          "userActivity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "unknown"
+            ],
+            "example": "medium"
+          },
+          "userConversion": {
+            "type": "object",
+            "example": 42,
+            "nullable": true
+          },
+          "actionCode": {
+            "type": "object",
+            "example": "focus_market",
+            "nullable": true
+          },
+          "recommendation": {
+            "type": "object",
+            "example": "Berlin bietet Marktvolumen, deine Präsenz ist hier aber noch ausbaufähig.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "cityId",
+          "city",
+          "marketRequests",
+          "reliability",
+          "userActivity",
+          "userConversion",
+          "actionCode",
+          "recommendation"
+        ]
+      },
+      "WorkspaceStatisticsCityComparisonDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "object",
+            "example": "Städtevergleich",
+            "nullable": true
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Marktvolumen vs. deine Aktivität in relevanten Städten.",
+            "nullable": true
+          },
+          "hasReliableItems": {
+            "type": "boolean",
+            "example": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsCityComparisonItemDto"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "subtitle",
+          "hasReliableItems",
+          "items"
+        ]
+      },
+      "WorkspaceStatisticsRecommendationItemDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "high_unanswered_requests"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "risk",
+              "opportunity",
+              "performance",
+              "growth",
+              "promotion",
+              "demand"
+            ],
+            "example": "risk"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "title": {
+            "type": "string",
+            "example": "Viele offene Anfragen"
+          },
+          "description": {
+            "type": "string",
+            "example": "Mehrere Anfragen bleiben länger als 24 Stunden unbeantwortet."
+          },
+          "confidence": {
+            "type": "number",
+            "example": 0.86
+          },
+          "reliability": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "context": {
+            "type": "object",
+            "example": "56",
+            "nullable": true
+          },
+          "actionCode": {
+            "type": "object",
+            "example": "follow_up_unanswered",
+            "nullable": true
+          },
+          "action": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsActionLinkDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type",
+          "priority",
+          "title",
+          "description",
+          "confidence",
+          "reliability",
+          "context",
+          "actionCode",
+          "action"
+        ]
+      },
+      "WorkspaceStatisticsRecommendationSectionDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "object",
+            "example": "Risiken",
+            "nullable": true
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Was aktuell deinen Fortschritt ausbremst.",
+            "nullable": true
+          },
+          "hasReliableItems": {
+            "type": "boolean",
+            "example": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsRecommendationItemDto"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "subtitle",
+          "hasReliableItems",
+          "items"
+        ]
+      },
       "WorkspaceStatisticsSummaryDto": {
         "type": "object",
         "properties": {
@@ -11246,6 +11833,79 @@
           "points",
           "totals",
           "metrics"
+        ]
+      },
+      "WorkspaceStatisticsActivityComparisonPointDto": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "example": "2026-03-02T00:00:00.000Z"
+          },
+          "clientActivity": {
+            "type": "object",
+            "example": 3,
+            "nullable": true
+          },
+          "providerActivity": {
+            "type": "object",
+            "example": 2,
+            "nullable": true
+          }
+        },
+        "required": [
+          "timestamp",
+          "clientActivity",
+          "providerActivity"
+        ]
+      },
+      "WorkspaceStatisticsActivityComparisonDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "object",
+            "example": "Aktivitätsvergleich",
+            "nullable": true
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Deine Aktivität als Auftraggeber und Anbieter im selben Zeitfenster.",
+            "nullable": true
+          },
+          "summary": {
+            "type": "object",
+            "example": "Deine stärkste Aktivität liegt aktuell außerhalb des Marktpeaks.",
+            "nullable": true
+          },
+          "peakTimestamp": {
+            "type": "object",
+            "example": "2026-03-09T00:00:00.000Z",
+            "nullable": true
+          },
+          "bestWindowTimestamp": {
+            "type": "object",
+            "example": "2026-03-09T00:00:00.000Z",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "object",
+            "example": "2026-03-26T19:19:00.000Z",
+            "nullable": true
+          },
+          "hasReliableSeries": {
+            "type": "boolean",
+            "example": true
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsActivityComparisonPointDto"
+            }
+          }
+        },
+        "required": [
+          "hasReliableSeries",
+          "points"
         ]
       },
       "WorkspaceStatisticsCategoryDemandDto": {
@@ -11830,6 +12490,298 @@
           "stages"
         ]
       },
+      "WorkspaceStatisticsFunnelComparisonStageDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "offers"
+          },
+          "label": {
+            "type": "string",
+            "example": "Angebote"
+          },
+          "marketCount": {
+            "type": "object",
+            "example": 74,
+            "nullable": true
+          },
+          "userCount": {
+            "type": "object",
+            "example": 8,
+            "nullable": true
+          },
+          "marketRateFromPrev": {
+            "type": "object",
+            "example": 68,
+            "nullable": true
+          },
+          "userRateFromPrev": {
+            "type": "object",
+            "example": 100,
+            "nullable": true
+          },
+          "gapRate": {
+            "type": "object",
+            "example": 32,
+            "nullable": true,
+            "description": "Difference in percentage points: user - market."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "good",
+              "warning",
+              "critical",
+              "neutral"
+            ],
+            "example": "warning"
+          },
+          "signalCodes": {
+            "example": [
+              "high_offer_dropoff"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "example": "Du verlierst hier deutlich mehr als der Markt.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "marketCount",
+          "userCount",
+          "marketRateFromPrev",
+          "userRateFromPrev",
+          "gapRate",
+          "status",
+          "signalCodes",
+          "summary"
+        ]
+      },
+      "WorkspaceStatisticsFunnelLargestDropOffDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "responses"
+          },
+          "label": {
+            "type": "string",
+            "example": "Rückmeldungen"
+          },
+          "userRateFromPrev": {
+            "type": "object",
+            "example": 0,
+            "nullable": true
+          },
+          "marketRateFromPrev": {
+            "type": "object",
+            "example": 70,
+            "nullable": true
+          },
+          "gapRate": {
+            "type": "object",
+            "example": -70,
+            "nullable": true
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "example": "critical"
+          },
+          "summary": {
+            "type": "string",
+            "example": "Zwischen Angebot und Rückmeldung verlierst du aktuell deutlich mehr als der Markt."
+          },
+          "actionCode": {
+            "type": "object",
+            "example": "follow_up_requests",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "userRateFromPrev",
+          "marketRateFromPrev",
+          "gapRate",
+          "severity",
+          "summary",
+          "actionCode"
+        ]
+      },
+      "WorkspaceStatisticsFunnelBottleneckDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "responses"
+          },
+          "title": {
+            "type": "string",
+            "example": "Rückmeldungen bleiben aus"
+          },
+          "description": {
+            "type": "string",
+            "example": "Deine Angebote erhalten im aktuellen Kontext deutlich seltener eine Rückmeldung als der Markt."
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "example": "high"
+          },
+          "actionCode": {
+            "type": "object",
+            "example": "follow_up_requests",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "description",
+          "severity",
+          "actionCode"
+        ]
+      },
+      "WorkspaceStatisticsFunnelConversionSummaryDto": {
+        "type": "object",
+        "properties": {
+          "userConversion": {
+            "type": "object",
+            "example": 18,
+            "nullable": true
+          },
+          "marketConversion": {
+            "type": "object",
+            "example": 26,
+            "nullable": true
+          },
+          "gapConversion": {
+            "type": "object",
+            "example": -8,
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "good",
+              "warning",
+              "critical",
+              "neutral"
+            ],
+            "example": "warning"
+          }
+        },
+        "required": [
+          "userConversion",
+          "marketConversion",
+          "gapConversion",
+          "status"
+        ]
+      },
+      "WorkspaceStatisticsFunnelComparisonDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Profil Performance"
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Wie dein Profil aktuell performt.",
+            "nullable": true
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsFunnelComparisonStageDto"
+            }
+          },
+          "largestDropOffStage": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsFunnelLargestDropOffDto"
+              }
+            ]
+          },
+          "bottleneck": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsFunnelBottleneckDto"
+              }
+            ]
+          },
+          "conversionSummary": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsFunnelConversionSummaryDto"
+              }
+            ]
+          },
+          "primaryAction": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsActionLinkDto"
+              }
+            ]
+          },
+          "summary": {
+            "type": "object",
+            "example": "Du verlierst aktuell am meisten zwischen Angebot und Rückmeldung.",
+            "nullable": true
+          },
+          "primaryBottleneck": {
+            "type": "object",
+            "example": "Rückmeldungen bleiben aus",
+            "nullable": true
+          },
+          "nextAction": {
+            "type": "object",
+            "example": "Offene Anfragen priorisieren und schneller nachfassen.",
+            "nullable": true
+          },
+          "largestGapStage": {
+            "type": "object",
+            "example": "responses",
+            "nullable": true
+          }
+        },
+        "required": [
+          "title",
+          "subtitle",
+          "stages",
+          "largestDropOffStage",
+          "bottleneck",
+          "conversionSummary",
+          "primaryAction",
+          "summary",
+          "primaryBottleneck",
+          "nextAction",
+          "largestGapStage"
+        ]
+      },
       "WorkspaceStatisticsInsightMetricDto": {
         "type": "object",
         "properties": {
@@ -12064,9 +13016,74 @@
             ],
             "example": "30d"
           },
+          "viewerMode": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "customer"
+            ],
+            "example": "provider",
+            "nullable": true
+          },
           "decisionInsight": {
             "type": "string",
             "example": "Die Angebotsquote liegt aktuell bei 68 %, während 56 Anfragen länger als 24 Stunden unbeantwortet bleiben. Schnellere Reaktionen könnten die Abschlussrate weiter erhöhen."
+          },
+          "decisionLayer": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsDecisionLayerDto"
+              }
+            ]
+          },
+          "personalizedPricing": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsPersonalizedPricingDto"
+              }
+            ]
+          },
+          "categoryFit": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsCategoryFitDto"
+              }
+            ]
+          },
+          "cityComparison": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsCityComparisonDto"
+              }
+            ]
+          },
+          "risks": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsRecommendationSectionDto"
+              }
+            ]
+          },
+          "opportunities": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsRecommendationSectionDto"
+              }
+            ]
+          },
+          "nextSteps": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsRecommendationSectionDto"
+              }
+            ]
           },
           "summary": {
             "$ref": "#/components/schemas/WorkspaceStatisticsSummaryDto"
@@ -12076,6 +13093,14 @@
           },
           "activity": {
             "$ref": "#/components/schemas/WorkspaceStatisticsActivityDto"
+          },
+          "activityComparison": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsActivityComparisonDto"
+              }
+            ]
           },
           "demand": {
             "$ref": "#/components/schemas/WorkspaceStatisticsDemandDto"
@@ -12091,6 +13116,14 @@
           },
           "profileFunnel": {
             "$ref": "#/components/schemas/WorkspaceStatisticsProfileFunnelDto"
+          },
+          "funnelComparison": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsFunnelComparisonDto"
+              }
+            ]
           },
           "insights": {
             "type": "array",
@@ -12113,6 +13146,7 @@
           "updatedAt",
           "mode",
           "range",
+          "viewerMode",
           "decisionInsight",
           "summary",
           "kpis",

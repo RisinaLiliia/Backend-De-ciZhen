@@ -13,19 +13,28 @@ import type { WorkspacePrivateOverviewResponseDto } from './dto/workspace-privat
 import type {
   WorkspaceStatisticsQueryDto,
   WorkspaceStatisticsRange,
+  WorkspaceStatisticsViewerMode,
 } from './dto/workspace-statistics-query.dto';
 import type { WorkspacePublicCityActivityItemDto } from './dto/workspace-public-response.dto';
 import type {
+  WorkspaceStatisticsActivityComparisonDto,
   WorkspaceStatisticsCategoryDemandDto,
   WorkspaceStatisticsContextHealthDto,
   WorkspaceStatisticsCityDemandDto,
   WorkspaceStatisticsDecisionContextDto,
+  WorkspaceStatisticsDecisionLayerDto,
+  WorkspaceStatisticsPersonalizedPricingDto,
+  WorkspaceStatisticsCategoryFitDto,
+  WorkspaceStatisticsCityComparisonDto,
   WorkspaceStatisticsFilterOptionDto,
+  WorkspaceStatisticsInsightDto,
   WorkspaceStatisticsOpportunityMetricDto,
   WorkspaceStatisticsOpportunityRadarItemDto,
+  WorkspaceStatisticsFunnelComparisonDto,
   WorkspaceStatisticsOverviewResponseDto,
   WorkspaceStatisticsPriceIntelligenceDto,
   WorkspaceStatisticsProfileFunnelDto,
+  WorkspaceStatisticsRecommendationSectionDto,
   WorkspaceStatisticsSectionMetaDto,
 } from './dto/workspace-statistics-response.dto';
 import { InsightsService, type AnalyticsSnapshot } from './insights.service';
@@ -39,6 +48,35 @@ type WorkspaceStatisticsCategoryAggregateRow = {
     serviceKey?: string | null;
   };
   count: number;
+};
+
+type FunnelStageKey = 'requests' | 'offers' | 'responses' | 'contracts' | 'completed';
+
+type FunnelStageCounts = Record<FunnelStageKey, number>;
+type DecisionMetricId =
+  | 'offer_rate'
+  | 'avg_response_time'
+  | 'unanswered_over_24h'
+  | 'completed_jobs'
+  | 'revenue'
+  | 'average_order_value';
+
+type UserCategoryActivityRow = {
+  categoryKey: string | null;
+  categoryName: string | null;
+  baseCount: number;
+  completedCount: number;
+};
+
+type UserCityActivityRow = {
+  cityId: string | null;
+  cityName: string;
+  baseCount: number;
+  completedCount: number;
+};
+
+type ActivityDateRow = {
+  createdAt?: Date | string | null;
 };
 
 @Injectable()
@@ -77,6 +115,7 @@ export class WorkspaceStatisticsService {
         cityId: null,
         regionId: null,
         categoryKey: null,
+        viewerMode: null,
       };
     }
 
@@ -85,7 +124,16 @@ export class WorkspaceStatisticsService {
       cityId: this.normalizeScopeFilter(query.cityId),
       regionId: this.normalizeScopeFilter(query.regionId),
       categoryKey: this.normalizeScopeFilter(query.categoryKey)?.toLowerCase() ?? null,
+      viewerMode: query.viewerMode ?? null,
     };
+  }
+
+  private resolveViewerMode(
+    viewerMode: WorkspaceStatisticsViewerMode | null | undefined,
+    role?: AppRole | null,
+  ): WorkspaceStatisticsViewerMode {
+    if (viewerMode === 'provider' || viewerMode === 'customer') return viewerMode;
+    return role === 'client' ? 'customer' : 'provider';
   }
 
   private getActivityConfig(range: WorkspaceStatisticsRange): { points: number; stepMs: number; interval: 'hour' | 'day' } {
@@ -246,6 +294,231 @@ export class WorkspaceStatisticsService {
     if (range === '7d') return '7 Tage';
     if (range === '90d') return '90 Tage';
     return '30 Tage';
+  }
+
+  private buildFunnelStageLabels(viewerMode: WorkspaceStatisticsViewerMode): Record<FunnelStageKey, string> {
+    if (viewerMode === 'customer') {
+      return {
+        requests: 'Anfragen',
+        offers: 'Erhaltene Angebote',
+        responses: 'Akzeptierte Angebote',
+        contracts: 'Gestartete Aufträge',
+        completed: 'Abgeschlossen',
+      };
+    }
+
+    return {
+      requests: 'Anfragen',
+      offers: 'Angebote',
+      responses: 'Rückmeldungen',
+      contracts: 'Verträge',
+      completed: 'Abgeschlossen',
+    };
+  }
+
+  private computeRate(current: number, previous: number): number | null {
+    if (previous <= 0) return null;
+    return this.clampPercent((current / previous) * 100);
+  }
+
+  private computeGap(userValue: number | null, marketValue: number | null): number | null {
+    if (typeof userValue !== 'number' || typeof marketValue !== 'number') return null;
+    return this.roundPercent(userValue - marketValue);
+  }
+
+  private resolveFunnelStageStatus(gapRate: number | null, reliable: boolean): 'good' | 'warning' | 'critical' | 'neutral' {
+    if (!reliable || gapRate === null) return 'neutral';
+    if (gapRate <= -25) return 'critical';
+    if (gapRate <= -10) return 'warning';
+    if (gapRate >= 10) return 'good';
+    return 'neutral';
+  }
+
+  private resolveFunnelSeverity(gapRate: number | null): 'low' | 'medium' | 'high' | 'critical' {
+    if (gapRate === null) return 'low';
+    if (gapRate <= -35) return 'critical';
+    if (gapRate <= -20) return 'high';
+    if (gapRate <= -10) return 'medium';
+    return 'low';
+  }
+
+  private formatGapPercent(gapRate: number | null): string {
+    if (gapRate === null || !Number.isFinite(gapRate)) return '—';
+    if (gapRate > 0) return `+${this.roundPercent(gapRate)} pp`;
+    return `${this.roundPercent(gapRate)} pp`;
+  }
+
+  private resolveFunnelActionCode(stageKey: FunnelStageKey, status: 'good' | 'warning' | 'critical' | 'neutral'): string | null {
+    if (status === 'good' || status === 'neutral') return null;
+    if (stageKey === 'offers') return 'focus_market';
+    if (stageKey === 'responses') return 'follow_up_requests';
+    if (stageKey === 'contracts') return 'respond_faster';
+    if (stageKey === 'completed') return 'complete_profile';
+    return 'focus_market';
+  }
+
+  private resolveFunnelSignalCodes(
+    stageKey: FunnelStageKey,
+    status: 'good' | 'warning' | 'critical' | 'neutral',
+  ): string[] {
+    if (status === 'good') {
+      if (stageKey === 'offers') return ['strong_offer_rate'];
+      if (stageKey === 'completed') return ['strong_completion'];
+      return [];
+    }
+    if (status === 'warning' || status === 'critical') {
+      if (stageKey === 'offers') return ['high_offer_dropoff'];
+      if (stageKey === 'responses') return ['low_response_rate'];
+      if (stageKey === 'contracts') return ['weak_acceptance'];
+    }
+    return [];
+  }
+
+  private buildFunnelStageSummary(params: {
+    label: string;
+    marketRate: number | null;
+    userRate: number | null;
+    gapRate: number | null;
+    status: 'good' | 'warning' | 'critical' | 'neutral';
+    reliable: boolean;
+  }): string | null {
+    if (!params.reliable || params.marketRate === null || params.userRate === null || params.gapRate === null) {
+      return 'Kein belastbarer Marktvergleich verfügbar.';
+    }
+    if (params.status === 'good') {
+      return `Du performst bei ${params.label} aktuell besser als der Markt (${this.formatGapPercent(params.gapRate)}).`;
+    }
+    if (params.status === 'warning' || params.status === 'critical') {
+      return `Du verlierst bei ${params.label} aktuell mehr als der Markt (${this.formatGapPercent(params.gapRate)}).`;
+    }
+    return `Du liegst bei ${params.label} aktuell nahe am Markt.`;
+  }
+
+  private buildFunnelComparison(params: {
+    viewerMode: WorkspaceStatisticsViewerMode;
+    marketCounts: FunnelStageCounts;
+    userCounts: FunnelStageCounts;
+    lowData: boolean;
+  }): WorkspaceStatisticsFunnelComparisonDto {
+    const labels = this.buildFunnelStageLabels(params.viewerMode);
+    const orderedKeys: FunnelStageKey[] = ['requests', 'offers', 'responses', 'contracts', 'completed'];
+
+    const stages: WorkspaceStatisticsFunnelComparisonDto['stages'] = orderedKeys.map((key, index) => {
+      const previousKey = orderedKeys[index - 1] ?? null;
+      const marketRateFromPrev = previousKey ? this.computeRate(params.marketCounts[key], params.marketCounts[previousKey]) : 100;
+      const userRateFromPrev = previousKey ? this.computeRate(params.userCounts[key], params.userCounts[previousKey]) : 100;
+      const previousUserCount = previousKey ? params.userCounts[previousKey] : params.userCounts.requests;
+      const previousMarketCount = previousKey ? params.marketCounts[previousKey] : params.marketCounts.requests;
+      const reliable = !params.lowData && previousKey !== null && previousUserCount >= 3 && previousMarketCount >= 5;
+      const gapRate = previousKey ? this.computeGap(userRateFromPrev, marketRateFromPrev) : 0;
+      const status = previousKey
+        ? this.resolveFunnelStageStatus(gapRate, reliable)
+        : 'neutral';
+
+      return {
+        key,
+        label: labels[key],
+        marketCount: params.marketCounts[key],
+        userCount: params.userCounts[key],
+        marketRateFromPrev,
+        userRateFromPrev,
+        gapRate,
+        status,
+        signalCodes: previousKey ? this.resolveFunnelSignalCodes(key, status) : [],
+        summary: previousKey
+          ? this.buildFunnelStageSummary({
+              label: labels[key],
+              marketRate: marketRateFromPrev,
+              userRate: userRateFromPrev,
+              gapRate,
+              status,
+              reliable,
+            })
+          : null,
+      };
+    });
+
+    const comparableStages = stages
+      .filter((stage) => stage.key !== 'requests')
+      .filter((stage) => typeof stage.gapRate === 'number' && params.userCounts[stage.key as FunnelStageKey] >= 0);
+
+    const largestGapStage = comparableStages.reduce<WorkspaceStatisticsFunnelComparisonDto['stages'][number] | null>((worst, stage) => {
+      if (!worst) return stage;
+      return (stage.gapRate ?? 0) < (worst.gapRate ?? 0) ? stage : worst;
+    }, null);
+
+    const reliableLargestGapStage =
+      params.lowData || !largestGapStage || (largestGapStage.gapRate ?? 0) >= 0
+        ? null
+        : largestGapStage;
+
+    const largestDropOffStage = reliableLargestGapStage
+      ? {
+          key: reliableLargestGapStage.key,
+          label: reliableLargestGapStage.label,
+          userRateFromPrev: reliableLargestGapStage.userRateFromPrev,
+          marketRateFromPrev: reliableLargestGapStage.marketRateFromPrev,
+          gapRate: reliableLargestGapStage.gapRate,
+          severity: this.resolveFunnelSeverity(reliableLargestGapStage.gapRate),
+          summary: reliableLargestGapStage.summary ?? 'Hier liegt aktuell dein größter Drop-off.',
+          actionCode: this.resolveFunnelActionCode(reliableLargestGapStage.key as FunnelStageKey, reliableLargestGapStage.status),
+        }
+      : null;
+
+    const bottleneck = largestDropOffStage
+      ? {
+          key: largestDropOffStage.key,
+          title: `${largestDropOffStage.label} bleiben zurück`,
+          description: largestDropOffStage.summary,
+          severity: largestDropOffStage.severity,
+          actionCode: largestDropOffStage.actionCode,
+        }
+      : null;
+
+    const marketConversion = this.computeRate(params.marketCounts.completed, params.marketCounts.requests);
+    const userConversion = this.computeRate(params.userCounts.completed, params.userCounts.requests);
+    const gapConversion = this.computeGap(userConversion, marketConversion);
+    const conversionSummary = {
+      userConversion,
+      marketConversion,
+      gapConversion,
+      status: this.resolveFunnelStageStatus(gapConversion, !params.lowData && params.userCounts.requests >= 3 && params.marketCounts.requests >= 5),
+    };
+
+    const primaryAction = bottleneck?.actionCode
+      ? {
+          code: bottleneck.actionCode,
+          label: bottleneck.actionCode === 'follow_up_requests'
+            ? 'Offene Anfragen priorisieren'
+            : bottleneck.actionCode === 'respond_faster'
+              ? 'Schneller reagieren'
+              : bottleneck.actionCode === 'complete_profile'
+                ? 'Profil vervollständigen'
+                : 'Marktfokus schärfen',
+          target: bottleneck.actionCode === 'focus_market' ? '/workspace?section=stats&focus=cities' : '/workspace?tab=my-requests',
+        }
+      : null;
+
+    const lowDataSummary = 'Noch zu wenig Daten für einen belastbaren Funnel-Vergleich.';
+    const summary = params.lowData
+      ? lowDataSummary
+      : largestDropOffStage?.summary ?? 'Dein Funnel liegt aktuell nahe am Markt.';
+
+    return {
+      title: 'Profil Performance',
+      subtitle: params.viewerMode === 'customer'
+        ? 'Wie deine Anfragen aktuell performen.'
+        : 'Wie dein Profil aktuell performt.',
+      stages,
+      largestDropOffStage,
+      bottleneck,
+      conversionSummary,
+      primaryAction,
+      summary,
+      primaryBottleneck: bottleneck?.title ?? null,
+      nextAction: primaryAction?.label ?? (params.lowData ? lowDataSummary : null),
+      largestGapStage: largestDropOffStage?.key ?? null,
+    };
   }
 
   private aggregateCategoryRows(params: {
@@ -470,6 +743,591 @@ export class WorkspaceStatisticsService {
     return 'Die Nachfrage bleibt stabil, jedoch bleiben einige Anfragen ohne Angebot. Schnellere Reaktionen und mehr aktive Anbieter könnten die Abschlussrate erhöhen.';
   }
 
+  private computeRelativeGap(userValue: number | null, marketValue: number | null): number | null {
+    if (typeof userValue !== 'number' || typeof marketValue !== 'number' || marketValue === 0) return null;
+    return this.roundPercent(((userValue - marketValue) / Math.abs(marketValue)) * 100);
+  }
+
+  private resolveDecisionMetric(
+    params: {
+      id: DecisionMetricId;
+      label: string;
+      unit: 'percent' | 'minutes' | 'currency' | 'count';
+      marketValue: number | null;
+      userValue: number | null;
+      higherIsBetter: boolean;
+      emptySummary: string;
+      betterSummary: string;
+      worseSummary: string;
+      neutralSummary: string;
+      signalCodes: string[];
+      primaryActionCode: string | null;
+      reliableComparison?: boolean;
+      lowConfidenceSummary?: string;
+    },
+  ): WorkspaceStatisticsDecisionLayerDto['metrics'][number] {
+    const gapAbsolute = this.computeGap(params.userValue, params.marketValue);
+    const gapPercent = this.computeRelativeGap(params.userValue, params.marketValue);
+    const hasComparison = typeof params.userValue === 'number' && typeof params.marketValue === 'number';
+    const reliableComparison = params.reliableComparison ?? hasComparison;
+
+    let direction: WorkspaceStatisticsDecisionLayerDto['metrics'][number]['direction'] = 'neutral';
+    if (reliableComparison && gapAbsolute !== null && gapAbsolute !== 0) {
+      const isBetter = params.higherIsBetter ? gapAbsolute > 0 : gapAbsolute < 0;
+      direction = isBetter ? 'better' : 'worse';
+    }
+
+    let status: WorkspaceStatisticsDecisionLayerDto['metrics'][number]['status'] = 'neutral';
+    if (reliableComparison && gapAbsolute !== null) {
+      const gapMagnitude = Math.abs(gapPercent ?? gapAbsolute);
+      if (direction === 'better') {
+        status = gapMagnitude >= 20 ? 'good' : 'neutral';
+      } else if (direction === 'worse') {
+        status = gapMagnitude >= 35 ? 'critical' : gapMagnitude >= 12 ? 'warning' : 'neutral';
+      }
+    }
+
+    let summary = params.emptySummary;
+    if (hasComparison && !reliableComparison) {
+      summary = params.lowConfidenceSummary ?? params.emptySummary;
+    } else if (hasComparison) {
+      if (direction === 'better') summary = params.betterSummary;
+      else if (direction === 'worse') summary = params.worseSummary;
+      else summary = params.neutralSummary;
+    }
+
+    return {
+      id: params.id,
+      label: params.label,
+      marketValue: params.marketValue,
+      userValue: params.userValue,
+      gapAbsolute,
+      gapPercent,
+      unit: params.unit,
+      direction,
+      status,
+      signalCodes: reliableComparison ? params.signalCodes : [],
+      primaryActionCode: reliableComparison ? params.primaryActionCode : null,
+      summary,
+    };
+  }
+
+  private buildDecisionLayer(params: {
+    mode: 'platform' | 'personalized';
+    viewerMode: WorkspaceStatisticsViewerMode | null;
+    activityMetrics: WorkspaceStatisticsOverviewResponseDto['activity']['metrics'];
+    marketCounts: FunnelStageCounts;
+    marketRevenueAmount: number;
+    userCounts: FunnelStageCounts;
+    userRevenueAmount: number;
+    userResponseMinutes: number | null;
+    userUnansweredOver24h: number | null;
+    reliableComparison: boolean;
+  }): WorkspaceStatisticsDecisionLayerDto | null {
+    if (params.mode !== 'personalized' || !params.viewerMode) return null;
+
+    const marketOfferRate = this.computeRate(params.marketCounts.offers, params.marketCounts.requests);
+    const userOfferRate = this.computeRate(params.userCounts.offers, params.userCounts.requests);
+    const marketAverageOrderValue =
+      params.marketCounts.completed > 0 ? this.roundMoney(params.marketRevenueAmount / params.marketCounts.completed) : null;
+    const userAverageOrderValue =
+      params.userCounts.completed > 0 ? this.roundMoney(params.userRevenueAmount / params.userCounts.completed) : null;
+
+    const isCustomerMode = params.viewerMode === 'customer';
+    const lowConfidenceSummary = 'Vergleich basiert aktuell auf begrenzten viewer-spezifischen Daten.';
+    const metrics: WorkspaceStatisticsDecisionLayerDto['metrics'] = [
+      this.resolveDecisionMetric({
+        id: 'offer_rate',
+        label: isCustomerMode ? 'Anfragen mit Angeboten' : 'Angebotsquote',
+        unit: 'percent',
+        marketValue: marketOfferRate,
+        userValue: userOfferRate,
+        higherIsBetter: true,
+        emptySummary: 'Kein Marktvergleich verfügbar.',
+        betterSummary: isCustomerMode
+          ? 'Deine Anfragen erhalten häufiger Angebote als der Markt.'
+          : 'Du sendest häufiger Angebote als der Markt.',
+        worseSummary: isCustomerMode
+          ? 'Deine Anfragen erhalten seltener Angebote als der Markt.'
+          : 'Du bleibst bei Angeboten unter dem Markt.',
+        neutralSummary: 'Du liegst bei der Angebotsquote nahe am Markt.',
+        signalCodes: userOfferRate !== null && marketOfferRate !== null && userOfferRate >= marketOfferRate
+          ? ['strong_position']
+          : ['low_visibility'],
+        primaryActionCode: userOfferRate !== null && marketOfferRate !== null && userOfferRate < marketOfferRate
+          ? 'focus_market'
+          : null,
+        reliableComparison: params.reliableComparison,
+        lowConfidenceSummary,
+      }),
+      this.resolveDecisionMetric({
+        id: 'avg_response_time',
+        label: isCustomerMode ? 'Zeit bis erstes Angebot' : 'Median Antwortzeit',
+        unit: 'minutes',
+        marketValue: params.activityMetrics.responseMedianMinutes,
+        userValue: params.userResponseMinutes,
+        higherIsBetter: false,
+        emptySummary: 'Kein Marktvergleich verfügbar.',
+        betterSummary: isCustomerMode
+          ? 'Du erhältst schneller Angebote als der Markt.'
+          : 'Du reagierst schneller als der Markt.',
+        worseSummary: isCustomerMode
+          ? 'Deine Anfragen erhalten später Angebote als im Markt üblich.'
+          : 'Deine Antwortzeit ist langsamer als der Markt.',
+        neutralSummary: 'Deine Antwortzeit liegt nahe am Markt.',
+        signalCodes: ['slow_response'],
+        primaryActionCode: 'respond_faster',
+        reliableComparison: params.reliableComparison,
+        lowConfidenceSummary,
+      }),
+      this.resolveDecisionMetric({
+        id: 'unanswered_over_24h',
+        label: isCustomerMode ? 'Ohne Angebot >24h' : 'Offen >24h',
+        unit: 'count',
+        marketValue: params.activityMetrics.unansweredRequests24h,
+        userValue: params.userUnansweredOver24h,
+        higherIsBetter: false,
+        emptySummary: 'Kein Marktvergleich verfügbar.',
+        betterSummary: 'Du hast weniger offene Fälle >24h als der Markt.',
+        worseSummary: 'Zu viele Vorgänge bleiben länger als 24 Stunden offen.',
+        neutralSummary: 'Deine offenen Fälle >24h liegen nahe am Markt.',
+        signalCodes: ['high_unanswered'],
+        primaryActionCode: 'follow_up_unanswered',
+        reliableComparison: params.reliableComparison,
+        lowConfidenceSummary,
+      }),
+      this.resolveDecisionMetric({
+        id: 'completed_jobs',
+        label: 'Abgeschlossene Aufträge',
+        unit: 'count',
+        marketValue: params.marketCounts.completed,
+        userValue: params.userCounts.completed,
+        higherIsBetter: true,
+        emptySummary: 'Kein Marktvergleich verfügbar.',
+        betterSummary: 'Du schließt mehr Aufträge ab als der Markt.',
+        worseSummary: 'Du liegst bei Abschlüssen unter dem Markt.',
+        neutralSummary: 'Deine Abschlusszahl liegt nahe am Markt.',
+        signalCodes: params.userCounts.completed >= params.marketCounts.completed ? ['strong_position'] : [],
+        primaryActionCode: params.userCounts.completed < params.marketCounts.completed ? 'focus_market' : null,
+        reliableComparison: params.reliableComparison,
+        lowConfidenceSummary,
+      }),
+      this.resolveDecisionMetric({
+        id: 'revenue',
+        label: isCustomerMode ? 'Ausgaben' : 'Umsatz',
+        unit: 'currency',
+        marketValue: params.marketRevenueAmount,
+        userValue: params.userRevenueAmount,
+        higherIsBetter: !isCustomerMode,
+        emptySummary: 'Kein Marktvergleich verfügbar.',
+        betterSummary: isCustomerMode
+          ? 'Du gibst aktuell weniger aus als der Markt.'
+          : 'Du erzielst aktuell mehr Umsatz als der Markt.',
+        worseSummary: isCustomerMode
+          ? 'Deine Ausgaben liegen aktuell über dem Markt.'
+          : 'Dein Umsatz liegt aktuell unter dem Markt.',
+        neutralSummary: 'Dein Umsatzniveau liegt nahe am Markt.',
+        signalCodes: params.userRevenueAmount >= params.marketRevenueAmount ? ['strong_position'] : [],
+        primaryActionCode: params.userRevenueAmount < params.marketRevenueAmount && !isCustomerMode ? 'focus_market' : null,
+        reliableComparison: params.reliableComparison,
+        lowConfidenceSummary,
+      }),
+      this.resolveDecisionMetric({
+        id: 'average_order_value',
+        label: 'Ø Auftragswert',
+        unit: 'currency',
+        marketValue: marketAverageOrderValue,
+        userValue: userAverageOrderValue,
+        higherIsBetter: !isCustomerMode,
+        emptySummary: 'Kein Marktvergleich verfügbar.',
+        betterSummary: isCustomerMode
+          ? 'Dein durchschnittlicher Auftragswert liegt unter dem Markt.'
+          : 'Dein durchschnittlicher Auftragswert liegt über dem Markt.',
+        worseSummary: isCustomerMode
+          ? 'Dein durchschnittlicher Auftragswert liegt über dem Markt.'
+          : 'Dein durchschnittlicher Auftragswert liegt unter dem Markt.',
+        neutralSummary: 'Dein durchschnittlicher Auftragswert liegt nahe am Markt.',
+        signalCodes: [],
+        primaryActionCode: isCustomerMode ? null : 'adjust_price',
+        reliableComparison: params.reliableComparison,
+        lowConfidenceSummary,
+      }),
+    ];
+
+    const rankedMetric = params.reliableComparison
+      ? (
+          metrics
+            .filter((metric) => metric.status === 'critical' || metric.status === 'warning')
+            .sort((left, right) => {
+              const leftPriority = left.status === 'critical' ? 2 : 1;
+              const rightPriority = right.status === 'critical' ? 2 : 1;
+              return rightPriority - leftPriority;
+            })[0] ?? metrics.find((metric) => metric.status === 'good') ?? metrics.find((metric) => Boolean(metric.summary)) ?? metrics[0] ?? null
+        )
+      : null;
+
+    const primaryInsight = params.reliableComparison
+      ? (rankedMetric?.summary ?? null)
+      : lowConfidenceSummary;
+    const primaryAction = params.reliableComparison && rankedMetric?.primaryActionCode
+      ? {
+          code: rankedMetric.primaryActionCode,
+          label: rankedMetric.primaryActionCode === 'respond_faster'
+            ? 'Schneller reagieren'
+            : rankedMetric.primaryActionCode === 'follow_up_unanswered'
+              ? 'Offene Vorgänge priorisieren'
+              : rankedMetric.primaryActionCode === 'adjust_price'
+                ? 'Preisstrategie prüfen'
+                : rankedMetric.primaryActionCode === 'complete_profile'
+                  ? 'Profil vervollständigen'
+                  : 'Marktfokus schärfen',
+          target: rankedMetric.primaryActionCode === 'focus_market'
+            ? '/workspace?section=stats&focus=cities'
+            : '/workspace?tab=my-requests',
+        }
+      : null;
+
+    return {
+      title: 'Decision Layer',
+      subtitle: 'User vs Market im aktuellen Kontext',
+      metrics,
+      primaryInsight,
+      primaryAction,
+    };
+  }
+
+  private toActivityLevel(value: number, maxValue: number): 'high' | 'medium' | 'low' | 'unknown' {
+    if (maxValue <= 0 || value <= 0) return maxValue <= 0 ? 'unknown' : 'low';
+    const ratio = value / maxValue;
+    if (ratio >= 0.66) return 'high';
+    if (ratio >= 0.33) return 'medium';
+    return 'low';
+  }
+
+  private resolvePricingComparisonReliability(params: {
+    priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto;
+    userPrice: number | null;
+  }): WorkspaceStatisticsPersonalizedPricingDto['comparisonReliability'] {
+    const hasMarketSignal =
+      typeof params.priceIntelligence.marketAverage === 'number' ||
+      typeof params.priceIntelligence.recommendedMin === 'number' ||
+      typeof params.priceIntelligence.recommendedMax === 'number';
+    if (typeof params.userPrice !== 'number' || !hasMarketSignal) return 'unavailable';
+    if (params.priceIntelligence.confidenceLevel === 'high') return 'high';
+    if (params.priceIntelligence.confidenceLevel === 'medium') return 'medium';
+    return 'low';
+  }
+
+  private resolveFitReliability(params: {
+    marketValue: number | null;
+    userBaseCount: number;
+    userCompletedCount?: number;
+  }): 'high' | 'medium' | 'low' | 'unknown' {
+    const hasMarketValue = typeof params.marketValue === 'number' && params.marketValue > 0;
+    const completedCount = params.userCompletedCount ?? 0;
+    if (!hasMarketValue && params.userBaseCount <= 0 && completedCount <= 0) return 'unknown';
+    if (hasMarketValue && params.userBaseCount >= 5) return 'high';
+    if (hasMarketValue && params.userBaseCount >= 2) return 'medium';
+    if (hasMarketValue || params.userBaseCount > 0 || completedCount > 0) return 'low';
+    return 'unknown';
+  }
+
+  private resolveInsightReliability(confidence: number): 'high' | 'medium' | 'low' {
+    if (confidence >= 0.8) return 'high';
+    if (confidence >= 0.65) return 'medium';
+    return 'low';
+  }
+
+  private resolveInsightActionCode(insight: WorkspaceStatisticsInsightDto): string | null {
+    switch (insight.code) {
+      case 'high_unanswered_requests':
+        return 'follow_up_unanswered';
+      case 'city_opportunity_high':
+      case 'category_opportunity_high':
+      case 'top_city_demand':
+      case 'top_category_demand':
+        return 'focus_market';
+      case 'user_low_conversion':
+      case 'profile_missing_photo':
+      case 'profile_low_completeness':
+        return 'complete_profile';
+      case 'local_ads_opportunity':
+        return 'boost_visibility';
+      default:
+        return null;
+    }
+  }
+
+  private toRecommendationAction(
+    insight: WorkspaceStatisticsInsightDto,
+    actionCode: string | null,
+  ): WorkspaceStatisticsRecommendationSectionDto['items'][number]['action'] {
+    if (insight.action?.actionType === 'internal_link' && insight.action.href) {
+      return {
+        code: actionCode ?? insight.code,
+        label: insight.action.label,
+        target: insight.action.href,
+      };
+    }
+
+    if (actionCode === 'follow_up_unanswered') {
+      return {
+        code: actionCode,
+        label: 'Offene Vorgänge priorisieren',
+        target: '/workspace?tab=my-requests',
+      };
+    }
+    if (actionCode === 'focus_market') {
+      return {
+        code: actionCode,
+        label: 'Marktfokus schärfen',
+        target: '/workspace?section=stats&focus=cities',
+      };
+    }
+    if (actionCode === 'complete_profile') {
+      return {
+        code: actionCode,
+        label: 'Profil vervollständigen',
+        target: '/workspace?section=profile',
+      };
+    }
+    if (actionCode === 'boost_visibility') {
+      return {
+        code: actionCode,
+        label: 'Sichtbarkeit ausbauen',
+        target: '/workspace?section=stats&focus=growth',
+      };
+    }
+
+    return null;
+  }
+
+  private buildRecommendationSection(params: {
+    mode: 'platform' | 'personalized';
+    title: string;
+    subtitle: string;
+    items: WorkspaceStatisticsInsightDto[];
+  }): WorkspaceStatisticsRecommendationSectionDto | null {
+    if (params.mode !== 'personalized') return null;
+
+    const items = params.items.map((insight) => {
+      const actionCode = this.resolveInsightActionCode(insight);
+      return {
+        code: insight.code,
+        type: insight.type,
+        priority: insight.priority,
+        title: insight.title,
+        description: insight.body,
+        confidence: insight.confidence,
+        reliability: this.resolveInsightReliability(insight.confidence),
+        context: insight.context,
+        actionCode,
+        action: this.toRecommendationAction(insight, actionCode),
+      };
+    });
+
+    return {
+      title: params.title,
+      subtitle: params.subtitle,
+      hasReliableItems: items.some((item) => item.reliability === 'high' || item.reliability === 'medium'),
+      items,
+    };
+  }
+
+  private buildPersonalizedPricing(params: {
+    mode: 'platform' | 'personalized';
+    scopeLabel: string;
+    priceIntelligence: WorkspaceStatisticsPriceIntelligenceDto;
+    userAverageOrderValue: number | null;
+  }): WorkspaceStatisticsPersonalizedPricingDto | null {
+    if (params.mode !== 'personalized') return null;
+
+    const marketAverage = params.priceIntelligence.marketAverage;
+    const recommendedMin = params.priceIntelligence.recommendedMin;
+    const recommendedMax = params.priceIntelligence.recommendedMax;
+    const userPrice = params.userAverageOrderValue;
+    const gapAbsolute = this.computeGap(userPrice, marketAverage);
+    const comparisonReliability = this.resolvePricingComparisonReliability({
+      priceIntelligence: params.priceIntelligence,
+      userPrice,
+    });
+
+    let position: WorkspaceStatisticsPersonalizedPricingDto['position'] = 'unknown';
+    if (
+      comparisonReliability !== 'unavailable' &&
+      typeof userPrice === 'number' &&
+      typeof recommendedMin === 'number' &&
+      typeof recommendedMax === 'number'
+    ) {
+      if (userPrice < recommendedMin) position = 'below';
+      else if (userPrice > recommendedMax) position = 'above';
+      else position = 'within';
+    }
+
+    const effect: WorkspaceStatisticsPersonalizedPricingDto['effect'] =
+      comparisonReliability === 'high' || comparisonReliability === 'medium'
+        ? (position === 'within' ? 'positive' : position === 'above' ? 'warning' : 'neutral')
+        : 'neutral';
+    const actionCode =
+      comparisonReliability === 'high' || comparisonReliability === 'medium'
+        ? (position === 'within' || position === 'unknown' ? null : 'adjust_price')
+        : null;
+    const summary =
+      comparisonReliability === 'unavailable'
+        ? 'Noch kein belastbarer Preisvergleich verfügbar.'
+        : comparisonReliability === 'low'
+          ? 'Preisvergleich ist aktuell nur eingeschränkt belastbar.'
+          : position === 'within'
+        ? 'Dein Preis liegt im empfohlenen Bereich.'
+        : position === 'above'
+          ? 'Dein Preis liegt über dem empfohlenen Bereich und kann Conversion kosten.'
+          : position === 'below'
+            ? 'Dein Preis liegt unter dem empfohlenen Bereich und lässt Potenzial offen.'
+            : 'Noch kein belastbarer Preisvergleich verfügbar.';
+
+    return {
+      title: 'Preisstrategie',
+      subtitle: 'Wie dein Preis im aktuellen Markt einzuordnen ist.',
+      contextLabel: params.scopeLabel,
+      marketAverage,
+      recommendedMin,
+      recommendedMax,
+      userPrice,
+      gapAbsolute,
+      comparisonReliability,
+      position,
+      effect,
+      actionCode,
+      summary,
+    };
+  }
+
+  private buildCategoryFit(params: {
+    mode: 'platform' | 'personalized';
+    categories: WorkspaceStatisticsCategoryDemandDto[];
+    userRows: UserCategoryActivityRow[];
+  }): WorkspaceStatisticsCategoryFitDto | null {
+    if (params.mode !== 'personalized') return null;
+
+    const userByCategory = new Map<string, UserCategoryActivityRow>();
+    for (const row of params.userRows) {
+      const key = this.normalizeScopeFilter(row.categoryKey) ?? '__null__';
+      userByCategory.set(key, row);
+    }
+    const maxBase = Math.max(0, ...params.userRows.map((row) => row.baseCount));
+    const items = params.categories.slice(0, 5).map((category) => {
+      const key = this.normalizeScopeFilter(category.categoryKey) ?? '__null__';
+      const userRow = userByCategory.get(key);
+      const baseCount = userRow?.baseCount ?? 0;
+      const reliability = this.resolveFitReliability({
+        marketValue: category.sharePercent,
+        userBaseCount: baseCount,
+        userCompletedCount: userRow?.completedCount ?? 0,
+      });
+      const userFit = this.toActivityLevel(baseCount, maxBase);
+      const demandShare = category.sharePercent;
+      const opportunity: WorkspaceStatisticsCategoryFitDto['items'][number]['opportunity'] =
+        reliability === 'unknown'
+          ? 'unknown'
+          : demandShare >= 25 && (userFit === 'low' || userFit === 'unknown')
+            ? 'high'
+            : demandShare >= 15
+              ? 'medium'
+              : demandShare > 0
+                ? 'low'
+                : 'unknown';
+      const actionCode = reliability === 'high' && opportunity === 'high' ? 'focus_market' : null;
+      const summary =
+        reliability === 'unknown'
+          ? 'Noch keine belastbare Einordnung für diese Kategorie.'
+          : reliability === 'low'
+            ? 'Erste Signale vorhanden, aber die Datengrundlage ist noch dünn.'
+            : opportunity === 'high'
+              ? 'Starke Nachfrage bei noch ausbaufähiger Präsenz.'
+              : userFit === 'high'
+                ? 'Du bist in dieser Kategorie bereits gut positioniert.'
+                : 'Markt und Präsenz liegen aktuell nahe beieinander.';
+
+      return {
+        categoryKey: category.categoryKey,
+        label: category.categoryName,
+        marketDemandShare: demandShare,
+        reliability,
+        userFit,
+        opportunity,
+        actionCode,
+        summary,
+      };
+    });
+
+    return {
+      title: 'Kategorien-Fit',
+      subtitle: 'Wie gut deine Präsenz zur aktuellen Nachfrage passt.',
+      hasReliableItems: items.some((item) => item.reliability === 'high' || item.reliability === 'medium'),
+      items,
+    };
+  }
+
+  private buildCityComparison(params: {
+    mode: 'platform' | 'personalized';
+    cities: WorkspaceStatisticsCityDemandDto[];
+    userRows: UserCityActivityRow[];
+  }): WorkspaceStatisticsCityComparisonDto | null {
+    if (params.mode !== 'personalized') return null;
+
+    const userByCity = new Map<string, UserCityActivityRow>();
+    for (const row of params.userRows) {
+      const key = this.normalizeScopeFilter(row.cityId) ?? this.normalizeScopeFilter(row.cityName) ?? '__null__';
+      userByCity.set(key, row);
+    }
+    const maxBase = Math.max(0, ...params.userRows.map((row) => row.baseCount));
+    const items = params.cities.slice(0, 5).map((city) => {
+      const key = this.normalizeScopeFilter(city.cityId) ?? this.normalizeScopeFilter(city.cityName) ?? '__null__';
+      const userRow = userByCity.get(key);
+      const baseCount = userRow?.baseCount ?? 0;
+      const completedCount = userRow?.completedCount ?? 0;
+      const reliability = this.resolveFitReliability({
+        marketValue: city.requestCount,
+        userBaseCount: baseCount,
+        userCompletedCount: completedCount,
+      });
+      const userActivity = this.toActivityLevel(baseCount, maxBase);
+      const userConversion = baseCount > 0 ? this.computeRate(completedCount, baseCount) : null;
+      const actionCode =
+        reliability === 'high' &&
+        city.requestCount >= 10 &&
+        (userActivity === 'low' || userActivity === 'unknown')
+          ? 'focus_market'
+          : null;
+      const recommendation =
+        reliability === 'unknown'
+          ? 'Für diese Stadt liegen noch keine belastbaren Vergleichsdaten vor.'
+          : reliability === 'low'
+            ? 'Es gibt erste Marktsignale, aber noch keine belastbare Positionsbestimmung.'
+            : actionCode === 'focus_market'
+              ? `${city.cityName} bietet Marktvolumen, deine Präsenz ist hier aber noch ausbaufähig.`
+              : 'Deine Aktivität liegt hier näher am Marktniveau.';
+
+      return {
+        cityId: city.cityId,
+        city: city.cityName,
+        marketRequests: city.requestCount,
+        reliability,
+        userActivity,
+        userConversion,
+        actionCode,
+        recommendation,
+      };
+    });
+
+    return {
+      title: 'Städtevergleich',
+      subtitle: 'Marktvolumen vs. deine Aktivität in relevanten Städten.',
+      hasReliableItems: items.some((item) => item.reliability === 'high' || item.reliability === 'medium'),
+      items,
+    };
+  }
+
   private toProfitPotentialStatus(
     score: number | null,
   ): WorkspaceStatisticsPriceIntelligenceDto['profitPotentialStatus'] {
@@ -642,6 +1500,89 @@ export class WorkspaceStatisticsService {
       previousOffers: prev?.offers ?? 0,
       peakTimestamp: peak?.timestamp ?? null,
       bestWindowTimestamp: bestWindow?.timestamp ?? null,
+    };
+  }
+
+  private buildActivityComparisonSeries(params: {
+    points: Array<{ timestamp: string }>;
+    stepMs: number;
+    rows: ActivityDateRow[];
+  }): Array<number | null> {
+    if (params.points.length === 0) return [];
+    const startMs = new Date(params.points[0].timestamp).getTime();
+    if (!Number.isFinite(startMs)) {
+      return params.points.map(() => null);
+    }
+
+    const counts = Array.from({ length: params.points.length }, () => 0);
+    for (const row of params.rows) {
+      if (!row?.createdAt) continue;
+      const ts = new Date(row.createdAt).getTime();
+      if (!Number.isFinite(ts) || ts < startMs) continue;
+      const index = Math.floor((ts - startMs) / params.stepMs);
+      if (index < 0 || index >= counts.length) continue;
+      counts[index] += 1;
+    }
+
+    const total = counts.reduce((sum, value) => sum + value, 0);
+    if (total <= 0) return params.points.map(() => null);
+    return counts.map((value) => value);
+  }
+
+  private buildActivityComparison(params: {
+    mode: 'platform' | 'personalized';
+    marketPoints: Array<{ timestamp: string; requests: number; offers: number }>;
+    stepMs: number;
+    clientRows: ActivityDateRow[];
+    providerRows: ActivityDateRow[];
+    activityTotals: WorkspaceStatisticsOverviewResponseDto['activity']['totals'];
+    updatedAt: string;
+  }): WorkspaceStatisticsActivityComparisonDto | null {
+    if (params.mode !== 'personalized') return null;
+
+    const clientSeries = this.buildActivityComparisonSeries({
+      points: params.marketPoints,
+      stepMs: params.stepMs,
+      rows: params.clientRows,
+    });
+    const providerSeries = this.buildActivityComparisonSeries({
+      points: params.marketPoints,
+      stepMs: params.stepMs,
+      rows: params.providerRows,
+    });
+
+    const totalClientActivity = clientSeries.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+    const totalProviderActivity = providerSeries.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+    const hasReliableSeries = totalClientActivity > 0 || totalProviderActivity > 0;
+
+    const combinedSeries = params.marketPoints.map((point, index) => ({
+      timestamp: point.timestamp,
+      score: (clientSeries[index] ?? 0) + (providerSeries[index] ?? 0),
+    }));
+    const userPeak = combinedSeries.reduce<{ timestamp: string; score: number } | null>((acc, point) => {
+      if (!acc || point.score > acc.score) return point;
+      return acc;
+    }, null);
+
+    const summary = !hasReliableSeries
+      ? 'Noch keine eigene Aktivität im gewählten Zeitraum.'
+      : userPeak?.timestamp && params.activityTotals.peakTimestamp && userPeak.timestamp === params.activityTotals.peakTimestamp
+        ? 'Deine Aktivität trifft aktuell den Marktpeak.'
+        : 'Deine stärkste Aktivität liegt aktuell außerhalb des Marktpeaks.';
+
+    return {
+      title: 'Aktivität der Plattform',
+      subtitle: 'Neue Anfragen und Angebote im Zeitverlauf',
+      summary,
+      peakTimestamp: params.activityTotals.peakTimestamp,
+      bestWindowTimestamp: params.activityTotals.bestWindowTimestamp,
+      updatedAt: params.updatedAt,
+      hasReliableSeries,
+      points: params.marketPoints.map((point, index) => ({
+        timestamp: point.timestamp,
+        clientActivity: clientSeries[index] ?? null,
+        providerActivity: providerSeries[index] ?? null,
+      })),
     };
   }
 
@@ -1004,7 +1945,7 @@ export class WorkspaceStatisticsService {
     userId?: string | null,
     role?: AppRole | null,
   ): Promise<WorkspaceStatisticsOverviewResponseDto> {
-    const { range, cityId, regionId, categoryKey } = this.resolveFilters(query);
+    const { range, cityId, regionId, categoryKey, viewerMode: requestedViewerMode } = this.resolveFilters(query);
     const { start, end } = this.resolveWindow(range);
     const filterOptionsRange = this.resolveFilterOptionsRange(range);
     const { start: filterOptionsStart, end: filterOptionsEnd } =
@@ -1012,6 +1953,7 @@ export class WorkspaceStatisticsService {
     const normalizedUserId = String(userId ?? '').trim();
     const hasActorScope = normalizedUserId.length > 0;
     const hasDecisionScope = Boolean(cityId || regionId || categoryKey);
+    const viewerMode = hasActorScope ? this.resolveViewerMode(requestedViewerMode, role) : null;
 
     const requestFunnelMatch = hasActorScope
       ? { clientId: normalizedUserId }
@@ -1031,6 +1973,709 @@ export class WorkspaceStatisticsService {
     const requestRefScopeMatch: Record<string, unknown> = {};
     if (cityId) requestRefScopeMatch['requestRef.cityId'] = cityId;
     if (categoryKey) requestRefScopeMatch['requestRef.categoryKey'] = categoryKey;
+
+    const marketFunnelRequestsPromise = hasActorScope
+      ? this.requestModel.countDocuments({
+          status: 'published',
+          ...(cityId ? { cityId } : {}),
+          ...(categoryKey ? { categoryKey } : {}),
+          createdAt: { $gte: start, $lte: end },
+        })
+      : Promise.resolve<number | null>(null);
+
+    const marketFunnelOffersPromise = hasActorScope
+      ? this.offerModel
+          .aggregate<{ _id: null; offersTotal: number; confirmedResponsesTotal: number }>([
+            {
+              $match: {
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      cityId: '$cityId',
+                      categoryKey: '$categoryKey',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $group: {
+                _id: null,
+                offersTotal: { $sum: 1 },
+                confirmedResponsesTotal: {
+                  $sum: {
+                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                  },
+                },
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<Array<{ _id: null; offersTotal: number; confirmedResponsesTotal: number }> | null>(null);
+
+    const marketFunnelContractsPromise = hasActorScope
+      ? this.contractModel
+          .aggregate<{ _id: null; closedContractsTotal: number; completedJobsTotal: number; profitAmount: number }>([
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      cityId: '$cityId',
+                      categoryKey: '$categoryKey',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $match: {
+                $or: [
+                  { createdAt: { $gte: start, $lte: end } },
+                  { confirmedAt: { $gte: start, $lte: end } },
+                  { completedAt: { $gte: start, $lte: end } },
+                ],
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                closedContractsTotal: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                          {
+                            $or: [
+                              {
+                                $and: [
+                                  { $ne: ['$confirmedAt', null] },
+                                  { $gte: ['$confirmedAt', start] },
+                                  { $lte: ['$confirmedAt', end] },
+                                ],
+                              },
+                              {
+                                $and: [
+                                  { $eq: ['$confirmedAt', null] },
+                                  { $gte: ['$createdAt', start] },
+                                  { $lte: ['$createdAt', end] },
+                                ],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                completedJobsTotal: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$completedAt', null] },
+                          { $gte: ['$completedAt', start] },
+                          { $lte: ['$completedAt', end] },
+                        ],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                profitAmount: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$completedAt', null] },
+                          { $gte: ['$completedAt', start] },
+                          { $lte: ['$completedAt', end] },
+                          { $ne: ['$priceAmount', null] },
+                          { $gt: ['$priceAmount', 0] },
+                        ],
+                      },
+                      '$priceAmount',
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<Array<{ _id: null; closedContractsTotal: number; completedJobsTotal: number; profitAmount: number }> | null>(null);
+
+    const providerFunnelOffersPromise = hasActorScope && viewerMode === 'provider'
+      ? this.offerModel
+          .aggregate<{ _id: null; requestsTotal: number; offersTotal: number; confirmedResponsesTotal: number }>([
+            {
+              $match: {
+                providerUserId: normalizedUserId,
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      cityId: '$cityId',
+                      categoryKey: '$categoryKey',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $group: {
+                _id: null,
+                requestIds: { $addToSet: '$requestId' },
+                offersTotal: { $sum: 1 },
+                confirmedResponsesTotal: {
+                  $sum: {
+                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                  },
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                requestsTotal: { $size: '$requestIds' },
+                offersTotal: 1,
+                confirmedResponsesTotal: 1,
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<Array<{ _id: null; requestsTotal: number; offersTotal: number; confirmedResponsesTotal: number }> | null>(null);
+
+    const providerFunnelContractsPromise = hasActorScope && viewerMode === 'provider'
+      ? this.contractModel
+          .aggregate<{ _id: null; contractsTotal: number; completedTotal: number; revenueAmount: number }>([
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      cityId: '$cityId',
+                      categoryKey: '$categoryKey',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $match: {
+                providerUserId: normalizedUserId,
+                $or: [
+                  { createdAt: { $gte: start, $lte: end } },
+                  { confirmedAt: { $gte: start, $lte: end } },
+                  { completedAt: { $gte: start, $lte: end } },
+                ],
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                contractsTotal: {
+                  $sum: {
+                    $cond: [
+                      { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                completedTotal: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$completedAt', null] },
+                          { $gte: ['$completedAt', start] },
+                          { $lte: ['$completedAt', end] },
+                        ],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                revenueAmount: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$completedAt', null] },
+                          { $gte: ['$completedAt', start] },
+                          { $lte: ['$completedAt', end] },
+                          { $ne: ['$priceAmount', null] },
+                          { $gt: ['$priceAmount', 0] },
+                        ],
+                      },
+                      '$priceAmount',
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<Array<{ _id: null; contractsTotal: number; completedTotal: number; revenueAmount: number }> | null>(null);
+
+    const customerFunnelRequestsPromise = hasActorScope && viewerMode === 'customer'
+      ? this.requestModel.countDocuments({
+          clientId: normalizedUserId,
+          ...(cityId ? { cityId } : {}),
+          ...(categoryKey ? { categoryKey } : {}),
+          createdAt: { $gte: start, $lte: end },
+        })
+      : Promise.resolve<number | null>(null);
+
+    const customerFunnelOffersPromise = hasActorScope && viewerMode === 'customer'
+      ? this.offerModel
+          .aggregate<{ _id: null; offersTotal: number; acceptedOffersTotal: number }>([
+            {
+              $match: {
+                clientUserId: normalizedUserId,
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      cityId: '$cityId',
+                      categoryKey: '$categoryKey',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $group: {
+                _id: null,
+                offersTotal: { $sum: 1 },
+                acceptedOffersTotal: {
+                  $sum: {
+                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                  },
+                },
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<Array<{ _id: null; offersTotal: number; acceptedOffersTotal: number }> | null>(null);
+
+    const customerFunnelContractsPromise = hasActorScope && viewerMode === 'customer'
+      ? this.contractModel
+          .aggregate<{ _id: null; contractsTotal: number; completedTotal: number; revenueAmount: number }>([
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      cityId: '$cityId',
+                      categoryKey: '$categoryKey',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $match: {
+                clientId: normalizedUserId,
+                $or: [
+                  { createdAt: { $gte: start, $lte: end } },
+                  { confirmedAt: { $gte: start, $lte: end } },
+                  { completedAt: { $gte: start, $lte: end } },
+                ],
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                contractsTotal: {
+                  $sum: {
+                    $cond: [
+                      { $in: ['$status', ['confirmed', 'in_progress', 'completed']] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                completedTotal: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$completedAt', null] },
+                          { $gte: ['$completedAt', start] },
+                          { $lte: ['$completedAt', end] },
+                        ],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                revenueAmount: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ['$status', 'completed'] },
+                          { $ne: ['$completedAt', null] },
+                          { $gte: ['$completedAt', start] },
+                          { $lte: ['$completedAt', end] },
+                          { $ne: ['$priceAmount', null] },
+                          { $gt: ['$priceAmount', 0] },
+                        ],
+                      },
+                      '$priceAmount',
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<Array<{ _id: null; contractsTotal: number; completedTotal: number; revenueAmount: number }> | null>(null);
+
+    const providerCategoryActivityPromise = hasActorScope && viewerMode === 'provider'
+      ? this.offerModel
+          .aggregate<UserCategoryActivityRow>([
+            {
+              $match: {
+                providerUserId: normalizedUserId,
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      categoryKey: '$categoryKey',
+                      categoryName: '$categoryName',
+                      cityId: '$cityId',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $group: {
+                _id: {
+                  categoryKey: '$requestRef.categoryKey',
+                  categoryName: '$requestRef.categoryName',
+                },
+                baseCount: { $sum: 1 },
+                completedCount: {
+                  $sum: {
+                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                  },
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                categoryKey: '$_id.categoryKey',
+                categoryName: '$_id.categoryName',
+                baseCount: 1,
+                completedCount: 1,
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<UserCategoryActivityRow[]>([]);
+
+    const customerCategoryActivityPromise = hasActorScope && viewerMode === 'customer'
+      ? this.requestModel
+          .aggregate<UserCategoryActivityRow>([
+            {
+              $match: {
+                clientId: normalizedUserId,
+                ...(cityId ? { cityId } : {}),
+                ...(categoryKey ? { categoryKey } : {}),
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  categoryKey: '$categoryKey',
+                  categoryName: '$categoryName',
+                },
+                baseCount: { $sum: 1 },
+                completedCount: { $sum: 0 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                categoryKey: '$_id.categoryKey',
+                categoryName: '$_id.categoryName',
+                baseCount: 1,
+                completedCount: 1,
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<UserCategoryActivityRow[]>([]);
+
+    const providerCityActivityPromise = hasActorScope && viewerMode === 'provider'
+      ? this.offerModel
+          .aggregate<UserCityActivityRow>([
+            {
+              $match: {
+                providerUserId: normalizedUserId,
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      cityId: '$cityId',
+                      cityName: '$cityName',
+                      categoryKey: '$categoryKey',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $group: {
+                _id: {
+                  cityId: '$requestRef.cityId',
+                  cityName: '$requestRef.cityName',
+                },
+                baseCount: { $sum: 1 },
+                completedCount: {
+                  $sum: {
+                    $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
+                  },
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                cityId: '$_id.cityId',
+                cityName: '$_id.cityName',
+                baseCount: 1,
+                completedCount: 1,
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<UserCityActivityRow[]>([]);
+
+    const customerCityActivityPromise = hasActorScope && viewerMode === 'customer'
+      ? this.requestModel
+          .aggregate<UserCityActivityRow>([
+            {
+              $match: {
+                clientId: normalizedUserId,
+                ...(cityId ? { cityId } : {}),
+                ...(categoryKey ? { categoryKey } : {}),
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  cityId: '$cityId',
+                  cityName: '$cityName',
+                },
+                baseCount: { $sum: 1 },
+                completedCount: { $sum: 0 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                cityId: '$_id.cityId',
+                cityName: '$_id.cityName',
+                baseCount: 1,
+                completedCount: 1,
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<UserCityActivityRow[]>([]);
+
+    const clientActivityRowsPromise = hasActorScope
+      ? this.requestModel
+          .aggregate<ActivityDateRow>([
+            {
+              $match: {
+                clientId: normalizedUserId,
+                ...(cityId ? { cityId } : {}),
+                ...(categoryKey ? { categoryKey } : {}),
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                createdAt: 1,
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<ActivityDateRow[]>([]);
+
+    const providerActivityRowsPromise = hasActorScope
+      ? this.offerModel
+          .aggregate<ActivityDateRow>([
+            {
+              $match: {
+                providerUserId: normalizedUserId,
+                createdAt: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $lookup: {
+                from: 'requests',
+                let: { requestId: '$requestId' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      cityId: '$cityId',
+                      categoryKey: '$categoryKey',
+                    },
+                  },
+                ],
+                as: 'requestRef',
+              },
+            },
+            { $unwind: '$requestRef' },
+            ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+            {
+              $project: {
+                _id: 0,
+                createdAt: 1,
+              },
+            },
+          ])
+          .exec()
+      : Promise.resolve<ActivityDateRow[]>([]);
 
     const publicOverviewPromise = this.workspace.getPublicOverview({
       page: 1,
@@ -1074,6 +2719,20 @@ export class WorkspaceStatisticsService {
       funnelRequestsTotal,
       funnelOffersRows,
       funnelContractsRows,
+      marketFunnelRequestsTotal,
+      marketFunnelOffersRows,
+      marketFunnelContractsRows,
+      providerFunnelOffersRows,
+      providerFunnelContractsRows,
+      customerFunnelRequestsTotal,
+      customerFunnelOffersRows,
+      customerFunnelContractsRows,
+      providerCategoryActivityRows,
+      customerCategoryActivityRows,
+      providerCityActivityRows,
+      customerCityActivityRows,
+      clientActivityRows,
+      providerActivityRows,
     ] = await Promise.all([
       publicOverviewPromise,
       filterOptionsPublicOverviewPromise,
@@ -1521,9 +3180,24 @@ export class WorkspaceStatisticsService {
           },
         ])
         .exec(),
+      marketFunnelRequestsPromise,
+      marketFunnelOffersPromise,
+      marketFunnelContractsPromise,
+      providerFunnelOffersPromise,
+      providerFunnelContractsPromise,
+      customerFunnelRequestsPromise,
+      customerFunnelOffersPromise,
+      customerFunnelContractsPromise,
+      providerCategoryActivityPromise,
+      customerCategoryActivityPromise,
+      providerCityActivityPromise,
+      customerCityActivityPromise,
+      clientActivityRowsPromise,
+      providerActivityRowsPromise,
     ]);
 
     const activityTotals = this.toActivityTotals(activity.data);
+    const activityConfig = this.getActivityConfig(range);
     const activityResponseMinutes = requestResponseRows
       .map((row) => row.responseMinutes)
       .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0);
@@ -1909,19 +3583,99 @@ export class WorkspaceStatisticsService {
       completedJobsTotal: 0,
       profitAmount: 0,
     };
+    const marketFunnelOffersAgg = (marketFunnelOffersRows?.[0] ?? null) ?? { offersTotal: 0, confirmedResponsesTotal: 0 };
+    const marketFunnelContractsAgg = (marketFunnelContractsRows?.[0] ?? null) ?? {
+      closedContractsTotal: 0,
+      completedJobsTotal: 0,
+      profitAmount: 0,
+    };
+    const providerFunnelOffersAgg = (providerFunnelOffersRows?.[0] ?? null) ?? {
+      requestsTotal: 0,
+      offersTotal: 0,
+      confirmedResponsesTotal: 0,
+    };
+    const providerFunnelContractsAgg = (providerFunnelContractsRows?.[0] ?? null) ?? {
+      contractsTotal: 0,
+      completedTotal: 0,
+      revenueAmount: 0,
+    };
+    const customerFunnelOffersAgg = (customerFunnelOffersRows?.[0] ?? null) ?? {
+      offersTotal: 0,
+      acceptedOffersTotal: 0,
+    };
+    const customerFunnelContractsAgg = (customerFunnelContractsRows?.[0] ?? null) ?? {
+      contractsTotal: 0,
+      completedTotal: 0,
+      revenueAmount: 0,
+    };
 
     const rawRequestsFunnelTotal = Math.max(0, Math.round(Number(funnelRequestsTotal ?? 0)));
     const fallbackPlatformRequestsTotal =
       mode === 'platform' && range === '24h'
         ? Math.max(0, Math.round(Number(summary.totalPublishedRequests ?? 0)))
         : 0;
-    const requestsFunnelTotal =
-      rawRequestsFunnelTotal > 0 ? rawRequestsFunnelTotal : fallbackPlatformRequestsTotal;
-    const offersFunnelTotal = Math.max(0, Math.round(Number(funnelOffersAgg.offersTotal ?? 0)));
-    const confirmedResponsesTotal = Math.max(0, Math.round(Number(funnelOffersAgg.confirmedResponsesTotal ?? 0)));
-    const closedContractsTotal = Math.max(0, Math.round(Number(funnelContractsAgg.closedContractsTotal ?? 0)));
-    const completedFunnelTotal = Math.max(0, Math.round(Number(funnelContractsAgg.completedJobsTotal ?? 0)));
-    const profitAmount = this.roundMoney(Math.max(0, Number(funnelContractsAgg.profitAmount ?? 0)));
+    const baseMarketRequestsTotal = rawRequestsFunnelTotal > 0 ? rawRequestsFunnelTotal : fallbackPlatformRequestsTotal;
+    const marketCounts: FunnelStageCounts = {
+      requests: hasActorScope
+        ? Math.max(0, Math.round(Number(marketFunnelRequestsTotal ?? 0)))
+        : baseMarketRequestsTotal,
+      offers: hasActorScope
+        ? Math.max(0, Math.round(Number(marketFunnelOffersAgg.offersTotal ?? 0)))
+        : Math.max(0, Math.round(Number(funnelOffersAgg.offersTotal ?? 0))),
+      responses: hasActorScope
+        ? Math.max(0, Math.round(Number(marketFunnelOffersAgg.confirmedResponsesTotal ?? 0)))
+        : Math.max(0, Math.round(Number(funnelOffersAgg.confirmedResponsesTotal ?? 0))),
+      contracts: hasActorScope
+        ? Math.max(0, Math.round(Number(marketFunnelContractsAgg.closedContractsTotal ?? 0)))
+        : Math.max(0, Math.round(Number(funnelContractsAgg.closedContractsTotal ?? 0))),
+      completed: hasActorScope
+        ? Math.max(0, Math.round(Number(marketFunnelContractsAgg.completedJobsTotal ?? 0)))
+        : Math.max(0, Math.round(Number(funnelContractsAgg.completedJobsTotal ?? 0))),
+    };
+    const marketRevenueAmount = hasActorScope
+      ? this.roundMoney(Math.max(0, Number(marketFunnelContractsAgg.profitAmount ?? 0)))
+      : this.roundMoney(Math.max(0, Number(funnelContractsAgg.profitAmount ?? 0)));
+
+    const providerCounts: FunnelStageCounts = {
+      requests: Math.max(0, Math.round(Number(providerFunnelOffersAgg.requestsTotal ?? 0))),
+      offers: Math.max(0, Math.round(Number(providerFunnelOffersAgg.offersTotal ?? 0))),
+      responses: Math.max(0, Math.round(Number(providerFunnelOffersAgg.confirmedResponsesTotal ?? 0))),
+      contracts: Math.max(0, Math.round(Number(providerFunnelContractsAgg.contractsTotal ?? 0))),
+      completed: Math.max(0, Math.round(Number(providerFunnelContractsAgg.completedTotal ?? 0))),
+    };
+    const providerRevenueAmount = this.roundMoney(Math.max(0, Number(providerFunnelContractsAgg.revenueAmount ?? 0)));
+
+    const customerCounts: FunnelStageCounts = {
+      requests: Math.max(0, Math.round(Number(customerFunnelRequestsTotal ?? 0))),
+      offers: Math.max(0, Math.round(Number(customerFunnelOffersAgg.offersTotal ?? 0))),
+      responses: Math.max(0, Math.round(Number(customerFunnelOffersAgg.acceptedOffersTotal ?? 0))),
+      contracts: Math.max(0, Math.round(Number(customerFunnelContractsAgg.contractsTotal ?? 0))),
+      completed: Math.max(0, Math.round(Number(customerFunnelContractsAgg.completedTotal ?? 0))),
+    };
+    const customerRevenueAmount = this.roundMoney(Math.max(0, Number(customerFunnelContractsAgg.revenueAmount ?? 0)));
+    const legacyPersonalizedCounts: FunnelStageCounts = {
+      requests: rawRequestsFunnelTotal,
+      offers: Math.max(0, Math.round(Number(funnelOffersAgg.offersTotal ?? 0))),
+      responses: Math.max(0, Math.round(Number(funnelOffersAgg.confirmedResponsesTotal ?? 0))),
+      contracts: Math.max(0, Math.round(Number(funnelContractsAgg.closedContractsTotal ?? 0))),
+      completed: Math.max(0, Math.round(Number(funnelContractsAgg.completedJobsTotal ?? 0))),
+    };
+    const legacyPersonalizedRevenueAmount = this.roundMoney(Math.max(0, Number(funnelContractsAgg.profitAmount ?? 0)));
+    const viewerModeCounts = viewerMode === 'customer' ? customerCounts : providerCounts;
+    const hasViewerModeCounts = Object.values(viewerModeCounts).some((value) => value > 0);
+    const isViewerModeFallback = mode === 'personalized' && Boolean(viewerMode) && !hasViewerModeCounts;
+    const selectedUserCounts = hasViewerModeCounts ? viewerModeCounts : legacyPersonalizedCounts;
+    const selectedUserRevenueAmount = hasViewerModeCounts
+      ? (viewerMode === 'customer' ? customerRevenueAmount : providerRevenueAmount)
+      : legacyPersonalizedRevenueAmount;
+    const requestsFunnelTotal = mode === 'personalized' ? selectedUserCounts.requests : marketCounts.requests;
+    const offersFunnelTotal = mode === 'personalized' ? selectedUserCounts.offers : marketCounts.offers;
+    const confirmedResponsesTotal = mode === 'personalized' ? selectedUserCounts.responses : marketCounts.responses;
+    const closedContractsTotal = mode === 'personalized' ? selectedUserCounts.contracts : marketCounts.contracts;
+    const completedFunnelTotal = mode === 'personalized' ? selectedUserCounts.completed : marketCounts.completed;
+    const profitAmount = mode === 'personalized'
+      ? selectedUserRevenueAmount
+      : marketRevenueAmount;
 
     const offerResponseRatePercent = this.clampPercent((offersFunnelTotal / Math.max(1, requestsFunnelTotal)) * 100);
     const confirmationRatePercent = this.clampPercent((confirmedResponsesTotal / Math.max(1, offersFunnelTotal)) * 100);
@@ -1944,10 +3698,15 @@ export class WorkspaceStatisticsService {
       Math.max(0, Math.min(contractsWidthPercent, (completedFunnelTotal / Math.max(1, requestsFunnelTotal)) * 100)),
     );
 
+    const funnelStageLabels = this.buildFunnelStageLabels(viewerMode ?? 'provider');
+    const offerStageRateLabel = viewerMode === 'customer' ? 'Angebotsquote' : 'Antwortquote';
+    const responseStageRateLabel = viewerMode === 'customer' ? 'Akzeptanzrate' : 'Rückmeldequote';
+    const contractStageRateLabel = viewerMode === 'customer' ? 'Startquote' : 'Abschlussrate';
+
     const stages: WorkspaceStatisticsProfileFunnelDto['stages'] = [
       {
         id: 'requests',
-        label: 'Anfragen',
+        label: funnelStageLabels.requests,
         value: requestsFunnelTotal,
         displayValue: this.formatInt(requestsFunnelTotal),
         widthPercent: requestsWidthPercent,
@@ -1957,37 +3716,37 @@ export class WorkspaceStatisticsService {
       },
       {
         id: 'offers',
-        label: 'Angebote von Anbietern',
+        label: funnelStageLabels.offers,
         value: offersFunnelTotal,
         displayValue: this.formatInt(offersFunnelTotal),
         widthPercent: offersWidthPercent,
-        rateLabel: 'Antwortquote',
+        rateLabel: offerStageRateLabel,
         ratePercent: offerResponseRatePercent,
         helperText: null,
       },
       {
         id: 'confirmations',
-        label: 'Bestätigte Rückmeldungen',
+        label: funnelStageLabels.responses,
         value: confirmedResponsesTotal,
         displayValue: this.formatInt(confirmedResponsesTotal),
         widthPercent: confirmationsWidthPercent,
-        rateLabel: 'Zustimmungsrate',
+        rateLabel: responseStageRateLabel,
         ratePercent: confirmationRatePercent,
         helperText: null,
       },
       {
         id: 'contracts',
-        label: 'Geschlossene Verträge',
+        label: funnelStageLabels.contracts,
         value: closedContractsTotal,
         displayValue: this.formatInt(closedContractsTotal),
         widthPercent: contractsWidthPercent,
-        rateLabel: 'Abschlussrate',
+        rateLabel: contractStageRateLabel,
         ratePercent: contractClosureRatePercent,
         helperText: null,
       },
       {
         id: 'completed',
-        label: 'Erfolgreich abgeschlossen',
+        label: funnelStageLabels.completed,
         value: completedFunnelTotal,
         displayValue: this.formatInt(completedFunnelTotal),
         widthPercent: completedWidthPercent,
@@ -2029,6 +3788,52 @@ export class WorkspaceStatisticsService {
       stages,
     };
 
+    const personalizedFunnelLowData = mode === 'personalized'
+      ? isViewerModeFallback || selectedUserCounts.requests < 3 || (selectedUserCounts.offers + selectedUserCounts.responses + selectedUserCounts.contracts + selectedUserCounts.completed) < 3
+      : false;
+    const funnelComparison = mode === 'personalized' && viewerMode
+      ? this.buildFunnelComparison({
+          viewerMode,
+          marketCounts,
+          userCounts: selectedUserCounts,
+          lowData: personalizedFunnelLowData,
+        })
+      : null;
+    const decisionLayer = this.buildDecisionLayer({
+      mode,
+      viewerMode,
+      activityMetrics,
+      marketCounts,
+      marketRevenueAmount,
+      userCounts: selectedUserCounts,
+      userRevenueAmount: selectedUserRevenueAmount,
+      userResponseMinutes: viewerMode === 'provider'
+        ? (privateOverview?.kpis.avgResponseMinutes ?? null)
+        : null,
+      userUnansweredOver24h: viewerMode === 'customer'
+        ? (privateOverview?.kpis.myOpenRequests ?? null)
+        : viewerMode === 'provider'
+          ? (privateOverview?.kpis.myOpenRequests ?? null)
+          : null,
+      reliableComparison: !isViewerModeFallback,
+    });
+    const userCategoryActivityRows = viewerMode === 'customer'
+      ? customerCategoryActivityRows
+      : providerCategoryActivityRows;
+    const userCityActivityRows = viewerMode === 'customer'
+      ? customerCityActivityRows
+      : providerCityActivityRows;
+    const categoryFit = this.buildCategoryFit({
+      mode,
+      categories,
+      userRows: userCategoryActivityRows,
+    });
+    const cityComparison = this.buildCityComparison({
+      mode,
+      cities,
+      userRows: userCityActivityRows,
+    });
+
     const updatedAt = new Date().toISOString();
     const selectedCityOption = filterOptions.cities.find((item) => item.value === cityId);
     const selectedCategoryOption = filterOptions.categories.find((item) => item.value === categoryKey);
@@ -2055,6 +3860,21 @@ export class WorkspaceStatisticsService {
     const scopeLabel = [cityId ? selectedCityLabel : null, categoryKey ? selectedCategoryLabel : null]
       .filter(Boolean)
       .join(' · ') || 'Globaler Markt';
+    const personalizedPricing = this.buildPersonalizedPricing({
+      mode,
+      scopeLabel,
+      priceIntelligence,
+      userAverageOrderValue: completedFunnelTotal > 0 ? this.roundMoney(profitAmount / completedFunnelTotal) : null,
+    });
+    const activityComparison = this.buildActivityComparison({
+      mode,
+      marketPoints: activity.data,
+      stepMs: activityConfig.stepMs,
+      clientRows: clientActivityRows,
+      providerRows: providerActivityRows,
+      activityTotals,
+      updatedAt,
+    });
     const hasScopedPriceData = Boolean(
       priceIntelligence.recommendedMin !== null ||
       priceIntelligence.recommendedMax !== null ||
@@ -2110,7 +3930,7 @@ export class WorkspaceStatisticsService {
           : null,
       },
     };
-    const decisionInsight = this.buildDecisionInsight({
+    const decisionInsight = decisionLayer?.primaryInsight ?? this.buildDecisionInsight({
       activityMetrics,
       conversionRatePercent,
     });
@@ -2129,6 +3949,26 @@ export class WorkspaceStatisticsService {
       }),
       role,
     );
+    const risks = this.buildRecommendationSection({
+      mode,
+      title: 'Risiken',
+      subtitle: 'Was aktuell deinen Fortschritt ausbremst.',
+      items: insights.filter((item) => item.type === 'risk'),
+    });
+    const opportunities = this.buildRecommendationSection({
+      mode,
+      title: 'Chancen',
+      subtitle: 'Wo der Markt im aktuellen Kontext Potenzial für dich zeigt.',
+      items: insights.filter((item) => item.type === 'demand' || item.type === 'opportunity' || item.type === 'growth'),
+    });
+    const nextSteps = this.buildRecommendationSection({
+      mode,
+      title: 'Nächste Schritte',
+      subtitle: 'Konkrete Aktionen auf Basis der aktuellen Signale.',
+      items: insights
+        .filter((item) => item.action?.actionType !== 'none' || this.resolveInsightActionCode(item) !== null)
+        .slice(0, 3),
+    });
 
     return {
       decisionContext,
@@ -2143,7 +3983,15 @@ export class WorkspaceStatisticsService {
       updatedAt,
       mode,
       range,
+      viewerMode,
       decisionInsight,
+      decisionLayer,
+      personalizedPricing,
+      categoryFit,
+      cityComparison,
+      risks,
+      opportunities,
+      nextSteps,
       summary,
       kpis,
       activity: {
@@ -2153,6 +4001,7 @@ export class WorkspaceStatisticsService {
         totals: activityTotals,
         metrics: activityMetrics,
       },
+      activityComparison,
       demand: {
         categories,
         cities,
@@ -2160,6 +4009,7 @@ export class WorkspaceStatisticsService {
       opportunityRadar,
       priceIntelligence,
       profileFunnel,
+      funnelComparison,
       insights,
       growthCards: this.buildGrowthCards(),
     };

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import type { WorkspaceStatisticsRange } from './workspace-statistics-query.dto';
+import type { WorkspaceStatisticsRange, WorkspaceStatisticsViewerMode } from './workspace-statistics-query.dto';
 
 export class WorkspaceStatisticsSummaryDto {
   @ApiProperty({ example: 412 })
@@ -141,6 +141,43 @@ export class WorkspaceStatisticsActivityDto {
 
   @ApiProperty({ type: WorkspaceStatisticsActivityMetricsDto })
   metrics: WorkspaceStatisticsActivityMetricsDto;
+}
+
+export class WorkspaceStatisticsActivityComparisonPointDto {
+  @ApiProperty({ example: '2026-03-02T00:00:00.000Z' })
+  timestamp: string;
+
+  @ApiProperty({ example: 3, nullable: true })
+  clientActivity: number | null;
+
+  @ApiProperty({ example: 2, nullable: true })
+  providerActivity: number | null;
+}
+
+export class WorkspaceStatisticsActivityComparisonDto {
+  @ApiPropertyOptional({ example: 'Aktivitätsvergleich', nullable: true })
+  title?: string | null;
+
+  @ApiPropertyOptional({ example: 'Deine Aktivität als Auftraggeber und Anbieter im selben Zeitfenster.', nullable: true })
+  subtitle?: string | null;
+
+  @ApiPropertyOptional({ example: 'Deine stärkste Aktivität liegt aktuell außerhalb des Marktpeaks.', nullable: true })
+  summary?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-03-09T00:00:00.000Z', nullable: true })
+  peakTimestamp?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-03-09T00:00:00.000Z', nullable: true })
+  bestWindowTimestamp?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-03-26T19:19:00.000Z', nullable: true })
+  updatedAt?: string | null;
+
+  @ApiProperty({ example: true })
+  hasReliableSeries: boolean;
+
+  @ApiProperty({ type: WorkspaceStatisticsActivityComparisonPointDto, isArray: true })
+  points: WorkspaceStatisticsActivityComparisonPointDto[];
 }
 
 export class WorkspaceStatisticsCategoryDemandDto {
@@ -626,12 +663,372 @@ export class WorkspaceStatisticsInsightDto {
   context: string | null;
 }
 
+export class WorkspaceStatisticsRecommendationItemDto {
+  @ApiProperty({ example: 'high_unanswered_requests' })
+  code: string;
+
+  @ApiProperty({ enum: ['risk', 'opportunity', 'performance', 'growth', 'promotion', 'demand'], example: 'risk' })
+  type: 'risk' | 'opportunity' | 'performance' | 'growth' | 'promotion' | 'demand';
+
+  @ApiProperty({ enum: ['high', 'medium', 'low'], example: 'high' })
+  priority: 'high' | 'medium' | 'low';
+
+  @ApiProperty({ example: 'Viele offene Anfragen' })
+  title: string;
+
+  @ApiProperty({ example: 'Mehrere Anfragen bleiben länger als 24 Stunden unbeantwortet.' })
+  description: string;
+
+  @ApiProperty({ example: 0.86 })
+  confidence: number;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low'], example: 'high' })
+  reliability: 'high' | 'medium' | 'low';
+
+  @ApiProperty({ example: '56', nullable: true })
+  context: string | null;
+
+  @ApiProperty({ example: 'follow_up_unanswered', nullable: true })
+  actionCode: string | null;
+
+  @ApiProperty({ type: () => WorkspaceStatisticsActionLinkDto, nullable: true })
+  action: WorkspaceStatisticsActionLinkDto | null;
+}
+
+export class WorkspaceStatisticsRecommendationSectionDto {
+  @ApiProperty({ example: 'Risiken', nullable: true })
+  title: string | null;
+
+  @ApiProperty({ example: 'Was aktuell deinen Fortschritt ausbremst.', nullable: true })
+  subtitle: string | null;
+
+  @ApiProperty({ example: true })
+  hasReliableItems: boolean;
+
+  @ApiProperty({ type: () => WorkspaceStatisticsRecommendationItemDto, isArray: true })
+  items: WorkspaceStatisticsRecommendationItemDto[];
+}
+
 export class WorkspaceStatisticsGrowthCardDto {
   @ApiProperty({ example: 'highlight_profile' })
   key: string;
 
   @ApiProperty({ example: '/workspace?section=profile' })
   href: string;
+}
+
+export class WorkspaceStatisticsActionLinkDto {
+  @ApiProperty({ example: 'follow_up_requests' })
+  code: string;
+
+  @ApiProperty({ example: 'Offene Anfragen priorisieren' })
+  label: string;
+
+  @ApiProperty({ example: '/workspace?tab=my-requests', nullable: true })
+  target: string | null;
+}
+
+export class WorkspaceStatisticsDecisionLayerMetricDto {
+  @ApiProperty({ enum: ['offer_rate', 'avg_response_time', 'unanswered_over_24h', 'completed_jobs', 'revenue', 'average_order_value'], example: 'offer_rate' })
+  id: 'offer_rate' | 'avg_response_time' | 'unanswered_over_24h' | 'completed_jobs' | 'revenue' | 'average_order_value';
+
+  @ApiProperty({ example: 'Angebotsquote' })
+  label: string;
+
+  @ApiProperty({ example: 68, nullable: true })
+  marketValue: number | null;
+
+  @ApiProperty({ example: 100, nullable: true })
+  userValue: number | null;
+
+  @ApiProperty({ example: 32, nullable: true })
+  gapAbsolute: number | null;
+
+  @ApiProperty({ example: 47.06, nullable: true })
+  gapPercent: number | null;
+
+  @ApiProperty({ enum: ['percent', 'minutes', 'currency', 'count'], example: 'percent' })
+  unit: 'percent' | 'minutes' | 'currency' | 'count';
+
+  @ApiProperty({ enum: ['better', 'worse', 'neutral'], example: 'better' })
+  direction: 'better' | 'worse' | 'neutral';
+
+  @ApiProperty({ enum: ['good', 'warning', 'critical', 'neutral'], example: 'good' })
+  status: 'good' | 'warning' | 'critical' | 'neutral';
+
+  @ApiProperty({ example: ['slow_response'], type: String, isArray: true })
+  signalCodes: string[];
+
+  @ApiProperty({ example: 'respond_faster', nullable: true })
+  primaryActionCode: string | null;
+
+  @ApiProperty({ example: 'Du reagierst schneller als der Markt.', nullable: true })
+  summary: string | null;
+}
+
+export class WorkspaceStatisticsDecisionLayerDto {
+  @ApiProperty({ example: 'Decision Layer', nullable: true })
+  title: string | null;
+
+  @ApiProperty({ example: 'User vs Market im aktuellen Kontext', nullable: true })
+  subtitle: string | null;
+
+  @ApiProperty({ type: WorkspaceStatisticsDecisionLayerMetricDto, isArray: true })
+  metrics: WorkspaceStatisticsDecisionLayerMetricDto[];
+
+  @ApiProperty({ example: 'Zu viele Anfragen bleiben länger als 24 Stunden offen.', nullable: true })
+  primaryInsight: string | null;
+
+  @ApiProperty({ type: WorkspaceStatisticsActionLinkDto, nullable: true })
+  primaryAction: WorkspaceStatisticsActionLinkDto | null;
+}
+
+export class WorkspaceStatisticsPersonalizedPricingDto {
+  @ApiProperty({ example: 'Preisstrategie', nullable: true })
+  title: string | null;
+
+  @ApiProperty({ example: 'Wie dein Preis im aktuellen Markt einzuordnen ist.', nullable: true })
+  subtitle: string | null;
+
+  @ApiProperty({ example: 'Berlin · Cleaning', nullable: true })
+  contextLabel: string | null;
+
+  @ApiProperty({ example: 220, nullable: true })
+  marketAverage: number | null;
+
+  @ApiProperty({ example: 190, nullable: true })
+  recommendedMin: number | null;
+
+  @ApiProperty({ example: 260, nullable: true })
+  recommendedMax: number | null;
+
+  @ApiProperty({ example: 240, nullable: true })
+  userPrice: number | null;
+
+  @ApiProperty({ example: 20, nullable: true })
+  gapAbsolute: number | null;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'unavailable'], example: 'medium' })
+  comparisonReliability: 'high' | 'medium' | 'low' | 'unavailable';
+
+  @ApiProperty({ enum: ['below', 'within', 'above', 'unknown'], example: 'within' })
+  position: 'below' | 'within' | 'above' | 'unknown';
+
+  @ApiProperty({ enum: ['positive', 'neutral', 'warning'], example: 'positive' })
+  effect: 'positive' | 'neutral' | 'warning';
+
+  @ApiProperty({ example: 'adjust_price', nullable: true })
+  actionCode: string | null;
+
+  @ApiProperty({ example: 'Dein Preis liegt im empfohlenen Bereich.', nullable: true })
+  summary: string | null;
+}
+
+export class WorkspaceStatisticsCategoryFitItemDto {
+  @ApiProperty({ example: 'cleaning', nullable: true })
+  categoryKey: string | null;
+
+  @ApiProperty({ example: 'Cleaning' })
+  label: string;
+
+  @ApiProperty({ example: 32, nullable: true })
+  marketDemandShare: number | null;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'unknown'], example: 'medium' })
+  reliability: 'high' | 'medium' | 'low' | 'unknown';
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'unknown'], example: 'medium' })
+  userFit: 'high' | 'medium' | 'low' | 'unknown';
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'unknown'], example: 'high' })
+  opportunity: 'high' | 'medium' | 'low' | 'unknown';
+
+  @ApiProperty({ example: 'focus_market', nullable: true })
+  actionCode: string | null;
+
+  @ApiProperty({ example: 'Starke Nachfrage bei noch ausbaufähiger Präsenz.', nullable: true })
+  summary: string | null;
+}
+
+export class WorkspaceStatisticsCategoryFitDto {
+  @ApiProperty({ example: 'Kategorien-Fit', nullable: true })
+  title: string | null;
+
+  @ApiProperty({ example: 'Wie gut deine Präsenz zur aktuellen Nachfrage passt.', nullable: true })
+  subtitle: string | null;
+
+  @ApiProperty({ example: true })
+  hasReliableItems: boolean;
+
+  @ApiProperty({ type: WorkspaceStatisticsCategoryFitItemDto, isArray: true })
+  items: WorkspaceStatisticsCategoryFitItemDto[];
+}
+
+export class WorkspaceStatisticsCityComparisonItemDto {
+  @ApiProperty({ example: 'berlin-city', nullable: true })
+  cityId: string | null;
+
+  @ApiProperty({ example: 'Berlin' })
+  city: string;
+
+  @ApiProperty({ example: 48, nullable: true })
+  marketRequests: number | null;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'unknown'], example: 'medium' })
+  reliability: 'high' | 'medium' | 'low' | 'unknown';
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'unknown'], example: 'medium' })
+  userActivity: 'high' | 'medium' | 'low' | 'unknown';
+
+  @ApiProperty({ example: 42, nullable: true })
+  userConversion: number | null;
+
+  @ApiProperty({ example: 'focus_market', nullable: true })
+  actionCode: string | null;
+
+  @ApiProperty({ example: 'Berlin bietet Marktvolumen, deine Präsenz ist hier aber noch ausbaufähig.', nullable: true })
+  recommendation: string | null;
+}
+
+export class WorkspaceStatisticsCityComparisonDto {
+  @ApiProperty({ example: 'Städtevergleich', nullable: true })
+  title: string | null;
+
+  @ApiProperty({ example: 'Marktvolumen vs. deine Aktivität in relevanten Städten.', nullable: true })
+  subtitle: string | null;
+
+  @ApiProperty({ example: true })
+  hasReliableItems: boolean;
+
+  @ApiProperty({ type: WorkspaceStatisticsCityComparisonItemDto, isArray: true })
+  items: WorkspaceStatisticsCityComparisonItemDto[];
+}
+
+export class WorkspaceStatisticsFunnelComparisonStageDto {
+  @ApiProperty({ example: 'offers' })
+  key: string;
+
+  @ApiProperty({ example: 'Angebote' })
+  label: string;
+
+  @ApiProperty({ example: 74, nullable: true })
+  marketCount: number | null;
+
+  @ApiProperty({ example: 8, nullable: true })
+  userCount: number | null;
+
+  @ApiProperty({ example: 68, nullable: true })
+  marketRateFromPrev: number | null;
+
+  @ApiProperty({ example: 100, nullable: true })
+  userRateFromPrev: number | null;
+
+  @ApiProperty({ example: 32, nullable: true, description: 'Difference in percentage points: user - market.' })
+  gapRate: number | null;
+
+  @ApiProperty({ enum: ['good', 'warning', 'critical', 'neutral'], example: 'warning' })
+  status: 'good' | 'warning' | 'critical' | 'neutral';
+
+  @ApiProperty({ example: ['high_offer_dropoff'], type: String, isArray: true })
+  signalCodes: string[];
+
+  @ApiProperty({
+    example: 'Du verlierst hier deutlich mehr als der Markt.',
+    nullable: true,
+  })
+  summary: string | null;
+}
+
+export class WorkspaceStatisticsFunnelLargestDropOffDto {
+  @ApiProperty({ example: 'responses' })
+  key: string;
+
+  @ApiProperty({ example: 'Rückmeldungen' })
+  label: string;
+
+  @ApiProperty({ example: 0, nullable: true })
+  userRateFromPrev: number | null;
+
+  @ApiProperty({ example: 70, nullable: true })
+  marketRateFromPrev: number | null;
+
+  @ApiProperty({ example: -70, nullable: true })
+  gapRate: number | null;
+
+  @ApiProperty({ enum: ['low', 'medium', 'high', 'critical'], example: 'critical' })
+  severity: 'low' | 'medium' | 'high' | 'critical';
+
+  @ApiProperty({ example: 'Zwischen Angebot und Rückmeldung verlierst du aktuell deutlich mehr als der Markt.' })
+  summary: string;
+
+  @ApiProperty({ example: 'follow_up_requests', nullable: true })
+  actionCode: string | null;
+}
+
+export class WorkspaceStatisticsFunnelBottleneckDto {
+  @ApiProperty({ example: 'responses' })
+  key: string;
+
+  @ApiProperty({ example: 'Rückmeldungen bleiben aus' })
+  title: string;
+
+  @ApiProperty({ example: 'Deine Angebote erhalten im aktuellen Kontext deutlich seltener eine Rückmeldung als der Markt.' })
+  description: string;
+
+  @ApiProperty({ enum: ['low', 'medium', 'high', 'critical'], example: 'high' })
+  severity: 'low' | 'medium' | 'high' | 'critical';
+
+  @ApiProperty({ example: 'follow_up_requests', nullable: true })
+  actionCode: string | null;
+}
+
+export class WorkspaceStatisticsFunnelConversionSummaryDto {
+  @ApiProperty({ example: 18, nullable: true })
+  userConversion: number | null;
+
+  @ApiProperty({ example: 26, nullable: true })
+  marketConversion: number | null;
+
+  @ApiProperty({ example: -8, nullable: true })
+  gapConversion: number | null;
+
+  @ApiProperty({ enum: ['good', 'warning', 'critical', 'neutral'], example: 'warning' })
+  status: 'good' | 'warning' | 'critical' | 'neutral';
+}
+
+export class WorkspaceStatisticsFunnelComparisonDto {
+  @ApiProperty({ example: 'Profil Performance' })
+  title: string;
+
+  @ApiProperty({ example: 'Wie dein Profil aktuell performt.', nullable: true })
+  subtitle: string | null;
+
+  @ApiProperty({ type: WorkspaceStatisticsFunnelComparisonStageDto, isArray: true })
+  stages: WorkspaceStatisticsFunnelComparisonStageDto[];
+
+  @ApiProperty({ type: WorkspaceStatisticsFunnelLargestDropOffDto, nullable: true })
+  largestDropOffStage: WorkspaceStatisticsFunnelLargestDropOffDto | null;
+
+  @ApiProperty({ type: WorkspaceStatisticsFunnelBottleneckDto, nullable: true })
+  bottleneck: WorkspaceStatisticsFunnelBottleneckDto | null;
+
+  @ApiProperty({ type: WorkspaceStatisticsFunnelConversionSummaryDto, nullable: true })
+  conversionSummary: WorkspaceStatisticsFunnelConversionSummaryDto | null;
+
+  @ApiProperty({ type: WorkspaceStatisticsActionLinkDto, nullable: true })
+  primaryAction: WorkspaceStatisticsActionLinkDto | null;
+
+  @ApiProperty({ example: 'Du verlierst aktuell am meisten zwischen Angebot und Rückmeldung.', nullable: true })
+  summary: string | null;
+
+  @ApiProperty({ example: 'Rückmeldungen bleiben aus', nullable: true })
+  primaryBottleneck: string | null;
+
+  @ApiProperty({ example: 'Offene Anfragen priorisieren und schneller nachfassen.', nullable: true })
+  nextAction: string | null;
+
+  @ApiProperty({ example: 'responses', nullable: true })
+  largestGapStage: string | null;
 }
 
 export class WorkspaceStatisticsOverviewResponseDto {
@@ -656,11 +1053,35 @@ export class WorkspaceStatisticsOverviewResponseDto {
   @ApiProperty({ enum: ['24h', '7d', '30d', '90d'], example: '30d' })
   range: WorkspaceStatisticsRange;
 
+  @ApiProperty({ enum: ['provider', 'customer'], example: 'provider', nullable: true })
+  viewerMode: WorkspaceStatisticsViewerMode | null;
+
   @ApiProperty({
     example:
       'Die Angebotsquote liegt aktuell bei 68 %, während 56 Anfragen länger als 24 Stunden unbeantwortet bleiben. Schnellere Reaktionen könnten die Abschlussrate weiter erhöhen.',
   })
   decisionInsight: string;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsDecisionLayerDto, nullable: true })
+  decisionLayer?: WorkspaceStatisticsDecisionLayerDto | null;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsPersonalizedPricingDto, nullable: true })
+  personalizedPricing?: WorkspaceStatisticsPersonalizedPricingDto | null;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsCategoryFitDto, nullable: true })
+  categoryFit?: WorkspaceStatisticsCategoryFitDto | null;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsCityComparisonDto, nullable: true })
+  cityComparison?: WorkspaceStatisticsCityComparisonDto | null;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsRecommendationSectionDto, nullable: true })
+  risks?: WorkspaceStatisticsRecommendationSectionDto | null;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsRecommendationSectionDto, nullable: true })
+  opportunities?: WorkspaceStatisticsRecommendationSectionDto | null;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsRecommendationSectionDto, nullable: true })
+  nextSteps?: WorkspaceStatisticsRecommendationSectionDto | null;
 
   @ApiProperty({ type: WorkspaceStatisticsSummaryDto })
   summary: WorkspaceStatisticsSummaryDto;
@@ -670,6 +1091,9 @@ export class WorkspaceStatisticsOverviewResponseDto {
 
   @ApiProperty({ type: WorkspaceStatisticsActivityDto })
   activity: WorkspaceStatisticsActivityDto;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsActivityComparisonDto, nullable: true })
+  activityComparison?: WorkspaceStatisticsActivityComparisonDto | null;
 
   @ApiProperty({ type: WorkspaceStatisticsDemandDto })
   demand: WorkspaceStatisticsDemandDto;
@@ -682,6 +1106,9 @@ export class WorkspaceStatisticsOverviewResponseDto {
 
   @ApiProperty({ type: WorkspaceStatisticsProfileFunnelDto })
   profileFunnel: WorkspaceStatisticsProfileFunnelDto;
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsFunnelComparisonDto, nullable: true })
+  funnelComparison?: WorkspaceStatisticsFunnelComparisonDto | null;
 
   @ApiProperty({ type: WorkspaceStatisticsInsightDto, isArray: true })
   insights: WorkspaceStatisticsInsightDto[];

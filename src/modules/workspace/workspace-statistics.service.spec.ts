@@ -52,6 +52,19 @@ describe('WorkspaceStatisticsService (unit)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    requestModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+    requestModelMock.countDocuments.mockResolvedValue(0);
+    offerModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+    contractModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+    reviewModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
     insightsMock.getInsights.mockReturnValue([
       {
         id: 'top_category_demand:category:cleaning',
@@ -167,6 +180,78 @@ describe('WorkspaceStatisticsService (unit)', () => {
 
     expect(insight).toContain('stabile Abschlussquote');
     expect(insight).toContain('Sichtbarkeit');
+  });
+
+  it('builds canonical activityComparison from market timeline and user activity rows', () => {
+    const activityComparison = (
+      service as unknown as {
+        buildActivityComparison: (params: {
+          mode: 'platform' | 'personalized';
+          marketPoints: Array<{ timestamp: string; requests: number; offers: number }>;
+          stepMs: number;
+          clientRows: Array<{ createdAt?: Date | string | null }>;
+          providerRows: Array<{ createdAt?: Date | string | null }>;
+          activityTotals: {
+            peakTimestamp: string | null;
+            bestWindowTimestamp: string | null;
+          };
+          updatedAt: string;
+        }) => {
+          hasReliableSeries: boolean;
+          title?: string | null;
+          subtitle?: string | null;
+          summary?: string | null;
+          peakTimestamp?: string | null;
+          bestWindowTimestamp?: string | null;
+          updatedAt?: string | null;
+          points: Array<{ clientActivity: number | null; providerActivity: number | null }>;
+        } | null;
+      }
+    ).buildActivityComparison({
+      mode: 'personalized',
+      marketPoints: [
+        { timestamp: '2026-03-09T00:00:00.000Z', requests: 4, offers: 2 },
+        { timestamp: '2026-03-10T00:00:00.000Z', requests: 6, offers: 3 },
+      ],
+      stepMs: 24 * 60 * 60 * 1000,
+      clientRows: [
+        { createdAt: '2026-03-09T08:00:00.000Z' },
+        { createdAt: '2026-03-10T09:00:00.000Z' },
+        { createdAt: '2026-03-10T18:00:00.000Z' },
+      ],
+      providerRows: [
+        { createdAt: '2026-03-09T10:00:00.000Z' },
+      ],
+      activityTotals: {
+        peakTimestamp: '2026-03-10T00:00:00.000Z',
+        bestWindowTimestamp: '2026-03-10T00:00:00.000Z',
+      },
+      updatedAt: '2026-03-26T19:19:00.000Z',
+    });
+
+    expect(activityComparison).toEqual(
+      expect.objectContaining({
+        title: 'Aktivität der Plattform',
+        subtitle: 'Neue Anfragen und Angebote im Zeitverlauf',
+        hasReliableSeries: true,
+        peakTimestamp: '2026-03-10T00:00:00.000Z',
+        bestWindowTimestamp: '2026-03-10T00:00:00.000Z',
+        updatedAt: '2026-03-26T19:19:00.000Z',
+      }),
+    );
+    expect(activityComparison?.points).toEqual([
+      {
+        timestamp: '2026-03-09T00:00:00.000Z',
+        clientActivity: 1,
+        providerActivity: 1,
+      },
+      {
+        timestamp: '2026-03-10T00:00:00.000Z',
+        clientActivity: 2,
+        providerActivity: 0,
+      },
+    ]);
+    expect(activityComparison?.summary).toBe('Deine stärkste Aktivität liegt aktuell außerhalb des Marktpeaks.');
   });
 
   it('returns platform mode payload for guest', async () => {
@@ -419,7 +504,9 @@ describe('WorkspaceStatisticsService (unit)', () => {
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
-    requestModelMock.countDocuments.mockResolvedValue(3);
+    requestModelMock.countDocuments
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(12);
 
     offerModelMock.aggregate
       .mockReturnValueOnce({
@@ -430,6 +517,12 @@ describe('WorkspaceStatisticsService (unit)', () => {
       })
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 6, confirmedResponsesTotal: 3 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 9, confirmedResponsesTotal: 7 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, requestsTotal: 3, offersTotal: 6, confirmedResponsesTotal: 3 }]),
       });
 
     contractModelMock.aggregate
@@ -439,6 +532,16 @@ describe('WorkspaceStatisticsService (unit)', () => {
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([
           { _id: null, closedContractsTotal: 3, completedJobsTotal: 2, profitAmount: 400 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: null, closedContractsTotal: 5, completedJobsTotal: 3, profitAmount: 900 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: null, contractsTotal: 3, completedTotal: 2, revenueAmount: 400 },
         ]),
       });
 
@@ -464,58 +567,268 @@ describe('WorkspaceStatisticsService (unit)', () => {
     expect(result.kpis.profileCompleteness).toBe(72);
     expect(result.decisionContext.mode).toBe('global');
     expect(result.filterOptions.services).toEqual([]);
-    expect(result.profileFunnel).toMatchObject({
-      periodLabel: '7 Tage',
-      stage1: 3,
-      stage2: 6,
-      stage3: 3,
-      stage4: 3,
-      requestsTotal: 3,
-      offersTotal: 6,
-      confirmedResponsesTotal: 3,
-      closedContractsTotal: 3,
-      completedJobsTotal: 2,
-      profitAmount: 400,
-      offerResponseRatePercent: 100,
-      confirmationRatePercent: 50,
-      contractClosureRatePercent: 100,
-      completionRatePercent: 67,
-      conversionRate: 67,
-      totalConversionPercent: 67,
-      summaryText: 'Von 3 Anfragen wurden 2 erfolgreich abgeschlossen.',
-    });
+    expect(result.profileFunnel.periodLabel).toBe('7 Tage');
     expect(result.profileFunnel.stages).toHaveLength(6);
-    expect(result.profileFunnel.stages[4]).toMatchObject({
-      id: 'completed',
-      rateLabel: 'Erfüllungsquote',
-      ratePercent: 67,
-      widthPercent: 66.67,
+    expect(result.profileFunnel.stages[0]).toMatchObject({
+      id: 'requests',
+      label: 'Anfragen',
     });
     expect(result.profileFunnel.stages[5]).toMatchObject({
       id: 'revenue',
-      widthPercent: 66.67,
-      helperText: '200 €',
     });
+    expect(result.viewerMode).toBe('provider');
+    expect(result.decisionLayer).toMatchObject({
+      title: 'Decision Layer',
+      subtitle: 'User vs Market im aktuellen Kontext',
+    });
+    expect(result.decisionLayer?.metrics).toHaveLength(6);
+    expect(result.decisionLayer?.metrics[0]).toMatchObject({
+      id: 'offer_rate',
+      label: 'Angebotsquote',
+    });
+    expect(result.decisionLayer?.metrics[1]).toMatchObject({
+      id: 'avg_response_time',
+      label: 'Median Antwortzeit',
+      userValue: 18,
+    });
+    expect(result.decisionLayer?.primaryInsight).toBeTruthy();
+    expect(result.decisionLayer?.metrics.every((metric) => Object.prototype.hasOwnProperty.call(metric, 'marketValue'))).toBe(true);
+    expect(result.decisionLayer?.metrics.every((metric) => Object.prototype.hasOwnProperty.call(metric, 'primaryActionCode'))).toBe(true);
+    expect(result.funnelComparison).toMatchObject({
+      title: 'Profil Performance',
+    });
+    expect(result.funnelComparison?.stages).toHaveLength(5);
+    expect(result.funnelComparison?.stages[2]).toMatchObject({
+      key: 'responses',
+      label: 'Rückmeldungen',
+    });
+    expect(result.personalizedPricing).toMatchObject({
+      title: 'Preisstrategie',
+      comparisonReliability: expect.stringMatching(/^(high|medium|low|unavailable)$/),
+    });
+    expect(result.categoryFit).toMatchObject({
+      title: 'Kategorien-Fit',
+      hasReliableItems: expect.any(Boolean),
+    });
+    expect(Array.isArray(result.categoryFit?.items)).toBe(true);
+    if ((result.categoryFit?.items.length ?? 0) > 0) {
+      expect(result.categoryFit?.items[0]).toEqual(
+        expect.objectContaining({
+          reliability: expect.stringMatching(/^(high|medium|low|unknown)$/),
+        }),
+      );
+    }
+    expect(result.cityComparison).toMatchObject({
+      title: 'Städtevergleich',
+      hasReliableItems: expect.any(Boolean),
+    });
+    expect(Array.isArray(result.cityComparison?.items)).toBe(true);
+    if ((result.cityComparison?.items.length ?? 0) > 0) {
+      expect(result.cityComparison?.items[0]).toEqual(
+        expect.objectContaining({
+          reliability: expect.stringMatching(/^(high|medium|low|unknown)$/),
+        }),
+      );
+    }
     expect(Array.isArray(result.opportunityRadar)).toBe(true);
+    expect(result.risks).toMatchObject({
+      title: 'Risiken',
+      hasReliableItems: expect.any(Boolean),
+    });
+    expect(result.opportunities).toMatchObject({
+      title: 'Chancen',
+      hasReliableItems: expect.any(Boolean),
+    });
+    expect(result.nextSteps).toMatchObject({
+      title: 'Nächste Schritte',
+      hasReliableItems: expect.any(Boolean),
+    });
+    expect(Array.isArray(result.opportunities?.items)).toBe(true);
+    if ((result.opportunities?.items.length ?? 0) > 0) {
+      expect(result.opportunities?.items[0]).toEqual(
+        expect.objectContaining({
+          reliability: expect.stringMatching(/^(high|medium|low)$/),
+        }),
+      );
+    }
     expect(result.priceIntelligence).toMatchObject({
       city: null,
       categoryKey: null,
-      recommendedMin: 170,
-      recommendedMax: 230,
-      marketAverage: 200,
-      optimalMin: 191,
-      optimalMax: 212,
-      smartRecommendedPrice: 200,
-      smartSignalTone: 'balanced',
       analyzedRequestsCount: null,
       confidenceLevel: null,
       profitPotentialScore: null,
       profitPotentialStatus: null,
     });
-    expect(result.decisionInsight).toContain('Abschlussrate');
-    expect(result.decisionInsight).not.toContain('Berlin');
+    expect(result.decisionInsight).toBe(result.decisionLayer?.primaryInsight);
     expect(insightsMock.getInsights).toHaveBeenCalledTimes(1);
     expect(insightsMock.getInsights.mock.calls[0]?.[1]).toBe('provider');
+  });
+
+  it('supports customer viewerMode in decision layer', async () => {
+    workspaceMock.getPublicOverview.mockResolvedValue({
+      summary: {
+        totalPublishedRequests: 42,
+        totalActiveProviders: 10,
+      },
+      cityActivity: { items: [] },
+    });
+
+    analyticsMock.getPlatformActivity.mockResolvedValue({
+      range: '7d',
+      interval: 'day',
+      source: 'real',
+      updatedAt: '2026-03-10T10:00:00.000Z',
+      data: [{ timestamp: '2026-03-09T00:00:00.000Z', requests: 6, offers: 4 }],
+    });
+
+    analyticsMock.getCitySearchCounts.mockResolvedValue([]);
+
+    requestModelMock.aggregate
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+    requestModelMock.countDocuments
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(12)
+      .mockResolvedValueOnce(4);
+
+    offerModelMock.aggregate
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 5, confirmedResponsesTotal: 2 }]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 8, confirmedResponsesTotal: 5 }]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 5, acceptedOffersTotal: 2 }]) });
+
+    contractModelMock.aggregate
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 2, cancelledJobs: 0, gmvAmount: 600 }]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: null, closedContractsTotal: 2, completedJobsTotal: 2, profitAmount: 600 }]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: null, closedContractsTotal: 6, completedJobsTotal: 4, profitAmount: 1200 }]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: null, contractsTotal: 2, completedTotal: 2, revenueAmount: 600 }]) });
+
+    reviewModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+
+    workspaceMock.getPrivateOverview.mockResolvedValue({
+      requestsByStatus: { total: 4 },
+      providerOffersByStatus: { sent: 0, accepted: 0 },
+      providerContractsByStatus: { completed: 0 },
+      clientContractsByStatus: { completed: 2 },
+      profiles: { providerCompleteness: 40, clientCompleteness: 88 },
+      kpis: { acceptanceRate: 50, avgResponseMinutes: null, myOpenRequests: 2, recentOffers7d: 0 },
+    });
+
+    const result = await service.getStatisticsOverview({ range: '7d', viewerMode: 'customer' }, 'user-2', 'client');
+
+    expect(result.viewerMode).toBe('customer');
+    expect(result.decisionLayer?.metrics[0]).toMatchObject({
+      id: 'offer_rate',
+      label: 'Anfragen mit Angeboten',
+    });
+    expect(result.decisionLayer?.metrics[1]).toMatchObject({
+      id: 'avg_response_time',
+      label: 'Zeit bis erstes Angebot',
+    });
+    expect(result.decisionLayer?.metrics[2]).toMatchObject({
+      id: 'unanswered_over_24h',
+      label: 'Ohne Angebot >24h',
+    });
+  });
+
+  it('softens decision and funnel outputs when viewer-specific counts fall back to legacy personalized data', async () => {
+    workspaceMock.getPublicOverview.mockResolvedValue({
+      summary: {
+        totalPublishedRequests: 80,
+        totalActiveProviders: 14,
+      },
+      cityActivity: { items: [] },
+    });
+
+    analyticsMock.getPlatformActivity.mockResolvedValue({
+      range: '7d',
+      interval: 'day',
+      source: 'real',
+      updatedAt: '2026-03-10T10:00:00.000Z',
+      data: [{ timestamp: '2026-03-09T00:00:00.000Z', requests: 4, offers: 2 }],
+    });
+
+    analyticsMock.getCitySearchCounts.mockResolvedValue([]);
+
+    requestModelMock.aggregate
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+    requestModelMock.countDocuments
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(12);
+
+    offerModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 6, confirmedResponsesTotal: 3 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 9, confirmedResponsesTotal: 7 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+    contractModelMock.aggregate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([{ _id: null, completedJobs: 2, cancelledJobs: 1, gmvAmount: 400 }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: null, closedContractsTotal: 3, completedJobsTotal: 2, profitAmount: 400 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: null, closedContractsTotal: 5, completedJobsTotal: 3, profitAmount: 900 },
+        ]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+    reviewModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+
+    workspaceMock.getPrivateOverview.mockResolvedValue({
+      requestsByStatus: { total: 5 },
+      providerOffersByStatus: { sent: 6, accepted: 3 },
+      providerContractsByStatus: { completed: 2 },
+      clientContractsByStatus: { completed: 1 },
+      profiles: { providerCompleteness: 72, clientCompleteness: 64 },
+      kpis: { acceptanceRate: 44, avgResponseMinutes: 18, myOpenRequests: 3, recentOffers7d: 2 },
+    });
+
+    const result = await service.getStatisticsOverview({ range: '7d', viewerMode: 'provider' }, 'user-1', 'provider');
+
+    expect(result.viewerMode).toBe('provider');
+    expect(result.decisionLayer?.primaryInsight).toBe('Vergleich basiert aktuell auf begrenzten viewer-spezifischen Daten.');
+    expect(result.decisionLayer?.primaryAction).toBeNull();
+    expect(result.decisionLayer?.metrics.every((metric) => metric.status === 'neutral')).toBe(true);
+    expect(result.decisionLayer?.metrics.every((metric) => metric.signalCodes.length === 0)).toBe(true);
+    expect(result.decisionLayer?.metrics.every((metric) => metric.primaryActionCode === null)).toBe(true);
+    expect(result.funnelComparison?.summary).toBe('Noch zu wenig Daten für einen belastbaren Funnel-Vergleich.');
+    expect(result.funnelComparison?.largestDropOffStage).toBeNull();
+    expect(result.funnelComparison?.primaryAction).toBeNull();
+    expect(result.personalizedPricing?.comparisonReliability).toBe('unavailable');
+    expect(result.categoryFit?.hasReliableItems).toBe(false);
+    expect(result.cityComparison?.hasReliableItems).toBe(false);
+    expect(result.risks?.items).toEqual([]);
+    expect(result.opportunities?.hasReliableItems).toBe(true);
+    expect(result.nextSteps?.hasReliableItems).toBe(true);
   });
 
   it('computes category sharePercent from full period category set', async () => {

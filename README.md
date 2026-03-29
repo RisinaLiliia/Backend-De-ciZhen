@@ -63,6 +63,7 @@ Domain modules are organized by business responsibility:
   - `cityId=<city-id>` optional focus
   - `categoryKey=<category-key>` optional focus
   - `regionId=<region-id>` optional contract field; currently informational until region-level aggregation is available
+  - `viewerMode=provider|customer` optional personalized perspective for authenticated Analyse
   - guest -> `mode=platform` with platform-level KPI/demand/funnel
   - authenticated -> `mode=personalized` with private KPI/funnel fields
   - all analytics blocks are now returned from one server-side source of truth for the selected context
@@ -96,6 +97,41 @@ Domain modules are organized by business responsibility:
       - `completedTone`
       - `revenueTone`
   - `decisionInsight` is backend-generated from KPI metrics (`offerRatePercent`, `responseMedianMinutes`, `unansweredRequests24h`, conversion) and is dedicated to the `Decision Layer` KI summary (independent from city/category insight cards).
+  - `decisionLayer` is the canonical personalized first section for authenticated Analyse:
+    - `title`, `subtitle`
+    - `metrics[]` with `marketValue`, `userValue`, `gapAbsolute`, `gapPercent`, `direction`, `status`, `signalCodes`, `primaryActionCode`, `summary`
+    - backend keeps the KPI ids stable (`offer_rate`, `avg_response_time`, `unanswered_over_24h`, `completed_jobs`, `revenue`, `average_order_value`)
+    - `viewerMode=provider|customer` changes KPI labels and user-side semantics on the backend; frontend should only render the contract
+    - `primaryInsight` and `primaryAction` are the source of truth for the top recommendation surface
+    - legacy `decisionInsight` is retained only as a compatibility field and is derived from `decisionLayer.primaryInsight` in personalized mode
+    - if viewer-specific counts are not yet available and the backend must reuse legacy personalized aggregates, the section enters a cautious comparison mode:
+      - KPI cards stay renderable, but `status`, `signalCodes`, and `primaryActionCode` are neutralized
+      - `primaryInsight` becomes a low-confidence message instead of an aggressive recommendation
+  - `activityComparison` is the canonical authenticated overlay contract for `Aktivität der Plattform`:
+    - owns the personalized section header/meta for the chart (`title`, `subtitle`, `peakTimestamp`, `bestWindowTimestamp`, `updatedAt`)
+    - `points[]` reuse the same timestamps as `activity.points`
+    - every point exposes backend-owned `clientActivity` and `providerActivity`
+    - `summary` explains whether user activity aligns with the market peak
+    - frontend should render this section directly and must not reconstruct overlays or chart meta from `profileFunnel`, private overview totals, or generic market timestamps when this section is present
+  - `personalizedPricing` is the canonical authenticated pricing section:
+    - `marketAverage`, `recommendedMin`, `recommendedMax`, `userPrice`, `gapAbsolute`
+    - `comparisonReliability` (`high|medium|low|unavailable`) is the backend-owned confidence signal for the current pricing comparison
+    - semantic `position` (`below|within|above|unknown`)
+    - semantic `effect` and backend-owned `actionCode`
+    - frontend should not derive pricing interpretation from raw numbers
+  - `categoryFit` is the canonical authenticated category-fit section:
+    - market-facing fields come from `demand.categories`
+    - user-facing fit/opportunity/action are computed on backend from user activity grouped in the same shared context
+    - every item exposes backend-owned `reliability` and the section exposes `hasReliableItems`
+    - frontend should only render `items[]`
+  - `cityComparison` is the canonical authenticated city-fit section:
+    - combines `marketRequests` with backend-computed `userActivity`, `userConversion`, `actionCode`, `recommendation`
+    - every item exposes backend-owned `reliability` and the section exposes `hasReliableItems`
+    - frontend should not calculate city fit or opportunity from raw counts
+  - `risks`, `opportunities`, `nextSteps` are backend-built action sections derived from ranked insights:
+    - each section exposes `title`, `subtitle`, `hasReliableItems`, `items[]`
+    - every item includes `code`, `type`, `priority`, `description`, `confidence`, `reliability`, `actionCode`, `action`
+    - frontend should render these sections directly and must not derive action priority from free-text insight bodies
   - `demand.categories[].sharePercent` is computed on backend from **all** published requests in selected range (`24h|7d|30d|90d`), not from frontend slices.
   - category response keeps top 50 categories sorted by demand; percent base remains full-range total.
   - `demand.cities[]` now includes city-level marketplace activity metrics:
@@ -140,6 +176,22 @@ Domain modules are organized by business responsibility:
       - `completionRatePercent` = `completedJobsTotal / closedContractsTotal`
       - `conversionRate` = `completedJobsTotal / requestsTotal`
     - legacy aliases `stage1..stage4` are kept for backward compatibility.
+  - `funnelComparison` is the canonical personalized `Profil Performance` section contract:
+    - `title`, `subtitle`
+    - `stages[]` with `marketCount`, `userCount`, `marketRateFromPrev`, `userRateFromPrev`, `gapRate`, `status`, `signalCodes`, `summary`
+    - `largestDropOffStage`
+    - `bottleneck`
+    - `conversionSummary`
+    - `primaryAction`
+    - compatibility fields `summary`, `primaryBottleneck`, `nextAction`, `largestGapStage` are still included during migration
+    - `viewerMode=provider` and `viewerMode=customer` select different stage semantics on the backend; frontend should not reinterpret provider funnel data as customer funnel data
+    - viewer-mode fallback automatically forces `lowData` semantics so sparse transitional data does not create false bottlenecks or overconfident actions
+  - Remaining transitional points in authenticated stats:
+    - `profileFunnel` still exists as a compatibility surface beside canonical `funnelComparison`
+    - `decisionInsight` still exists as a compatibility field beside canonical `decisionLayer.primaryInsight`
+    - `personalizedPricing.userPrice` is currently derived from realized average order value, not from a dedicated user list-price model
+    - `categoryFit` and `cityComparison` now expose reliability flags, but item-level confidence is still heuristic and not yet backed by a dedicated reliability model from upstream analytics
+    - `risks/opportunities/nextSteps` are currently section views derived from the canonical `insights[]` engine rather than an independently versioned upstream action model
   - `insights[]` is now generated by a dedicated backend rule engine (`InsightsService`) and returned as ranked, evidence-based recommendations:
     - signal groups: `demand`, `opportunity`, `performance`, `growth`, `risk`, `promotion`
     - scoring formula: `businessImpact * 0.35 + userRelevance * 0.30 + confidence * 0.20 + freshness * 0.15`
