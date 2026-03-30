@@ -8,8 +8,17 @@ export class CityResponseDto {
   @ApiProperty({ example: "city_berlin" })
   key: string;
 
+  @ApiProperty({ example: "geonames" })
+  source: string;
+
+  @ApiProperty({ example: "2950159", nullable: true })
+  sourceId: string | null;
+
   @ApiProperty({ example: "Berlin" })
   name: string;
+
+  @ApiProperty({ example: "berlin" })
+  normalizedName: string;
 
   @ApiProperty({
     example: {
@@ -21,6 +30,18 @@ export class CityResponseDto {
 
   @ApiProperty({ example: "DE" })
   countryCode: string;
+
+  @ApiProperty({ example: "BE", nullable: true })
+  stateCode: string | null;
+
+  @ApiProperty({ example: "Berlin", nullable: true })
+  stateName: string | null;
+
+  @ApiProperty({ example: "Berlin", nullable: true })
+  districtName: string | null;
+
+  @ApiProperty({ example: 3669491, nullable: true })
+  population: number | null;
 
   @ApiProperty({ example: 52.52, nullable: true })
   lat: number | null;

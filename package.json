@@ -21,6 +21,7 @@
     "test:e2e:smoke": "jest -c test/jest-e2e.json --runInBand test/auth.e2e-spec.ts test/workspace.e2e-spec.ts test/reviews.e2e-spec.ts",
     "swagger": "ts-node -r tsconfig-paths/register src/swagger.ts",
     "seed:cities": "ts-node -r tsconfig-paths/register src/database/seeds/seed-cities.ts",
+    "import:cities:geonames": "ts-node -r tsconfig-paths/register src/scripts/import-geonames-cities.ts",
     "seed:services": "ts-node -r tsconfig-paths/register src/database/seeds/seed-services.ts",
     "seed:demo": "ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-marketplace.ts",
     "seed:stats-categories": "ts-node -r tsconfig-paths/register src/database/seeds/seed-statistics-categories.ts",

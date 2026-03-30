@@ -44,6 +44,13 @@ type CityGeoResolution = {
   lng: number | null;
 };
 
+type NearbyCityParams = {
+  cityId: string;
+  radiusKm?: number;
+  countryCode?: string;
+  limit?: number;
+};
+
 @Injectable()
 export class CitiesService {
   constructor(@InjectModel(City.name) private readonly cityModel: Model<CityDocument>) {}
@@ -69,10 +76,16 @@ export class CitiesService {
 
   private normalizeGeoKey(value: string | null | undefined): string {
     return String(value ?? "")
+      .replace(/ß/g, "ss")
+      .replace(/ä/gi, (match) => (match === "Ä" ? "Ae" : "ae"))
+      .replace(/ö/gi, (match) => (match === "Ö" ? "Oe" : "oe"))
+      .replace(/ü/gi, (match) => (match === "Ü" ? "Ue" : "ue"))
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, "");
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
   }
 
   private roundCoord(value: number, decimals = 6): number {
@@ -94,6 +107,89 @@ export class CitiesService {
       lat: this.roundCoord(lat),
       lng: this.roundCoord(lng),
     };
+  }
+
+  private toLocation(lat: number | null, lng: number | null) {
+    if (lat === null || lng === null) return null;
+    return {
+      type: "Point" as const,
+      coordinates: [lng, lat] as [number, number],
+    };
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  async resolveCityByName(name: string, countryCode?: string): Promise<CityDocument | null> {
+    const normalizedName = this.normalizeGeoKey(name);
+    if (!normalizedName) return null;
+
+    const filter: Record<string, unknown> = { isActive: true };
+    if (countryCode && countryCode.trim().length > 0) {
+      filter.countryCode = countryCode.trim().toUpperCase();
+    }
+
+    return this.cityModel
+      .findOne({
+        ...filter,
+        $or: [
+          { normalizedName },
+          { normalizedAliases: normalizedName },
+          { key: normalizedName.replace(/\s+/g, "_") },
+        ],
+      })
+      .exec();
+  }
+
+  async searchCities(query: string, limit = 10, countryCode?: string): Promise<CityDocument[]> {
+    const normalizedQuery = this.normalizeGeoKey(query);
+    if (!normalizedQuery) return [];
+
+    const safeLimit = Math.max(1, Math.min(50, Math.round(limit || 10)));
+    const filter: Record<string, unknown> = { isActive: true };
+    if (countryCode && countryCode.trim().length > 0) {
+      filter.countryCode = countryCode.trim().toUpperCase();
+    }
+
+    const prefix = new RegExp(`^${this.escapeRegex(normalizedQuery)}`, "i");
+    return this.cityModel
+      .find({
+        ...filter,
+        $or: [
+          { normalizedName: prefix },
+          { normalizedAliases: prefix },
+        ],
+      })
+      .sort({ sortOrder: 1, population: -1, normalizedName: 1 })
+      .limit(safeLimit)
+      .exec();
+  }
+
+  async getNearbyCities(params: NearbyCityParams): Promise<CityDocument[]> {
+    const anchor = await this.getById(params.cityId);
+    if (!anchor || !anchor.location?.coordinates) return [];
+
+    const radiusKm = Math.max(1, params.radiusKm ?? 50);
+    const limit = Math.max(1, Math.min(100, Math.round(params.limit ?? 20)));
+    const filter: Record<string, unknown> = {
+      isActive: true,
+      _id: { $ne: anchor._id },
+      location: {
+        $nearSphere: {
+          $geometry: anchor.location,
+          $maxDistance: radiusKm * 1000,
+        },
+      },
+    };
+    if (params.countryCode && params.countryCode.trim().length > 0) {
+      filter.countryCode = params.countryCode.trim().toUpperCase();
+    }
+
+    return this.cityModel
+      .find(filter)
+      .limit(limit)
+      .exec();
   }
 
   async resolveActivityCoords(
@@ -175,6 +271,7 @@ export class CitiesService {
     const rawName = (name ?? "").trim();
     if (!rawName) throw new BadRequestException("cityName is required");
 
+    const normalizedName = this.normalizeGeoKey(rawName);
     const baseKey = this.normalizeKey(rawName);
     if (!baseKey) throw new BadRequestException("cityName is invalid");
 
@@ -195,8 +292,18 @@ export class CitiesService {
 
     return this.cityModel.create({
       key,
+      source: "manual",
+      sourceId: null,
       name: rawName,
+      normalizedName,
+      aliases: [rawName],
+      normalizedAliases: normalizedName ? [normalizedName] : [],
+      stateCode: null,
+      stateName: null,
+      districtName: null,
+      postalCodes: [],
       countryCode: country,
+      population: null,
       lat: null,
       lng: null,
       isActive: false,

@@ -16,6 +16,7 @@ describe("CitiesService", () => {
 
   const chain = {
     sort: jest.fn(),
+    limit: jest.fn(),
     exec: jest.fn(),
   };
 
@@ -24,6 +25,7 @@ describe("CitiesService", () => {
 
     modelMock.find.mockReturnValue(chain);
     chain.sort.mockReturnValue(chain);
+    chain.limit.mockReturnValue(chain);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -99,5 +101,68 @@ describe("CitiesService", () => {
       lat: 49.4875,
       lng: 8.466,
     });
+  });
+
+  it("resolveCityByName matches normalized names", async () => {
+    modelMock.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: "c1", normalizedName: "freiburg im breisgau" }),
+    });
+
+    const result = await service.resolveCityByName("Freiburg im Breisgau", "de");
+
+    expect(modelMock.findOne).toHaveBeenCalledWith({
+      isActive: true,
+      countryCode: "DE",
+      $or: [
+        { normalizedName: "freiburg im breisgau" },
+        { normalizedAliases: "freiburg im breisgau" },
+        { key: "freiburg_im_breisgau" },
+      ],
+    });
+    expect(result).toEqual({ _id: "c1", normalizedName: "freiburg im breisgau" });
+  });
+
+  it("searchCities uses normalized prefix matching", async () => {
+    chain.exec.mockResolvedValue([{ _id: "c1", normalizedName: "baden baden" }]);
+
+    const result = await service.searchCities("Baden", 5, "de");
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      isActive: true,
+      countryCode: "DE",
+      $or: [
+        { normalizedName: /^baden/i },
+        { normalizedAliases: /^baden/i },
+      ],
+    });
+    expect(chain.sort).toHaveBeenCalledWith({ sortOrder: 1, population: -1, normalizedName: 1 });
+    expect(chain.limit).toHaveBeenCalledWith(5);
+    expect(result).toEqual([{ _id: "c1", normalizedName: "baden baden" }]);
+  });
+
+  it("getNearbyCities queries by 2dsphere location", async () => {
+    modelMock.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: "c1",
+        location: { type: "Point", coordinates: [8.4037, 49.0069] },
+      }),
+    });
+    chain.exec.mockResolvedValue([{ _id: "c2" }]);
+
+    const result = await service.getNearbyCities({ cityId: "c1", radiusKm: 50, countryCode: "de", limit: 3 });
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      isActive: true,
+      _id: { $ne: "c1" },
+      countryCode: "DE",
+      location: {
+        $nearSphere: {
+          $geometry: { type: "Point", coordinates: [8.4037, 49.0069] },
+          $maxDistance: 50000,
+        },
+      },
+    });
+    expect(chain.limit).toHaveBeenCalledWith(3);
+    expect(result).toEqual([{ _id: "c2" }]);
   });
 });
