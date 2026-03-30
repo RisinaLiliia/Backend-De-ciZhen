@@ -115,6 +115,7 @@ export class WorkspaceStatisticsService {
         cityId: null,
         regionId: null,
         categoryKey: null,
+        subcategoryKey: null,
         viewerMode: null,
       };
     }
@@ -124,6 +125,7 @@ export class WorkspaceStatisticsService {
       cityId: this.normalizeScopeFilter(query.cityId),
       regionId: this.normalizeScopeFilter(query.regionId),
       categoryKey: this.normalizeScopeFilter(query.categoryKey)?.toLowerCase() ?? null,
+      subcategoryKey: this.normalizeScopeFilter(query.subcategoryKey)?.toLowerCase() ?? null,
       viewerMode: query.viewerMode ?? null,
     };
   }
@@ -835,8 +837,10 @@ export class WorkspaceStatisticsService {
     activityMetrics: WorkspaceStatisticsOverviewResponseDto['activity']['metrics'];
     marketCounts: FunnelStageCounts;
     marketRevenueAmount: number;
+    marketAverageOrderValue: number | null;
     userCounts: FunnelStageCounts;
     userRevenueAmount: number;
+    userAverageOrderValue: number | null;
     userResponseMinutes: number | null;
     userUnansweredOver24h: number | null;
     reliableComparison: boolean;
@@ -845,10 +849,6 @@ export class WorkspaceStatisticsService {
 
     const marketOfferRate = this.computeRate(params.marketCounts.offers, params.marketCounts.requests);
     const userOfferRate = this.computeRate(params.userCounts.offers, params.userCounts.requests);
-    const marketAverageOrderValue =
-      params.marketCounts.completed > 0 ? this.roundMoney(params.marketRevenueAmount / params.marketCounts.completed) : null;
-    const userAverageOrderValue =
-      params.userCounts.completed > 0 ? this.roundMoney(params.userRevenueAmount / params.userCounts.completed) : null;
 
     const isCustomerMode = params.viewerMode === 'customer';
     const lowConfidenceSummary = 'Vergleich basiert aktuell auf begrenzten viewer-spezifischen Daten.';
@@ -953,8 +953,8 @@ export class WorkspaceStatisticsService {
         id: 'average_order_value',
         label: 'Ø Auftragswert',
         unit: 'currency',
-        marketValue: marketAverageOrderValue,
-        userValue: userAverageOrderValue,
+        marketValue: params.marketAverageOrderValue,
+        userValue: params.userAverageOrderValue,
         higherIsBetter: !isCustomerMode,
         emptySummary: 'Kein Marktvergleich verfügbar.',
         betterSummary: isCustomerMode
@@ -1962,14 +1962,14 @@ export class WorkspaceStatisticsService {
     userId?: string | null,
     role?: AppRole | null,
   ): Promise<WorkspaceStatisticsOverviewResponseDto> {
-    const { range, cityId, regionId, categoryKey, viewerMode: requestedViewerMode } = this.resolveFilters(query);
+    const { range, cityId, regionId, categoryKey, subcategoryKey, viewerMode: requestedViewerMode } = this.resolveFilters(query);
     const { start, end } = this.resolveWindow(range);
     const filterOptionsRange = this.resolveFilterOptionsRange(range);
     const { start: filterOptionsStart, end: filterOptionsEnd } =
       filterOptionsRange === range ? { start, end } : this.resolveWindow(filterOptionsRange);
     const normalizedUserId = String(userId ?? '').trim();
     const hasActorScope = normalizedUserId.length > 0;
-    const hasDecisionScope = Boolean(cityId || regionId || categoryKey);
+    const hasDecisionScope = Boolean(cityId || regionId || categoryKey || subcategoryKey);
     const viewerMode = hasActorScope ? this.resolveViewerMode(requestedViewerMode, role) : null;
 
     const requestFunnelMatch = hasActorScope
@@ -1987,9 +1987,11 @@ export class WorkspaceStatisticsService {
     };
     if (cityId) scopedRequestMatch.cityId = cityId;
     if (categoryKey) scopedRequestMatch.categoryKey = categoryKey;
+    if (subcategoryKey) scopedRequestMatch.serviceKey = subcategoryKey;
     const requestRefScopeMatch: Record<string, unknown> = {};
     if (cityId) requestRefScopeMatch['requestRef.cityId'] = cityId;
     if (categoryKey) requestRefScopeMatch['requestRef.categoryKey'] = categoryKey;
+    if (subcategoryKey) requestRefScopeMatch['requestRef.serviceKey'] = subcategoryKey;
     const funnelRequestRefScopeMatch: Record<string, unknown> = {
       'requestRef.createdAt': { $gte: start, $lte: end },
       ...requestRefScopeMatch,
@@ -1999,6 +2001,7 @@ export class WorkspaceStatisticsService {
       ? this.requestModel.countDocuments({
           ...(cityId ? { cityId } : {}),
           ...(categoryKey ? { categoryKey } : {}),
+          ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
           createdAt: { $gte: start, $lte: end },
         })
       : Promise.resolve<number | null>(null);
@@ -2022,6 +2025,7 @@ export class WorkspaceStatisticsService {
                       createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2070,6 +2074,7 @@ export class WorkspaceStatisticsService {
                       createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2216,6 +2221,7 @@ export class WorkspaceStatisticsService {
                       createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2265,6 +2271,7 @@ export class WorkspaceStatisticsService {
                       createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2394,6 +2401,7 @@ export class WorkspaceStatisticsService {
           clientId: normalizedUserId,
           ...(cityId ? { cityId } : {}),
           ...(categoryKey ? { categoryKey } : {}),
+          ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
           createdAt: { $gte: start, $lte: end },
         })
       : Promise.resolve<number | null>(null);
@@ -2418,6 +2426,7 @@ export class WorkspaceStatisticsService {
                       clientId: '$clientId',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2472,6 +2481,7 @@ export class WorkspaceStatisticsService {
                       clientId: '$clientId',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2620,6 +2630,7 @@ export class WorkspaceStatisticsService {
                       categoryKey: '$categoryKey',
                       categoryName: '$categoryName',
                       cityId: '$cityId',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2663,6 +2674,7 @@ export class WorkspaceStatisticsService {
                 clientId: normalizedUserId,
                 ...(cityId ? { cityId } : {}),
                 ...(categoryKey ? { categoryKey } : {}),
+                ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
                 createdAt: { $gte: start, $lte: end },
               },
             },
@@ -2714,6 +2726,7 @@ export class WorkspaceStatisticsService {
                       cityId: '$cityId',
                       cityName: '$cityName',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2905,7 +2918,7 @@ export class WorkspaceStatisticsService {
     ] = await Promise.all([
       publicOverviewPromise,
       filterOptionsPublicOverviewPromise,
-      this.analytics.getPlatformActivity(range, { cityId, categoryKey }),
+      this.analytics.getPlatformActivity(range, { cityId, categoryKey, subcategoryKey }),
       filterOptionsCategoryRowsPromise,
       this.aggregateCategoryRows({
         start,
@@ -2913,6 +2926,7 @@ export class WorkspaceStatisticsService {
         match: {
           ...(cityId ? { cityId } : {}),
           ...(categoryKey ? { categoryKey } : {}),
+          ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
         },
       }),
       this.requestModel
@@ -3073,6 +3087,7 @@ export class WorkspaceStatisticsService {
                     _id: 0,
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3177,6 +3192,7 @@ export class WorkspaceStatisticsService {
                     _id: 0,
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3196,6 +3212,7 @@ export class WorkspaceStatisticsService {
         ...requestFunnelMatch,
         ...(cityId ? { cityId } : {}),
         ...(categoryKey ? { categoryKey } : {}),
+        ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
         createdAt: { $gte: start, $lte: end },
       }),
       this.offerModel
@@ -3221,6 +3238,7 @@ export class WorkspaceStatisticsService {
                     _id: 0,
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3259,6 +3277,7 @@ export class WorkspaceStatisticsService {
                     _id: 0,
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3393,6 +3412,7 @@ export class WorkspaceStatisticsService {
                     createdAt: '$createdAt',
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3855,7 +3875,13 @@ export class WorkspaceStatisticsService {
         shouldBackfillPrice
       ) {
         const baseline = await this.getStatisticsOverview(
-          { range: '30d', cityId: cityId ?? undefined, regionId: regionId ?? undefined, categoryKey: categoryKey ?? undefined },
+          {
+            range: '30d',
+            cityId: cityId ?? undefined,
+            regionId: regionId ?? undefined,
+            categoryKey: categoryKey ?? undefined,
+            subcategoryKey: subcategoryKey ?? undefined,
+          },
           hasActorScope ? normalizedUserId : undefined,
           role,
         );
@@ -3883,7 +3909,13 @@ export class WorkspaceStatisticsService {
       }
     } else if (range !== '30d' && (hasCitySignalCoverageGap || this.hasIncompleteCitySearchSignals(cities))) {
       const baseline = await this.getStatisticsOverview(
-        { range: '30d', cityId: cityId ?? undefined, regionId: regionId ?? undefined, categoryKey: categoryKey ?? undefined },
+        {
+          range: '30d',
+          cityId: cityId ?? undefined,
+          regionId: regionId ?? undefined,
+          categoryKey: categoryKey ?? undefined,
+          subcategoryKey: subcategoryKey ?? undefined,
+        },
         hasActorScope ? normalizedUserId : undefined,
         role,
       );
@@ -3972,21 +4004,17 @@ export class WorkspaceStatisticsService {
       completed: Math.max(0, Math.round(Number(customerFunnelContractsAgg.completedTotal ?? 0))),
     });
     const customerRevenueAmount = this.roundMoney(Math.max(0, Number(customerFunnelContractsAgg.revenueAmount ?? 0)));
-    const legacyPersonalizedCounts: FunnelStageCounts = this.normalizeFunnelStageCounts({
-      requests: rawRequestsFunnelTotal,
-      offers: Math.max(0, Math.round(Number(funnelOffersAgg.offersTotal ?? 0))),
-      responses: Math.max(0, Math.round(Number(funnelOffersAgg.confirmedResponsesTotal ?? 0))),
-      contracts: Math.max(0, Math.round(Number(funnelContractsAgg.closedContractsTotal ?? 0))),
-      completed: Math.max(0, Math.round(Number(funnelContractsAgg.completedJobsTotal ?? 0))),
-    });
-    const legacyPersonalizedRevenueAmount = this.roundMoney(Math.max(0, Number(funnelContractsAgg.profitAmount ?? 0)));
     const viewerModeCounts = viewerMode === 'customer' ? customerCounts : providerCounts;
     const hasViewerModeCounts = Object.values(viewerModeCounts).some((value) => value > 0);
-    const isViewerModeFallback = mode === 'personalized' && Boolean(viewerMode) && !hasViewerModeCounts;
-    const selectedUserCounts = hasViewerModeCounts ? viewerModeCounts : legacyPersonalizedCounts;
-    const selectedUserRevenueAmount = hasViewerModeCounts
-      ? (viewerMode === 'customer' ? customerRevenueAmount : providerRevenueAmount)
-      : legacyPersonalizedRevenueAmount;
+    const selectedUserCounts = viewerModeCounts;
+    const selectedUserRevenueAmount = viewerMode === 'customer' ? customerRevenueAmount : providerRevenueAmount;
+    const marketAverageOrderValue =
+      marketCounts.completed > 0 ? this.roundMoney(marketRevenueAmount / marketCounts.completed) : null;
+    const selectedUserAverageOrderValue =
+      selectedUserCounts.completed > 0 ? this.roundMoney(selectedUserRevenueAmount / selectedUserCounts.completed) : null;
+    const hasViewerScopedData =
+      hasViewerModeCounts ||
+      selectedUserRevenueAmount > 0;
     const requestsFunnelTotal = mode === 'personalized' ? selectedUserCounts.requests : marketCounts.requests;
     const offersFunnelTotal = mode === 'personalized' ? selectedUserCounts.offers : marketCounts.offers;
     const confirmedResponsesTotal = mode === 'personalized' ? selectedUserCounts.responses : marketCounts.responses;
@@ -4108,7 +4136,7 @@ export class WorkspaceStatisticsService {
     };
 
     const personalizedFunnelLowData = mode === 'personalized'
-      ? isViewerModeFallback || selectedUserCounts.requests < 3 || (selectedUserCounts.offers + selectedUserCounts.responses + selectedUserCounts.contracts + selectedUserCounts.completed) < 3
+      ? !hasViewerScopedData || selectedUserCounts.requests < 3 || (selectedUserCounts.offers + selectedUserCounts.responses + selectedUserCounts.contracts + selectedUserCounts.completed) < 3
       : false;
     const funnelComparison = mode === 'personalized' && viewerMode
       ? this.buildFunnelComparison({
@@ -4124,11 +4152,13 @@ export class WorkspaceStatisticsService {
       activityMetrics,
       marketCounts,
       marketRevenueAmount,
+      marketAverageOrderValue,
       userCounts: selectedUserCounts,
       userRevenueAmount: selectedUserRevenueAmount,
+      userAverageOrderValue: selectedUserAverageOrderValue,
       userResponseMinutes: viewerScopedResponseMinutes,
       userUnansweredOver24h: viewerScopedUnansweredOver24h,
-      reliableComparison: !isViewerModeFallback,
+      reliableComparison: hasViewerScopedData,
     });
     const userCategoryActivityRows = viewerMode === 'customer'
       ? customerCategoryActivityRows
@@ -4150,6 +4180,7 @@ export class WorkspaceStatisticsService {
     const updatedAt = new Date().toISOString();
     const selectedCityOption = filterOptions.cities.find((item) => item.value === cityId);
     const selectedCategoryOption = filterOptions.categories.find((item) => item.value === categoryKey);
+    const selectedServiceOption = filterOptions.services.find((item) => item.value === subcategoryKey);
     const selectedCityFromRows =
       (cityId
         ? cities.find((item) => item.cityId === cityId || item.citySlug === cityId)?.cityName
@@ -4170,14 +4201,18 @@ export class WorkspaceStatisticsService {
       selectedCategoryFromRows ??
       categoryKey ??
       WorkspaceStatisticsService.ALL_CATEGORIES_LABEL;
-    const scopeLabel = [cityId ? selectedCityLabel : null, categoryKey ? selectedCategoryLabel : null]
+    const selectedServiceLabel =
+      selectedServiceOption?.label ??
+      subcategoryKey ??
+      WorkspaceStatisticsService.ALL_SERVICES_LABEL;
+    const scopeLabel = [cityId ? selectedCityLabel : null, categoryKey ? selectedCategoryLabel : null, subcategoryKey ? selectedServiceLabel : null]
       .filter(Boolean)
       .join(' · ') || 'Globaler Markt';
     const personalizedPricing = this.buildPersonalizedPricing({
       mode,
       scopeLabel,
       priceIntelligence,
-      userAverageOrderValue: completedFunnelTotal > 0 ? this.roundMoney(profitAmount / completedFunnelTotal) : null,
+      userAverageOrderValue: selectedUserAverageOrderValue,
     });
     const activityComparison = this.buildActivityComparison({
       mode,
@@ -4216,13 +4251,18 @@ export class WorkspaceStatisticsService {
         label: categoryKey ? selectedCategoryLabel : WorkspaceStatisticsService.ALL_CATEGORIES_LABEL,
       },
       service: {
-        value: null,
-        label: WorkspaceStatisticsService.ALL_SERVICES_LABEL,
+        value: subcategoryKey,
+        label: subcategoryKey ? selectedServiceLabel : WorkspaceStatisticsService.ALL_SERVICES_LABEL,
       },
       scopeLabel,
       title: hasDecisionScope ? scopeLabel : 'Globaler Markt',
       subtitle: 'Ein gemeinsamer Marktfilter steuert KPI, Chancen, Preise und Empfehlungen.',
-      stickyLabel: `${this.formatRangeLabel(range)} · ${cityId ? selectedCityLabel : WorkspaceStatisticsService.ALL_CITIES_LABEL} · ${categoryKey ? selectedCategoryLabel : WorkspaceStatisticsService.ALL_CATEGORIES_LABEL}`,
+      stickyLabel: [
+        this.formatRangeLabel(range),
+        cityId ? selectedCityLabel : WorkspaceStatisticsService.ALL_CITIES_LABEL,
+        categoryKey ? selectedCategoryLabel : WorkspaceStatisticsService.ALL_CATEGORIES_LABEL,
+        subcategoryKey ? selectedServiceLabel : WorkspaceStatisticsService.ALL_SERVICES_LABEL,
+      ].join(' · '),
       health: this.buildContextHealth({
         categories,
         cities,

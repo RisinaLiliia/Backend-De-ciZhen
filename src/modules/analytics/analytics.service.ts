@@ -37,6 +37,7 @@ export type PlatformActivityResponse = {
 export type PlatformScopeFilters = {
   cityId?: string | null;
   categoryKey?: string | null;
+  subcategoryKey?: string | null;
 };
 
 export type PlatformLiveFeedItem = {
@@ -370,15 +371,18 @@ export class AnalyticsService {
     const start = new Date(startMs);
     const cityId = this.normalizeScopeFilter(filters?.cityId);
     const categoryKey = this.normalizeScopeFilter(filters?.categoryKey);
+    const subcategoryKey = this.normalizeScopeFilter(filters?.subcategoryKey);
     const requestMatch: Record<string, unknown> = {
       status: 'published',
       createdAt: { $gte: start, $lte: end },
     };
     if (cityId) requestMatch.cityId = cityId;
     if (categoryKey) requestMatch.categoryKey = categoryKey;
+    if (subcategoryKey) requestMatch.serviceKey = subcategoryKey;
     const requestRefMatch: Record<string, unknown> = {};
     if (cityId) requestRefMatch['requestRef.cityId'] = cityId;
     if (categoryKey) requestRefMatch['requestRef.categoryKey'] = categoryKey;
+    if (subcategoryKey) requestRefMatch['requestRef.serviceKey'] = subcategoryKey;
 
     const requestQuery = this.requestModel.find(requestMatch).select({ createdAt: 1 }).lean().exec();
     const offerPipeline: any[] = [
@@ -398,6 +402,7 @@ export class AnalyticsService {
                 _id: 0,
                 cityId: '$cityId',
                 categoryKey: '$categoryKey',
+                serviceKey: '$serviceKey',
               },
             },
           ],

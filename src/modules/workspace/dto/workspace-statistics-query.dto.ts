@@ -35,6 +35,14 @@ export class WorkspaceStatisticsQueryDto {
   categoryKey?: string;
 
   @ApiPropertyOptional({
+    example: 'wc_repair',
+    description: 'Optional service focus within the selected category for the decision dashboard context.',
+  })
+  @IsOptional()
+  @IsString()
+  subcategoryKey?: string;
+
+  @ApiPropertyOptional({
     enum: ['provider', 'customer'],
     example: 'provider',
     description: 'Personalized statistics perspective for authenticated Analyse.',
