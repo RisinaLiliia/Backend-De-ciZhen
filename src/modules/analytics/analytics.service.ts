@@ -296,6 +296,7 @@ export class AnalyticsService {
     const end = new Date(now);
     const cityId = this.normalizeScopeFilter(filters?.cityId);
     const categoryKey = this.normalizeScopeFilter(filters?.categoryKey);
+    const subcategoryKey = this.normalizeScopeFilter(filters?.subcategoryKey);
 
     const match: Record<string, unknown> = {
       bucketStart: { $gte: start, $lte: end },
@@ -303,6 +304,7 @@ export class AnalyticsService {
     };
     if (cityId) match.cityId = cityId;
     if (categoryKey) match.categoryKey = categoryKey;
+    if (subcategoryKey) match.subcategoryKey = subcategoryKey;
 
     const rows = await this.searchAggregateModel
       .aggregate<{

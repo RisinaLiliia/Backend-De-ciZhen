@@ -330,6 +330,11 @@ describe('WorkspaceStatisticsService (unit)', () => {
         exec: jest.fn().mockResolvedValue([{ _id: 'provider-1' }, { _id: 'provider-2' }]),
       })
       .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, providersActive: 2 },
+        ]),
+      })
+      .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 16, confirmedResponsesTotal: 6 }]),
       });
 
@@ -1175,6 +1180,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
     offerModelMock.aggregate
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 1, confirmedResponsesTotal: 0 }]),
       })
@@ -1185,6 +1191,11 @@ describe('WorkspaceStatisticsService (unit)', () => {
       })
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: 'provider-1' }, { _id: 'provider-2' }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, providersActive: 2 },
+        ]),
       })
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 8, confirmedResponsesTotal: 4 }]),
