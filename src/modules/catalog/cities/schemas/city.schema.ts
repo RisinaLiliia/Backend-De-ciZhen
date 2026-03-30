@@ -18,6 +18,12 @@ export class City {
   @Prop({ trim: true, maxlength: 2, default: "DE" })
   countryCode: string;
 
+  @Prop({ type: Number, default: null })
+  lat?: number | null;
+
+  @Prop({ type: Number, default: null })
+  lng?: number | null;
+
   @Prop({ default: true })
   isActive: boolean;
 

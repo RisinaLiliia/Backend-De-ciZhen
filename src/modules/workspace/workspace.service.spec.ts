@@ -4,6 +4,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { WorkspaceService } from './workspace.service';
 import { RequestsService } from '../requests/requests.service';
 import { AnalyticsService } from '../analytics/analytics.service';
+import { CitiesService } from '../catalog/cities/cities.service';
 import { UsersService } from '../users/users.service';
 import { ClientProfilesService } from '../users/client-profiles.service';
 import { PresenceService } from '../presence/presence.service';
@@ -26,6 +27,10 @@ describe('WorkspaceService (unit)', () => {
 
   const analyticsMock = {
     getPlatformActivity: jest.fn(),
+  };
+
+  const citiesMock = {
+    resolveActivityCoords: jest.fn(),
   };
 
   const usersMock = {
@@ -56,6 +61,7 @@ describe('WorkspaceService (unit)', () => {
         WorkspaceService,
         { provide: RequestsService, useValue: requestsMock },
         { provide: AnalyticsService, useValue: analyticsMock },
+        { provide: CitiesService, useValue: citiesMock },
         { provide: UsersService, useValue: usersMock },
         { provide: ClientProfilesService, useValue: clientProfilesMock },
         { provide: PresenceService, useValue: presenceMock },
@@ -70,6 +76,7 @@ describe('WorkspaceService (unit)', () => {
     }).compile();
 
     service = moduleRef.get(WorkspaceService);
+    citiesMock.resolveActivityCoords.mockResolvedValue(new Map());
   });
 
   it('getPublicRequestsBatch returns ordered items and missing ids', async () => {
@@ -165,11 +172,12 @@ describe('WorkspaceService (unit)', () => {
         {
           _id: { cityName: 'Mannheim', cityId: 'city-mannheim' },
           count: 5,
-          lat: 0,
-          lng: 0,
         },
       ]),
     });
+    citiesMock.resolveActivityCoords.mockResolvedValue(
+      new Map([['mannheim', { cityId: 'city-mannheim', lat: 49.4875, lng: 8.466 }]]),
+    );
 
     const result = await service.getPublicOverview({
       page: 1,
@@ -209,23 +217,23 @@ describe('WorkspaceService (unit)', () => {
         {
           _id: { cityName: 'Berlin', cityId: 'city-berlin-a' },
           count: 2,
-          lat: 52.52,
-          lng: 13.405,
         },
         {
           _id: { cityName: 'Berlin', cityId: 'city-berlin-b' },
           count: 1,
-          lat: 0,
-          lng: 0,
         },
         {
           _id: { cityName: 'Mannheim', cityId: 'city-mannheim' },
           count: 3,
-          lat: 0,
-          lng: 0,
         },
       ]),
     });
+    citiesMock.resolveActivityCoords.mockResolvedValue(
+      new Map([
+        ['berlin', { cityId: 'city-berlin-a', lat: 52.52, lng: 13.405 }],
+        ['mannheim', { cityId: 'city-mannheim', lat: 49.4875, lng: 8.466 }],
+      ]),
+    );
 
     const result = await service.getPublicOverview({
       page: 1,
@@ -242,7 +250,7 @@ describe('WorkspaceService (unit)', () => {
       citySlug: 'berlin',
       cityName: 'Berlin',
       requestCount: 3,
-      cityId: null,
+      cityId: 'city-berlin-a',
       lat: 52.52,
       lng: 13.405,
     });

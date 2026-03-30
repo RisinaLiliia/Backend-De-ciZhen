@@ -24,6 +24,8 @@ export class CitiesController {
       name,
       i18n,
       countryCode: doc.countryCode,
+      lat: typeof doc.lat === "number" ? doc.lat : null,
+      lng: typeof doc.lng === "number" ? doc.lng : null,
       isActive: doc.isActive,
       sortOrder: doc.sortOrder ?? 0,
     };

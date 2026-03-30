@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 
 import { AnalyticsService, type PlatformActivityRange } from '../analytics/analytics.service';
+import { CitiesService } from '../catalog/cities/cities.service';
 import { RequestsService } from '../requests/requests.service';
 import { UsersService } from '../users/users.service';
 import { ClientProfilesService } from '../users/client-profiles.service';
@@ -30,38 +31,12 @@ const REQUEST_STATUSES = ['draft', 'published', 'paused', 'matched', 'closed', '
 const OFFER_STATUSES = ['sent', 'accepted', 'declined', 'withdrawn'] as const;
 const CONTRACT_STATUSES = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] as const;
 
-const CITY_COORDINATE_FALLBACK: Record<string, { lat: number; lng: number }> = {
-  hamburg: { lat: 53.5511, lng: 9.9937 },
-  berlin: { lat: 52.52, lng: 13.405 },
-  bremen: { lat: 53.0793, lng: 8.8017 },
-  hannover: { lat: 52.3759, lng: 9.732 },
-  dortmund: { lat: 51.5136, lng: 7.4653 },
-  duisburg: { lat: 51.4344, lng: 6.7623 },
-  essen: { lat: 51.4556, lng: 7.0116 },
-  dusseldorf: { lat: 51.2277, lng: 6.7735 },
-  koln: { lat: 50.9375, lng: 6.9603 },
-  bonn: { lat: 50.7374, lng: 7.0982 },
-  mannheim: { lat: 49.4875, lng: 8.466 },
-  heidelberg: { lat: 49.3988, lng: 8.6724 },
-  karlsruhe: { lat: 49.0069, lng: 8.4037 },
-  ludwigshafen: { lat: 49.4774, lng: 8.4452 },
-  darmstadt: { lat: 49.8728, lng: 8.6512 },
-  frankfurt: { lat: 50.1109, lng: 8.6821 },
-  wiesbaden: { lat: 50.0782, lng: 8.2398 },
-  mainz: { lat: 49.9929, lng: 8.2473 },
-  stuttgart: { lat: 48.7758, lng: 9.1829 },
-  nurnberg: { lat: 49.4521, lng: 11.0767 },
-  leipzig: { lat: 51.3397, lng: 12.3731 },
-  dresden: { lat: 51.0504, lng: 13.7373 },
-  augsburg: { lat: 48.3705, lng: 10.8978 },
-  munchen: { lat: 48.1351, lng: 11.582 },
-};
-
 @Injectable()
 export class WorkspaceService {
   constructor(
     private readonly requests: RequestsService,
     private readonly analytics: AnalyticsService,
+    private readonly cities: CitiesService,
     private readonly users: UsersService,
     private readonly clientProfiles: ClientProfilesService,
     private readonly presence: PresenceService,
@@ -209,23 +184,6 @@ export class WorkspaceService {
       .replace(/[^a-z0-9]/g, '');
   }
 
-  private toValidLatLng(
-    latRaw: unknown,
-    lngRaw: unknown,
-  ): { lat: number; lng: number } | null {
-    const lat = Number(latRaw);
-    const lng = Number(lngRaw);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    if (lat < -90 || lat > 90) return null;
-    if (lng < -180 || lng > 180) return null;
-    // Treat 0,0 as an unset placeholder and force city fallback coordinates.
-    if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return null;
-    return {
-      lat: this.roundCoord(lat, 6),
-      lng: this.roundCoord(lng, 6),
-    };
-  }
-
   private toStatusCounts<T extends string>(
     rows: Array<{ _id: string; count: number }>,
     statuses: readonly T[],
@@ -335,7 +293,7 @@ export class WorkspaceService {
       this.providerModel.countDocuments({ status: 'active', isBlocked: false }).exec(),
       this.analytics.getPlatformActivity(activityRange),
       this.requestModel
-        .aggregate<{ _id: { cityName?: string | null; cityId?: string | null }; count: number; lat?: number | null; lng?: number | null }>([
+        .aggregate<{ _id: { cityName?: string | null; cityId?: string | null }; count: number }>([
           {
             $match: {
               status: 'published',
@@ -346,8 +304,6 @@ export class WorkspaceService {
             $group: {
               _id: { cityId: '$cityId', cityName: '$cityName' },
               count: { $sum: 1 },
-              lng: { $avg: { $arrayElemAt: ['$location.coordinates', 0] } },
-              lat: { $avg: { $arrayElemAt: ['$location.coordinates', 1] } },
             },
           },
           { $sort: { count: -1 } },
@@ -365,10 +321,6 @@ export class WorkspaceService {
         cityName: string;
         cityId: string | null;
         requestCount: number;
-        weightedLatSum: number;
-        weightedLngSum: number;
-        weightedPointCount: number;
-        fallbackCoords: { lat: number; lng: number } | null;
       }
     >();
 
@@ -383,9 +335,6 @@ export class WorkspaceService {
       if (requestCount <= 0) return;
 
       const cityId = this.normalizeId(row?._id?.cityId);
-      const aggregatedCoords = this.toValidLatLng(row?.lat, row?.lng);
-      const fallbackCoords = CITY_COORDINATE_FALLBACK[citySlug] ?? null;
-
       let current = cityAcc.get(citySlug);
       if (!current) {
         current = {
@@ -393,10 +342,6 @@ export class WorkspaceService {
           cityName,
           cityId: cityId ?? null,
           requestCount: 0,
-          weightedLatSum: 0,
-          weightedLngSum: 0,
-          weightedPointCount: 0,
-          fallbackCoords,
         };
         cityAcc.set(citySlug, current);
       } else if (cityId && current.cityId && current.cityId !== cityId) {
@@ -407,31 +352,24 @@ export class WorkspaceService {
       }
 
       current.requestCount += requestCount;
-
-      if (aggregatedCoords) {
-        current.weightedLatSum += aggregatedCoords.lat * requestCount;
-        current.weightedLngSum += aggregatedCoords.lng * requestCount;
-        current.weightedPointCount += requestCount;
-      } else if (!current.fallbackCoords && fallbackCoords) {
-        current.fallbackCoords = fallbackCoords;
-      }
     });
+
+    const cityGeoBySlug = await this.cities.resolveActivityCoords(
+      Array.from(cityAcc.values()).map((item) => ({
+        cityId: item.cityId,
+        citySlug: item.citySlug,
+        cityName: item.cityName,
+        countryCode: 'DE',
+      })),
+    );
 
     const cityItems: WorkspacePublicCityActivityItemDto[] = Array.from(cityAcc.values())
       .map((item) => {
-        const averagedCoords =
-          item.weightedPointCount > 0
-            ? {
-                lat: this.roundCoord(item.weightedLatSum / item.weightedPointCount, 6),
-                lng: this.roundCoord(item.weightedLngSum / item.weightedPointCount, 6),
-              }
-            : null;
-
-        const resolvedCoords = averagedCoords ?? item.fallbackCoords;
+        const resolvedCoords = cityGeoBySlug.get(item.citySlug) ?? null;
         return {
           citySlug: item.citySlug,
           cityName: item.cityName,
-          cityId: item.cityId,
+          cityId: resolvedCoords?.cityId ?? item.cityId,
           requestCount: item.requestCount,
           lat: resolvedCoords?.lat ?? null,
           lng: resolvedCoords?.lng ?? null,

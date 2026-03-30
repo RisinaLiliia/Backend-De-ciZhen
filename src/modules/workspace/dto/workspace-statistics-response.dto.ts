@@ -359,6 +359,27 @@ export class WorkspaceStatisticsCityDemandDto {
   })
   marketBalanceRatio: number | null;
 
+  @ApiPropertyOptional({
+    example: 18,
+    nullable: true,
+    description: 'Distinct providers with activity in the selected city scope during the selected period.',
+  })
+  providersActive?: number | null;
+
+  @ApiPropertyOptional({
+    example: 7.8,
+    nullable: true,
+    description: 'Canonical city opportunity score used for ranking and competitor selection.',
+  })
+  score?: number | null;
+
+  @ApiPropertyOptional({
+    example: 2,
+    nullable: true,
+    description: 'Rank of the city inside the backend-selected statistics city scope.',
+  })
+  rank?: number | null;
+
   @ApiProperty({ enum: ['high', 'medium', 'low', 'none'], example: 'high' })
   signal: 'high' | 'medium' | 'low' | 'none';
 
@@ -367,6 +388,9 @@ export class WorkspaceStatisticsCityDemandDto {
 
   @ApiProperty({ example: 13.405, nullable: true })
   lng: number | null;
+
+  @ApiPropertyOptional({ type: () => WorkspaceStatisticsOpportunityPeerContextDto, nullable: true })
+  peerContext?: WorkspaceStatisticsOpportunityPeerContextDto | null;
 }
 
 export class WorkspaceStatisticsDemandDto {
@@ -389,6 +413,17 @@ export class WorkspaceStatisticsOpportunityMetricDto {
 
   @ApiProperty({ enum: ['very_high', 'high', 'noticeable', 'medium', 'low'], example: 'high' })
   semanticKey: 'very_high' | 'high' | 'noticeable' | 'medium' | 'low';
+}
+
+export class WorkspaceStatisticsOpportunityPeerContextDto {
+  @ApiProperty({ enum: ['focus', 'competitor'], example: 'focus' })
+  role: 'focus' | 'competitor';
+
+  @ApiProperty({ example: 13.4, nullable: true })
+  distanceKm: number | null;
+
+  @ApiProperty({ enum: ['selected_city', 'nearby_competitor', 'top_ranked'], example: 'selected_city' })
+  reason: 'selected_city' | 'nearby_competitor' | 'top_ranked';
 }
 
 export class WorkspaceStatisticsOpportunityRadarItemDto {
@@ -445,6 +480,12 @@ export class WorkspaceStatisticsOpportunityRadarItemDto {
 
   @ApiProperty({ type: WorkspaceStatisticsOpportunityMetricDto, isArray: true })
   metrics: WorkspaceStatisticsOpportunityMetricDto[];
+
+  @ApiPropertyOptional({ type: () => WorkspaceStatisticsOpportunityPeerContextDto, nullable: true })
+  peerContext?: WorkspaceStatisticsOpportunityPeerContextDto | null;
+
+  @ApiPropertyOptional({ type: () => WorkspaceStatisticsPriceIntelligenceDto, nullable: true })
+  priceIntelligence?: WorkspaceStatisticsPriceIntelligenceDto | null;
 }
 
 export class WorkspaceStatisticsPriceIntelligenceDto {

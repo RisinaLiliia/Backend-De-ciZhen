@@ -330,6 +330,11 @@ describe('WorkspaceStatisticsService (unit)', () => {
         exec: jest.fn().mockResolvedValue([{ _id: 'provider-1' }, { _id: 'provider-2' }]),
       })
       .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, providersActive: 2 },
+        ]),
+      })
+      .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 16, confirmedResponsesTotal: 6 }]),
       });
 
@@ -360,7 +365,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
       mode: 'global',
       city: { value: null, label: 'Alle Städte' },
       category: { value: null, label: 'Alle Kategorien' },
-      stickyLabel: '30 Tage · Alle Städte · Alle Kategorien',
+      stickyLabel: '30 Tage · Alle Städte · Alle Kategorien · Alle Services',
     });
     expect(result.sectionMeta.opportunityTitle).toBe('Opportunity Radar');
     expect(result.exportMeta.filename).toContain('workspace-statistics-30d-');
@@ -758,6 +763,73 @@ describe('WorkspaceStatisticsService (unit)', () => {
     });
   });
 
+  it('preserves service filter context for customer statistics and keeps avg order value null without completed jobs', async () => {
+    workspaceMock.getPublicOverview.mockResolvedValue({
+      summary: {
+        totalPublishedRequests: 1,
+        totalActiveProviders: 1,
+      },
+      cityActivity: { items: [] },
+    });
+
+    analyticsMock.getPlatformActivity.mockResolvedValue({
+      range: '90d',
+      interval: 'day',
+      source: 'real',
+      updatedAt: '2026-03-10T10:00:00.000Z',
+      data: [{ timestamp: '2026-03-09T00:00:00.000Z', requests: 1, offers: 0 }],
+    });
+    analyticsMock.getCitySearchCounts.mockResolvedValue([]);
+
+    requestModelMock.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    requestModelMock.countDocuments.mockResolvedValue(1);
+
+    offerModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+    contractModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+    reviewModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+    workspaceMock.getPrivateOverview.mockResolvedValue({
+      requestsByStatus: { total: 1 },
+      providerOffersByStatus: { sent: 0, accepted: 0 },
+      providerContractsByStatus: { completed: 0 },
+      clientContractsByStatus: { completed: 0 },
+      profiles: { providerCompleteness: 40, clientCompleteness: 88 },
+      kpis: { acceptanceRate: 0, avgResponseMinutes: null, myOpenRequests: 1, recentOffers7d: 0 },
+    });
+
+    const result = await service.getStatisticsOverview({
+      range: '90d',
+      cityId: 'karlsruhe-id',
+      categoryKey: 'plumbing',
+      subcategoryKey: 'wc_repair',
+      viewerMode: 'customer',
+    }, 'user-2', 'client');
+
+    const averageOrderMetric = result.decisionLayer?.metrics.find((metric) => metric.id === 'average_order_value');
+
+    expect(averageOrderMetric).toMatchObject({
+      marketValue: null,
+      userValue: null,
+    });
+    expect(result.decisionContext.service).toEqual({
+      value: 'wc_repair',
+      label: 'wc_repair',
+    });
+    expect(analyticsMock.getPlatformActivity).toHaveBeenCalledWith('90d', {
+      cityId: 'karlsruhe-id',
+      categoryKey: 'plumbing',
+      subcategoryKey: 'wc_repair',
+    });
+    expect(requestModelMock.countDocuments).toHaveBeenCalledWith(expect.objectContaining({
+      serviceKey: 'wc_repair',
+    }));
+  });
+
   it('softens decision and funnel outputs when viewer-specific counts fall back to legacy personalized data', async () => {
     workspaceMock.getPublicOverview.mockResolvedValue({
       summary: {
@@ -1108,6 +1180,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
     offerModelMock.aggregate
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) })
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 1, confirmedResponsesTotal: 0 }]),
       })
@@ -1118,6 +1191,11 @@ describe('WorkspaceStatisticsService (unit)', () => {
       })
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: 'provider-1' }, { _id: 'provider-2' }]),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue([
+          { _id: { cityId: 'c-1', cityName: 'Berlin' }, providersActive: 2 },
+        ]),
       })
       .mockReturnValueOnce({
         exec: jest.fn().mockResolvedValue([{ _id: null, offersTotal: 8, confirmedResponsesTotal: 4 }]),
@@ -1175,8 +1253,16 @@ describe('WorkspaceStatisticsService (unit)', () => {
     expect(result.priceIntelligence.profitPotentialStatus).toBeDefined();
     expect(result.decisionContext.mode).toBe('global');
     expect(workspaceMock.getPublicOverview).toHaveBeenCalledTimes(3);
-    expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(1, '24h', { cityId: null, categoryKey: null });
-    expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(2, '30d', { cityId: null, categoryKey: null });
+    expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(1, '24h', {
+      cityId: null,
+      categoryKey: null,
+      subcategoryKey: null,
+    });
+    expect(analyticsMock.getPlatformActivity).toHaveBeenNthCalledWith(2, '30d', {
+      cityId: null,
+      categoryKey: null,
+      subcategoryKey: null,
+    });
   });
 
   it('keeps selected focus labels and options stable for low-data 24h filters', async () => {

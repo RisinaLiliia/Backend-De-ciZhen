@@ -29,6 +29,7 @@ import type {
   WorkspaceStatisticsFilterOptionDto,
   WorkspaceStatisticsInsightDto,
   WorkspaceStatisticsOpportunityMetricDto,
+  WorkspaceStatisticsOpportunityPeerContextDto,
   WorkspaceStatisticsOpportunityRadarItemDto,
   WorkspaceStatisticsFunnelComparisonDto,
   WorkspaceStatisticsOverviewResponseDto,
@@ -79,6 +80,31 @@ type ActivityDateRow = {
   createdAt?: Date | string | null;
 };
 
+type RankedCityOpportunityCandidate = {
+  citySlug: string;
+  cityName: string;
+  cityId: string | null;
+  requestCount: number;
+  auftragSuchenCount: number | null;
+  anbieterSuchenCount: number | null;
+  providersActive: number | null;
+  marketBalanceRatio: number | null;
+  signal: 'high' | 'medium' | 'low' | 'none';
+  lat: number | null;
+  lng: number | null;
+  score: number;
+  demand: number;
+  providers: number | null;
+  demandScore: number;
+  competitionScore: number;
+  growthScore: number;
+  activityScore: number;
+  status: WorkspaceStatisticsOpportunityRadarItemDto['status'];
+  tone: WorkspaceStatisticsOpportunityRadarItemDto['tone'];
+  summaryKey: WorkspaceStatisticsOpportunityRadarItemDto['summaryKey'];
+  metrics: WorkspaceStatisticsOpportunityMetricDto[];
+};
+
 @Injectable()
 export class WorkspaceStatisticsService {
   private static readonly CATEGORY_RESPONSE_LIMIT = 50;
@@ -115,6 +141,7 @@ export class WorkspaceStatisticsService {
         cityId: null,
         regionId: null,
         categoryKey: null,
+        subcategoryKey: null,
         viewerMode: null,
       };
     }
@@ -124,6 +151,7 @@ export class WorkspaceStatisticsService {
       cityId: this.normalizeScopeFilter(query.cityId),
       regionId: this.normalizeScopeFilter(query.regionId),
       categoryKey: this.normalizeScopeFilter(query.categoryKey)?.toLowerCase() ?? null,
+      subcategoryKey: this.normalizeScopeFilter(query.subcategoryKey)?.toLowerCase() ?? null,
       viewerMode: query.viewerMode ?? null,
     };
   }
@@ -835,8 +863,10 @@ export class WorkspaceStatisticsService {
     activityMetrics: WorkspaceStatisticsOverviewResponseDto['activity']['metrics'];
     marketCounts: FunnelStageCounts;
     marketRevenueAmount: number;
+    marketAverageOrderValue: number | null;
     userCounts: FunnelStageCounts;
     userRevenueAmount: number;
+    userAverageOrderValue: number | null;
     userResponseMinutes: number | null;
     userUnansweredOver24h: number | null;
     reliableComparison: boolean;
@@ -845,10 +875,6 @@ export class WorkspaceStatisticsService {
 
     const marketOfferRate = this.computeRate(params.marketCounts.offers, params.marketCounts.requests);
     const userOfferRate = this.computeRate(params.userCounts.offers, params.userCounts.requests);
-    const marketAverageOrderValue =
-      params.marketCounts.completed > 0 ? this.roundMoney(params.marketRevenueAmount / params.marketCounts.completed) : null;
-    const userAverageOrderValue =
-      params.userCounts.completed > 0 ? this.roundMoney(params.userRevenueAmount / params.userCounts.completed) : null;
 
     const isCustomerMode = params.viewerMode === 'customer';
     const lowConfidenceSummary = 'Vergleich basiert aktuell auf begrenzten viewer-spezifischen Daten.';
@@ -953,8 +979,8 @@ export class WorkspaceStatisticsService {
         id: 'average_order_value',
         label: 'Ø Auftragswert',
         unit: 'currency',
-        marketValue: marketAverageOrderValue,
-        userValue: userAverageOrderValue,
+        marketValue: params.marketAverageOrderValue,
+        userValue: params.userAverageOrderValue,
         higherIsBetter: !isCustomerMode,
         emptySummary: 'Kein Marktvergleich verfügbar.',
         betterSummary: isCustomerMode
@@ -1611,6 +1637,271 @@ export class WorkspaceStatisticsService {
       .replace(/[^a-z0-9]/g, '');
   }
 
+  private toRadians(value: number): number {
+    return (value * Math.PI) / 180;
+  }
+
+  private calculateDistanceKm(
+    from: { lat: number | null; lng: number | null } | null,
+    to: { lat: number | null; lng: number | null } | null,
+  ): number | null {
+    if (!from || !to) return null;
+    if (from.lat === null || from.lng === null || to.lat === null || to.lng === null) return null;
+
+    const earthRadiusKm = 6371;
+    const latDelta = this.toRadians(to.lat - from.lat);
+    const lngDelta = this.toRadians(to.lng - from.lng);
+    const originLat = this.toRadians(from.lat);
+    const destinationLat = this.toRadians(to.lat);
+
+    const a =
+      (Math.sin(latDelta / 2) ** 2) +
+      (Math.cos(originLat) * Math.cos(destinationLat) * (Math.sin(lngDelta / 2) ** 2));
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return this.roundPercent(earthRadiusKm * c);
+  }
+
+  private cityScopeKey(city: { cityId: string | null; citySlug: string }): string {
+    return this.cityIdKey(city.cityId) || this.citySlugKey(city.citySlug);
+  }
+
+  private buildRankedCityCandidates(params: {
+    cities: WorkspaceStatisticsCityDemandDto[];
+    providersActiveByCityKey: Map<string, number>;
+    growthIndex: number;
+    responseSpeedIndex: number;
+  }): RankedCityOpportunityCandidate[] {
+    const demandByCity = params.cities.map((city) => Math.max(city.requestCount, city.anbieterSuchenCount ?? 0));
+    const maxDemand = Math.max(1, ...demandByCity);
+
+    return params.cities.map((city) => {
+      const demand = Math.max(city.requestCount, city.anbieterSuchenCount ?? 0);
+      const providers = city.auftragSuchenCount;
+      const marketBalanceRatio = city.marketBalanceRatio;
+      const demandIndex = this.clampUnit(demand / maxDemand);
+      const competitionOpportunityIndex = marketBalanceRatio === null
+        ? 0.5
+        : this.clampUnit(marketBalanceRatio / 1.5);
+
+      const demandScore = this.roundScore(demandIndex * 10);
+      const competitionScore = this.roundScore(competitionOpportunityIndex * 10);
+      const growthScore = this.roundScore(params.growthIndex * 10);
+      const activityScore = this.roundScore(params.responseSpeedIndex * 10);
+      const competitionPressureScore = this.roundScore(10 - competitionScore);
+      const score = this.roundScore(10 * (
+        (demandIndex * 0.4) +
+        (competitionOpportunityIndex * 0.3) +
+        (params.growthIndex * 0.2) +
+        (params.responseSpeedIndex * 0.1)
+      ));
+      const status = this.resolveOpportunityStatus(score);
+      const metricsBase: Array<{ key: WorkspaceStatisticsOpportunityMetricDto['key']; value: number }> = [
+        { key: 'demand', value: demandScore },
+        { key: 'competition', value: competitionPressureScore },
+        { key: 'growth', value: growthScore },
+        { key: 'activity', value: activityScore },
+      ];
+
+      return {
+        citySlug: city.citySlug,
+        cityName: city.cityName,
+        cityId: city.cityId,
+        requestCount: city.requestCount,
+        auftragSuchenCount: city.auftragSuchenCount,
+        anbieterSuchenCount: city.anbieterSuchenCount,
+        providersActive: params.providersActiveByCityKey.get(this.cityScopeKey(city)) ?? null,
+        marketBalanceRatio,
+        signal: city.signal,
+        lat: city.lat,
+        lng: city.lng,
+        score,
+        demand,
+        providers,
+        demandScore,
+        competitionScore,
+        growthScore,
+        activityScore,
+        status,
+        tone: this.resolveOpportunityTone(status),
+        summaryKey: this.resolveOpportunitySummaryKey({
+          status,
+          demand: demandScore,
+          competition: competitionPressureScore,
+          growth: growthScore,
+          activity: activityScore,
+        }),
+        metrics: metricsBase.map((metric) => ({
+          ...metric,
+          ...this.resolveOpportunityMetricSemantic(metric),
+        })),
+      };
+    });
+  }
+
+  private selectScopedCityRows(params: {
+    rankedCandidates: RankedCityOpportunityCandidate[];
+    cityId: string | null;
+  }): {
+    cities: WorkspaceStatisticsCityDemandDto[];
+    opportunityCluster: RankedCityOpportunityCandidate[];
+  } {
+    const ranked = params.rankedCandidates
+      .slice()
+      .sort((a, b) => (b.score - a.score) || (b.demand - a.demand) || a.cityName.localeCompare(b.cityName, 'de-DE'));
+
+    if (!params.cityId) {
+      const cities = ranked.map((city, index) => ({
+        citySlug: city.citySlug,
+        cityName: city.cityName,
+        cityId: city.cityId,
+        requestCount: city.requestCount,
+        auftragSuchenCount: city.auftragSuchenCount,
+        anbieterSuchenCount: city.anbieterSuchenCount,
+        providersActive: city.providersActive,
+        marketBalanceRatio: city.marketBalanceRatio,
+        score: city.score,
+        rank: index + 1,
+        signal: city.signal,
+        lat: city.lat,
+        lng: city.lng,
+        peerContext: null,
+      }));
+
+      return {
+        cities,
+        opportunityCluster: ranked.slice(0, 3),
+      };
+    }
+
+    const focus = ranked.find((city) => city.cityId === params.cityId || city.citySlug === params.cityId) ?? null;
+    if (!focus) {
+      return {
+        cities: [],
+        opportunityCluster: [],
+      };
+    }
+
+    const scoped = [
+      focus,
+      ...ranked.filter((city) => {
+        if (this.cityScopeKey(city) === this.cityScopeKey(focus)) return false;
+        const distanceKm = this.calculateDistanceKm(focus, city);
+        return distanceKm !== null && distanceKm <= 50;
+      }),
+    ].sort((a, b) => (b.score - a.score) || (b.demand - a.demand) || a.cityName.localeCompare(b.cityName, 'de-DE'));
+
+    const focusIndex = scoped.findIndex((city) => this.cityScopeKey(city) === this.cityScopeKey(focus));
+    const higher = focusIndex > 0 ? scoped.slice(0, focusIndex).reverse() : [];
+    const lower = focusIndex >= 0 ? scoped.slice(focusIndex + 1) : [];
+    const competitors: RankedCityOpportunityCandidate[] = [];
+
+    for (const candidate of higher) {
+      if (competitors.length >= 2) break;
+      competitors.push(candidate);
+    }
+    for (const candidate of lower) {
+      if (competitors.length >= 2) break;
+      competitors.push(candidate);
+    }
+
+    const competitorKeys = new Set(competitors.map((city) => this.cityScopeKey(city)));
+    const cities = scoped.map((city, index) => {
+      let peerContext: WorkspaceStatisticsOpportunityPeerContextDto | null = null;
+      if (this.cityScopeKey(city) === this.cityScopeKey(focus)) {
+        peerContext = { role: 'focus', reason: 'selected_city', distanceKm: null };
+      } else if (competitorKeys.has(this.cityScopeKey(city))) {
+        peerContext = {
+          role: 'competitor',
+          reason: 'nearby_competitor',
+          distanceKm: this.calculateDistanceKm(focus, city),
+        };
+      }
+
+      return {
+        citySlug: city.citySlug,
+        cityName: city.cityName,
+        cityId: city.cityId,
+        requestCount: city.requestCount,
+        auftragSuchenCount: city.auftragSuchenCount,
+        anbieterSuchenCount: city.anbieterSuchenCount,
+        providersActive: city.providersActive,
+        marketBalanceRatio: city.marketBalanceRatio,
+        score: city.score,
+        rank: index + 1,
+        signal: city.signal,
+        lat: city.lat,
+        lng: city.lng,
+        peerContext,
+      };
+    });
+
+    return {
+      cities,
+      opportunityCluster: [focus, ...competitors].slice(0, 3),
+    };
+  }
+
+  private buildOpportunityRadarFromCluster(params: {
+    cluster: RankedCityOpportunityCandidate[];
+    focusCityId: string | null;
+    categoryKey: string | null;
+    categoryLabel: string | null;
+    avgRevenue: number | null;
+  }): WorkspaceStatisticsOpportunityRadarItemDto[] {
+    if (params.cluster.length === 0) return [];
+    const focus = params.focusCityId
+      ? params.cluster.find((city) => city.cityId === params.focusCityId || city.citySlug === params.focusCityId) ?? params.cluster[0]
+      : params.cluster[0];
+
+    return params.cluster.slice(0, 3).map((city, index) => {
+      const peerContext: WorkspaceStatisticsOpportunityPeerContextDto = params.focusCityId
+        ? {
+          role: index === 0 ? 'focus' : 'competitor',
+          reason: index === 0 ? 'selected_city' : 'nearby_competitor',
+          distanceKm: index === 0 ? null : this.calculateDistanceKm(focus, city),
+        }
+        : {
+          role: index === 0 ? 'focus' : 'competitor',
+          reason: 'top_ranked',
+          distanceKm: null,
+        };
+
+      return {
+        rank: (index + 1) as 1 | 2 | 3,
+        cityId: city.cityId,
+        city: city.cityName,
+        categoryKey: params.categoryKey,
+        category: params.categoryLabel,
+        demand: city.demand,
+        providers: city.providers ?? city.providersActive,
+        marketBalanceRatio: city.marketBalanceRatio,
+        score: city.score,
+        demandScore: city.demandScore,
+        competitionScore: city.competitionScore,
+        growthScore: city.growthScore,
+        activityScore: city.activityScore,
+        status: city.status,
+        tone: city.tone,
+        summaryKey: city.summaryKey,
+        metrics: city.metrics,
+        peerContext,
+        priceIntelligence: this.buildPriceIntelligence({
+          avgRevenue: params.avgRevenue,
+          topOpportunity: {
+            citySlug: city.citySlug,
+            city: city.cityName,
+            demand: city.demand,
+            score: city.score,
+            demandScore: city.demandScore,
+            competitionScore: city.competitionScore,
+          },
+          topCategoryKey: params.categoryKey,
+          topCategoryLabel: params.categoryLabel,
+        }),
+      };
+    });
+  }
+
   private buildGrowthCards() {
     return [
       { key: 'highlight_profile', href: '/workspace?section=profile' },
@@ -1661,7 +1952,10 @@ export class WorkspaceStatisticsService {
         cityLabel: item.cityName,
         requests: item.requestCount,
         offers: requestSearchCount,
-        activeProviders: 0,
+        activeProviders:
+          typeof item.providersActive === 'number' && Number.isFinite(item.providersActive)
+            ? Math.max(0, Math.round(item.providersActive))
+            : 0,
         serviceSearchCount: requestSearchCount,
         providerSearchCount,
         growthPercentVsPrevPeriod: null,
@@ -1962,14 +2256,14 @@ export class WorkspaceStatisticsService {
     userId?: string | null,
     role?: AppRole | null,
   ): Promise<WorkspaceStatisticsOverviewResponseDto> {
-    const { range, cityId, regionId, categoryKey, viewerMode: requestedViewerMode } = this.resolveFilters(query);
+    const { range, cityId, regionId, categoryKey, subcategoryKey, viewerMode: requestedViewerMode } = this.resolveFilters(query);
     const { start, end } = this.resolveWindow(range);
     const filterOptionsRange = this.resolveFilterOptionsRange(range);
     const { start: filterOptionsStart, end: filterOptionsEnd } =
       filterOptionsRange === range ? { start, end } : this.resolveWindow(filterOptionsRange);
     const normalizedUserId = String(userId ?? '').trim();
     const hasActorScope = normalizedUserId.length > 0;
-    const hasDecisionScope = Boolean(cityId || regionId || categoryKey);
+    const hasDecisionScope = Boolean(cityId || regionId || categoryKey || subcategoryKey);
     const viewerMode = hasActorScope ? this.resolveViewerMode(requestedViewerMode, role) : null;
 
     const requestFunnelMatch = hasActorScope
@@ -1987,9 +2281,11 @@ export class WorkspaceStatisticsService {
     };
     if (cityId) scopedRequestMatch.cityId = cityId;
     if (categoryKey) scopedRequestMatch.categoryKey = categoryKey;
+    if (subcategoryKey) scopedRequestMatch.serviceKey = subcategoryKey;
     const requestRefScopeMatch: Record<string, unknown> = {};
     if (cityId) requestRefScopeMatch['requestRef.cityId'] = cityId;
     if (categoryKey) requestRefScopeMatch['requestRef.categoryKey'] = categoryKey;
+    if (subcategoryKey) requestRefScopeMatch['requestRef.serviceKey'] = subcategoryKey;
     const funnelRequestRefScopeMatch: Record<string, unknown> = {
       'requestRef.createdAt': { $gte: start, $lte: end },
       ...requestRefScopeMatch,
@@ -1999,6 +2295,7 @@ export class WorkspaceStatisticsService {
       ? this.requestModel.countDocuments({
           ...(cityId ? { cityId } : {}),
           ...(categoryKey ? { categoryKey } : {}),
+          ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
           createdAt: { $gte: start, $lte: end },
         })
       : Promise.resolve<number | null>(null);
@@ -2022,6 +2319,7 @@ export class WorkspaceStatisticsService {
                       createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2070,6 +2368,7 @@ export class WorkspaceStatisticsService {
                       createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2216,6 +2515,7 @@ export class WorkspaceStatisticsService {
                       createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2265,6 +2565,7 @@ export class WorkspaceStatisticsService {
                       createdAt: '$createdAt',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2394,6 +2695,7 @@ export class WorkspaceStatisticsService {
           clientId: normalizedUserId,
           ...(cityId ? { cityId } : {}),
           ...(categoryKey ? { categoryKey } : {}),
+          ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
           createdAt: { $gte: start, $lte: end },
         })
       : Promise.resolve<number | null>(null);
@@ -2418,6 +2720,7 @@ export class WorkspaceStatisticsService {
                       clientId: '$clientId',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2472,6 +2775,7 @@ export class WorkspaceStatisticsService {
                       clientId: '$clientId',
                       cityId: '$cityId',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2620,6 +2924,7 @@ export class WorkspaceStatisticsService {
                       categoryKey: '$categoryKey',
                       categoryName: '$categoryName',
                       cityId: '$cityId',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2663,6 +2968,7 @@ export class WorkspaceStatisticsService {
                 clientId: normalizedUserId,
                 ...(cityId ? { cityId } : {}),
                 ...(categoryKey ? { categoryKey } : {}),
+                ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
                 createdAt: { $gte: start, $lte: end },
               },
             },
@@ -2714,6 +3020,7 @@ export class WorkspaceStatisticsService {
                       cityId: '$cityId',
                       cityName: '$cityName',
                       categoryKey: '$categoryKey',
+                      serviceKey: '$serviceKey',
                     },
                   },
                 ],
@@ -2885,6 +3192,7 @@ export class WorkspaceStatisticsService {
       contractLifecycleRows,
       reviewSummary,
       activeProviderRows,
+      activeProvidersByCityRows,
       funnelRequestsTotal,
       funnelOffersRows,
       funnelContractsRows,
@@ -2905,7 +3213,7 @@ export class WorkspaceStatisticsService {
     ] = await Promise.all([
       publicOverviewPromise,
       filterOptionsPublicOverviewPromise,
-      this.analytics.getPlatformActivity(range, { cityId, categoryKey }),
+      this.analytics.getPlatformActivity(range, { cityId, categoryKey, subcategoryKey }),
       filterOptionsCategoryRowsPromise,
       this.aggregateCategoryRows({
         start,
@@ -2913,6 +3221,7 @@ export class WorkspaceStatisticsService {
         match: {
           ...(cityId ? { cityId } : {}),
           ...(categoryKey ? { categoryKey } : {}),
+          ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
         },
       }),
       this.requestModel
@@ -2994,7 +3303,7 @@ export class WorkspaceStatisticsService {
           },
         ])
         .exec(),
-      this.analytics.getCitySearchCounts(range, { cityId, categoryKey }),
+      this.analytics.getCitySearchCounts(range, { cityId, categoryKey, subcategoryKey }),
       this.requestModel
         .aggregate<{ createdAt: Date; firstOfferAt: Date | null; responseMinutes: number | null }>([
           {
@@ -3073,6 +3382,7 @@ export class WorkspaceStatisticsService {
                     _id: 0,
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3177,6 +3487,7 @@ export class WorkspaceStatisticsService {
                     _id: 0,
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3192,10 +3503,73 @@ export class WorkspaceStatisticsService {
           },
         ])
         .exec(),
+      this.offerModel
+        .aggregate<{ _id: { cityId?: string | null; cityName?: string | null }; providersActive: number }>([
+          {
+            $match: {
+              createdAt: { $gte: start, $lte: end },
+            },
+          },
+          {
+            $lookup: {
+              from: 'requests',
+              let: { requestId: '$requestId' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: { $eq: [{ $toString: '$_id' }, '$$requestId'] },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    cityId: '$cityId',
+                    cityName: '$cityName',
+                    categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
+                  },
+                },
+              ],
+              as: 'requestRef',
+            },
+          },
+          { $unwind: '$requestRef' },
+          ...(Object.keys(requestRefScopeMatch).length > 0 ? [{ $match: requestRefScopeMatch }] : []),
+          {
+            $group: {
+              _id: {
+                cityId: '$requestRef.cityId',
+                cityName: '$requestRef.cityName',
+              },
+              providerIds: { $addToSet: '$providerUserId' },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              providersActive: {
+                $size: {
+                  $filter: {
+                    input: '$providerIds',
+                    as: 'providerId',
+                    cond: {
+                      $and: [
+                        { $ne: ['$$providerId', null] },
+                        { $ne: ['$$providerId', ''] },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ])
+        .exec(),
       this.requestModel.countDocuments({
         ...requestFunnelMatch,
         ...(cityId ? { cityId } : {}),
         ...(categoryKey ? { categoryKey } : {}),
+        ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
         createdAt: { $gte: start, $lte: end },
       }),
       this.offerModel
@@ -3221,6 +3595,7 @@ export class WorkspaceStatisticsService {
                     _id: 0,
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3259,6 +3634,7 @@ export class WorkspaceStatisticsService {
                     _id: 0,
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3365,6 +3741,7 @@ export class WorkspaceStatisticsService {
       providerActivityRowsPromise,
     ]);
 
+    const unansweredThreshold = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     let viewerScopedResponseMinutes: number | null = null;
     let viewerScopedUnansweredOver24h: number | null = null;
 
@@ -3392,6 +3769,7 @@ export class WorkspaceStatisticsService {
                     createdAt: '$createdAt',
                     cityId: '$cityId',
                     categoryKey: '$categoryKey',
+                    serviceKey: '$serviceKey',
                   },
                 },
               ],
@@ -3451,6 +3829,7 @@ export class WorkspaceStatisticsService {
               clientId: normalizedUserId,
               ...(cityId ? { cityId } : {}),
               ...(categoryKey ? { categoryKey } : {}),
+              ...(subcategoryKey ? { serviceKey: subcategoryKey } : {}),
               createdAt: { $gte: start, $lte: end },
             },
           },
@@ -3517,7 +3896,6 @@ export class WorkspaceStatisticsService {
       .map((row) => row.responseMinutes)
       .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0);
     const responseMedianMinutes = this.toMedian(activityResponseMinutes);
-    const unansweredThreshold = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     const unansweredRequests24h = requestResponseRows.filter((row) => {
       const createdAt = row.createdAt ? new Date(row.createdAt) : null;
       if (!createdAt || !Number.isFinite(createdAt.getTime()) || createdAt > unansweredThreshold) {
@@ -3845,8 +4223,7 @@ export class WorkspaceStatisticsService {
         this.hasIncompleteCitySearchSignals(cities);
       const shouldBackfillOpportunity =
         opportunityRadar.length === 0 || !this.hasOpportunityCategoryData(opportunityRadar);
-      const shouldBackfillPrice =
-        !this.hasPriceSignal(priceIntelligence) || !this.hasProfitPotentialSignal(priceIntelligence);
+      const shouldBackfillPrice = !this.hasPriceSignal(priceIntelligence);
 
       if (
         shouldBackfillCategories ||
@@ -3855,7 +4232,13 @@ export class WorkspaceStatisticsService {
         shouldBackfillPrice
       ) {
         const baseline = await this.getStatisticsOverview(
-          { range: '30d', cityId: cityId ?? undefined, regionId: regionId ?? undefined, categoryKey: categoryKey ?? undefined },
+          {
+            range: '30d',
+            cityId: cityId ?? undefined,
+            regionId: regionId ?? undefined,
+            categoryKey: categoryKey ?? undefined,
+            subcategoryKey: subcategoryKey ?? undefined,
+          },
           hasActorScope ? normalizedUserId : undefined,
           role,
         );
@@ -3883,7 +4266,13 @@ export class WorkspaceStatisticsService {
       }
     } else if (range !== '30d' && (hasCitySignalCoverageGap || this.hasIncompleteCitySearchSignals(cities))) {
       const baseline = await this.getStatisticsOverview(
-        { range: '30d', cityId: cityId ?? undefined, regionId: regionId ?? undefined, categoryKey: categoryKey ?? undefined },
+        {
+          range: '30d',
+          cityId: cityId ?? undefined,
+          regionId: regionId ?? undefined,
+          categoryKey: categoryKey ?? undefined,
+          subcategoryKey: subcategoryKey ?? undefined,
+        },
         hasActorScope ? normalizedUserId : undefined,
         role,
       );
@@ -3895,6 +4284,68 @@ export class WorkspaceStatisticsService {
         };
       }
     }
+
+    const activeProvidersByCityKey = new Map<string, number>();
+    for (const row of activeProvidersByCityRows) {
+      const cityId = this.cityIdKey(String(row._id?.cityId ?? '').trim() || null);
+      const citySlug = this.citySlugKey(this.slugifyCityName(String(row._id?.cityName ?? '').trim()));
+      const key = cityId || citySlug;
+      if (!key) continue;
+      activeProvidersByCityKey.set(key, Math.max(0, Math.round(row.providersActive ?? 0)));
+    }
+
+    const scopedGrowthIndex = this.clampUnit(activityMetrics.offerRatePercent / 100);
+    const scopedResponseSpeedIndex =
+      typeof activityMetrics.responseMedianMinutes === 'number' && Number.isFinite(activityMetrics.responseMedianMinutes)
+        ? this.clampUnit(1 - (activityMetrics.responseMedianMinutes / 180))
+        : 0.5;
+    const rankedCityCandidates = this.buildRankedCityCandidates({
+      cities,
+      providersActiveByCityKey: activeProvidersByCityKey,
+      growthIndex: scopedGrowthIndex,
+      responseSpeedIndex: scopedResponseSpeedIndex,
+    });
+    const scopedCityMarket = this.selectScopedCityRows({
+      rankedCandidates: rankedCityCandidates,
+      cityId,
+    });
+    const scopedCategory =
+      (categoryKey ? categories.find((item) => item.categoryKey === categoryKey) ?? null : categories[0] ?? null);
+    const scopedOpportunityCategoryKey = categoryKey ?? scopedCategory?.categoryKey ?? null;
+    const scopedOpportunityCategoryLabel = scopedCategory?.categoryName ?? null;
+    const scopedAvgRevenue = activityMetrics.completedJobs > 0
+      ? activityMetrics.gmvAmount / activityMetrics.completedJobs
+      : null;
+
+    cities = scopedCityMarket.cities;
+    opportunityRadar = this.buildOpportunityRadarFromCluster({
+      cluster: scopedCityMarket.opportunityCluster,
+      focusCityId: cityId,
+      categoryKey: scopedOpportunityCategoryKey,
+      categoryLabel: scopedOpportunityCategoryLabel,
+      avgRevenue: scopedAvgRevenue,
+    });
+    const scopedPriceIntelligence = opportunityRadar[0]?.priceIntelligence ?? this.buildPriceIntelligence({
+      avgRevenue: scopedAvgRevenue,
+      topOpportunity: rankedCityCandidates[0]
+        ? {
+          citySlug: rankedCityCandidates[0].citySlug,
+          city: rankedCityCandidates[0].cityName,
+          demand: rankedCityCandidates[0].demand,
+          score: rankedCityCandidates[0].score,
+          demandScore: rankedCityCandidates[0].demandScore,
+          competitionScore: rankedCityCandidates[0].competitionScore,
+        }
+        : null,
+      topCategoryKey: scopedOpportunityCategoryKey,
+      topCategoryLabel: scopedOpportunityCategoryLabel,
+    });
+    const scopedHasPriceSignal = this.hasPriceSignal(scopedPriceIntelligence);
+    const existingHasPriceSignal = this.hasPriceSignal(priceIntelligence);
+    priceIntelligence =
+      scopedHasPriceSignal || (!existingHasPriceSignal && this.hasProfitPotentialSignal(scopedPriceIntelligence))
+        ? scopedPriceIntelligence
+        : priceIntelligence;
 
     const funnelOffersAgg = funnelOffersRows[0] ?? { offersTotal: 0, confirmedResponsesTotal: 0 };
     const funnelContractsAgg = funnelContractsRows[0] ?? {
@@ -3972,21 +4423,17 @@ export class WorkspaceStatisticsService {
       completed: Math.max(0, Math.round(Number(customerFunnelContractsAgg.completedTotal ?? 0))),
     });
     const customerRevenueAmount = this.roundMoney(Math.max(0, Number(customerFunnelContractsAgg.revenueAmount ?? 0)));
-    const legacyPersonalizedCounts: FunnelStageCounts = this.normalizeFunnelStageCounts({
-      requests: rawRequestsFunnelTotal,
-      offers: Math.max(0, Math.round(Number(funnelOffersAgg.offersTotal ?? 0))),
-      responses: Math.max(0, Math.round(Number(funnelOffersAgg.confirmedResponsesTotal ?? 0))),
-      contracts: Math.max(0, Math.round(Number(funnelContractsAgg.closedContractsTotal ?? 0))),
-      completed: Math.max(0, Math.round(Number(funnelContractsAgg.completedJobsTotal ?? 0))),
-    });
-    const legacyPersonalizedRevenueAmount = this.roundMoney(Math.max(0, Number(funnelContractsAgg.profitAmount ?? 0)));
     const viewerModeCounts = viewerMode === 'customer' ? customerCounts : providerCounts;
     const hasViewerModeCounts = Object.values(viewerModeCounts).some((value) => value > 0);
-    const isViewerModeFallback = mode === 'personalized' && Boolean(viewerMode) && !hasViewerModeCounts;
-    const selectedUserCounts = hasViewerModeCounts ? viewerModeCounts : legacyPersonalizedCounts;
-    const selectedUserRevenueAmount = hasViewerModeCounts
-      ? (viewerMode === 'customer' ? customerRevenueAmount : providerRevenueAmount)
-      : legacyPersonalizedRevenueAmount;
+    const selectedUserCounts = viewerModeCounts;
+    const selectedUserRevenueAmount = viewerMode === 'customer' ? customerRevenueAmount : providerRevenueAmount;
+    const marketAverageOrderValue =
+      marketCounts.completed > 0 ? this.roundMoney(marketRevenueAmount / marketCounts.completed) : null;
+    const selectedUserAverageOrderValue =
+      selectedUserCounts.completed > 0 ? this.roundMoney(selectedUserRevenueAmount / selectedUserCounts.completed) : null;
+    const hasViewerScopedData =
+      hasViewerModeCounts ||
+      selectedUserRevenueAmount > 0;
     const requestsFunnelTotal = mode === 'personalized' ? selectedUserCounts.requests : marketCounts.requests;
     const offersFunnelTotal = mode === 'personalized' ? selectedUserCounts.offers : marketCounts.offers;
     const confirmedResponsesTotal = mode === 'personalized' ? selectedUserCounts.responses : marketCounts.responses;
@@ -4108,7 +4555,7 @@ export class WorkspaceStatisticsService {
     };
 
     const personalizedFunnelLowData = mode === 'personalized'
-      ? isViewerModeFallback || selectedUserCounts.requests < 3 || (selectedUserCounts.offers + selectedUserCounts.responses + selectedUserCounts.contracts + selectedUserCounts.completed) < 3
+      ? !hasViewerScopedData || selectedUserCounts.requests < 3 || (selectedUserCounts.offers + selectedUserCounts.responses + selectedUserCounts.contracts + selectedUserCounts.completed) < 3
       : false;
     const funnelComparison = mode === 'personalized' && viewerMode
       ? this.buildFunnelComparison({
@@ -4124,11 +4571,13 @@ export class WorkspaceStatisticsService {
       activityMetrics,
       marketCounts,
       marketRevenueAmount,
+      marketAverageOrderValue,
       userCounts: selectedUserCounts,
       userRevenueAmount: selectedUserRevenueAmount,
+      userAverageOrderValue: selectedUserAverageOrderValue,
       userResponseMinutes: viewerScopedResponseMinutes,
       userUnansweredOver24h: viewerScopedUnansweredOver24h,
-      reliableComparison: !isViewerModeFallback,
+      reliableComparison: hasViewerScopedData,
     });
     const userCategoryActivityRows = viewerMode === 'customer'
       ? customerCategoryActivityRows
@@ -4150,6 +4599,7 @@ export class WorkspaceStatisticsService {
     const updatedAt = new Date().toISOString();
     const selectedCityOption = filterOptions.cities.find((item) => item.value === cityId);
     const selectedCategoryOption = filterOptions.categories.find((item) => item.value === categoryKey);
+    const selectedServiceOption = filterOptions.services.find((item) => item.value === subcategoryKey);
     const selectedCityFromRows =
       (cityId
         ? cities.find((item) => item.cityId === cityId || item.citySlug === cityId)?.cityName
@@ -4170,14 +4620,18 @@ export class WorkspaceStatisticsService {
       selectedCategoryFromRows ??
       categoryKey ??
       WorkspaceStatisticsService.ALL_CATEGORIES_LABEL;
-    const scopeLabel = [cityId ? selectedCityLabel : null, categoryKey ? selectedCategoryLabel : null]
+    const selectedServiceLabel =
+      selectedServiceOption?.label ??
+      subcategoryKey ??
+      WorkspaceStatisticsService.ALL_SERVICES_LABEL;
+    const scopeLabel = [cityId ? selectedCityLabel : null, categoryKey ? selectedCategoryLabel : null, subcategoryKey ? selectedServiceLabel : null]
       .filter(Boolean)
       .join(' · ') || 'Globaler Markt';
     const personalizedPricing = this.buildPersonalizedPricing({
       mode,
       scopeLabel,
       priceIntelligence,
-      userAverageOrderValue: completedFunnelTotal > 0 ? this.roundMoney(profitAmount / completedFunnelTotal) : null,
+      userAverageOrderValue: selectedUserAverageOrderValue,
     });
     const activityComparison = this.buildActivityComparison({
       mode,
@@ -4216,13 +4670,18 @@ export class WorkspaceStatisticsService {
         label: categoryKey ? selectedCategoryLabel : WorkspaceStatisticsService.ALL_CATEGORIES_LABEL,
       },
       service: {
-        value: null,
-        label: WorkspaceStatisticsService.ALL_SERVICES_LABEL,
+        value: subcategoryKey,
+        label: subcategoryKey ? selectedServiceLabel : WorkspaceStatisticsService.ALL_SERVICES_LABEL,
       },
       scopeLabel,
       title: hasDecisionScope ? scopeLabel : 'Globaler Markt',
       subtitle: 'Ein gemeinsamer Marktfilter steuert KPI, Chancen, Preise und Empfehlungen.',
-      stickyLabel: `${this.formatRangeLabel(range)} · ${cityId ? selectedCityLabel : WorkspaceStatisticsService.ALL_CITIES_LABEL} · ${categoryKey ? selectedCategoryLabel : WorkspaceStatisticsService.ALL_CATEGORIES_LABEL}`,
+      stickyLabel: [
+        this.formatRangeLabel(range),
+        cityId ? selectedCityLabel : WorkspaceStatisticsService.ALL_CITIES_LABEL,
+        categoryKey ? selectedCategoryLabel : WorkspaceStatisticsService.ALL_CATEGORIES_LABEL,
+        subcategoryKey ? selectedServiceLabel : WorkspaceStatisticsService.ALL_SERVICES_LABEL,
+      ].join(' · '),
       health: this.buildContextHealth({
         categories,
         cities,

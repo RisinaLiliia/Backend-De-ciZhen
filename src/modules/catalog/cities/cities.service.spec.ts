@@ -9,6 +9,9 @@ describe("CitiesService", () => {
 
   const modelMock = {
     find: jest.fn(),
+    findById: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
   };
 
   const chain = {
@@ -47,5 +50,54 @@ describe("CitiesService", () => {
     await service.listActive("de");
 
     expect(modelMock.find).toHaveBeenCalledWith({ isActive: true, countryCode: "DE" });
+  });
+
+  it("resolveActivityCoords returns catalog coordinates when present", async () => {
+    chain.exec.mockResolvedValue([
+      {
+        _id: { toString: () => "c1" },
+        key: "city_berlin",
+        name: "Berlin",
+        i18n: { de: "Berlin" },
+        countryCode: "DE",
+        lat: 52.52,
+        lng: 13.405,
+      },
+    ]);
+
+    const result = await service.resolveActivityCoords([
+      { cityId: "c1", citySlug: "berlin", cityName: "Berlin", countryCode: "de" },
+    ]);
+
+    expect(modelMock.find).toHaveBeenCalledWith({ countryCode: "DE" });
+    expect(result.get("berlin")).toEqual({
+      cityId: "c1",
+      lat: 52.52,
+      lng: 13.405,
+    });
+  });
+
+  it("resolveActivityCoords falls back to built-in geo map when catalog coords are missing", async () => {
+    chain.exec.mockResolvedValue([
+      {
+        _id: { toString: () => "c2" },
+        key: "city_mannheim",
+        name: "Mannheim",
+        i18n: { de: "Mannheim" },
+        countryCode: "DE",
+        lat: null,
+        lng: null,
+      },
+    ]);
+
+    const result = await service.resolveActivityCoords([
+      { cityId: "c2", citySlug: "mannheim", cityName: "Mannheim", countryCode: "DE" },
+    ]);
+
+    expect(result.get("mannheim")).toEqual({
+      cityId: "c2",
+      lat: 49.4875,
+      lng: 8.466,
+    });
   });
 });
