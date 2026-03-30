@@ -1853,7 +1853,7 @@ export class WorkspaceStatisticsService {
       ? params.cluster.find((city) => city.cityId === params.focusCityId || city.citySlug === params.focusCityId) ?? params.cluster[0]
       : params.cluster[0];
 
-    return params.cluster.slice(0, 3).map((city, index, cluster) => {
+    return params.cluster.slice(0, 3).map((city, index) => {
       const peerContext: WorkspaceStatisticsOpportunityPeerContextDto = params.focusCityId
         ? {
           role: index === 0 ? 'focus' : 'competitor',
