@@ -22,6 +22,12 @@ export class CityResponseDto {
   @ApiProperty({ example: "DE" })
   countryCode: string;
 
+  @ApiProperty({ example: 52.52, nullable: true })
+  lat: number | null;
+
+  @ApiProperty({ example: 13.405, nullable: true })
+  lng: number | null;
+
   @ApiProperty({ example: true })
   isActive: boolean;
 

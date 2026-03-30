@@ -16,6 +16,7 @@ import { ProviderProfile, ProviderProfileSchema } from '../providers/schemas/pro
 import { Favorite, FavoriteSchema } from '../favorites/schemas/favorite.schema';
 import { Review, ReviewSchema } from '../reviews/schemas/review.schema';
 import { ClientProfile, ClientProfileSchema } from '../users/schemas/client-profile.schema';
+import { CitiesModule } from '../catalog/cities/cities.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ClientProfile, ClientProfileSchema } from '../users/schemas/client-prof
     AnalyticsModule,
     UsersModule,
     PresenceModule,
+    CitiesModule,
     MongooseModule.forFeature([
       { name: Request.name, schema: RequestSchema },
       { name: Offer.name, schema: OfferSchema },
