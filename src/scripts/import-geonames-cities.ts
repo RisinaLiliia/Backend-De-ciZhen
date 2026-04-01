@@ -7,7 +7,6 @@ import { ConfigService } from '@nestjs/config';
 import { getModelToken } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 
-import { AppModule } from '../app.module';
 import { City, type CityDocument } from '../modules/catalog/cities/schemas/city.schema';
 
 type GeoNamesRow = {
@@ -495,6 +494,7 @@ export async function bootstrap() {
     throw new Error('Usage: npm run import:cities:geonames -- /absolute/or/relative/path/to/DE.txt');
   }
 
+  const { AppModule } = await import('../app.module.js');
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const cityModel = app.get<Model<CityDocument>>(getModelToken(City.name));
   const config = app.get(ConfigService);
