@@ -1,6 +1,6 @@
 import { model, models } from "mongoose";
 
-import { City, CitySchema } from "./city.schema";
+import { CitySchema } from "./city.schema";
 
 describe("CitySchema", () => {
   const modelName = "CitySchemaSpec";
