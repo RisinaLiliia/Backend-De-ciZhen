@@ -1,7 +1,7 @@
 // src/modules/catalog/cities/cities.service.ts
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { City, CityDocument } from "./schemas/city.schema";
 
 const CITY_GEO_FALLBACK: Record<string, { lat: number; lng: number }> = {
@@ -270,7 +270,12 @@ export class CitiesService {
       new Set(
         refs
           .map((ref) => ref.cityId)
-          .filter((cityId): cityId is string => typeof cityId === "string" && cityId.length > 0),
+          .filter(
+            (cityId): cityId is string =>
+              typeof cityId === "string"
+              && cityId.length > 0
+              && Types.ObjectId.isValid(cityId),
+          ),
       ),
     );
     const geoTokens = Array.from(

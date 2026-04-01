@@ -78,7 +78,7 @@ describe("CitiesService", () => {
   it("resolveActivityCoords returns catalog coordinates when present", async () => {
     chain.exec.mockResolvedValue([
       {
-        _id: { toString: () => "c1" },
+        _id: { toString: () => "507f1f77bcf86cd799439011" },
         key: "city_berlin",
         name: "Berlin",
         i18n: { de: "Berlin" },
@@ -89,21 +89,54 @@ describe("CitiesService", () => {
     ]);
 
     const result = await service.resolveActivityCoords([
-      { cityId: "c1", citySlug: "berlin", cityName: "Berlin", countryCode: "de" },
+      { cityId: "507f1f77bcf86cd799439011", citySlug: "berlin", cityName: "Berlin", countryCode: "de" },
     ]);
 
     expect(modelMock.find).toHaveBeenCalledWith({
       isActive: true,
       countryCode: "DE",
       $or: [
-        { _id: { $in: ["c1"] } },
+        { _id: { $in: ["507f1f77bcf86cd799439011"] } },
         { key: { $in: ["berlin"] } },
         { normalizedName: { $in: ["berlin"] } },
         { normalizedAliases: { $in: ["berlin"] } },
       ],
     });
     expect(result.get("berlin")).toEqual({
-      cityId: "c1",
+      cityId: "507f1f77bcf86cd799439011",
+      lat: 52.52,
+      lng: 13.405,
+    });
+  });
+
+  it("resolveActivityCoords ignores non-ObjectId city references and falls back to name-based lookup", async () => {
+    chain.exec.mockResolvedValue([
+      {
+        _id: { toString: () => "507f1f77bcf86cd799439011" },
+        key: "berlin",
+        name: "Berlin",
+        i18n: { de: "Berlin" },
+        countryCode: "DE",
+        lat: 52.52,
+        lng: 13.405,
+      },
+    ]);
+
+    const result = await service.resolveActivityCoords([
+      { cityId: "berlin-city", citySlug: "berlin", cityName: "Berlin", countryCode: "de" },
+    ]);
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      isActive: true,
+      countryCode: "DE",
+      $or: [
+        { key: { $in: ["berlin"] } },
+        { normalizedName: { $in: ["berlin"] } },
+        { normalizedAliases: { $in: ["berlin"] } },
+      ],
+    });
+    expect(result.get("berlin")).toEqual({
+      cityId: "507f1f77bcf86cd799439011",
       lat: 52.52,
       lng: 13.405,
     });

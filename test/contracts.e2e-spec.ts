@@ -13,6 +13,7 @@ import { Contract, ContractDocument } from '../src/modules/contracts/schemas/con
 import { Booking, BookingDocument } from '../src/modules/bookings/schemas/booking.schema';
 import { ProviderAvailability } from '../src/modules/availability/schemas/provider-availability.schema';
 import { AvailabilityService } from '../src/modules/availability/availability.service';
+import { User, UserDocument } from '../src/modules/users/schemas/user.schema';
 
 jest.setTimeout(30000);
 
@@ -37,10 +38,12 @@ describe('contracts (e2e)', () => {
   let providerProfileModel: Model<ProviderProfileDocument>;
   let contractModel: Model<ContractDocument>;
   let bookingModel: Model<BookingDocument>;
+  let userModel: Model<UserDocument>;
   let providerAvailabilityModel: Model<any>;
   let availability: AvailabilityService;
   const slotAt09 = nextUtcWeekdayAt(4, 9);
   const slotAt10 = nextUtcWeekdayAt(4, 10);
+  const uniqueEmail = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.local`;
 
   beforeAll(async () => {
     ctx = await setupTestApp({ useValidationPipe: true });
@@ -51,6 +54,7 @@ describe('contracts (e2e)', () => {
     providerProfileModel = app.get(getModelToken(ProviderProfile.name));
     contractModel = app.get(getModelToken(Contract.name));
     bookingModel = app.get(getModelToken(Booking.name));
+    userModel = app.get(getModelToken(User.name));
     providerAvailabilityModel = app.get(getModelToken(ProviderAvailability.name));
     availability = app.get(AvailabilityService);
   });
@@ -66,6 +70,7 @@ describe('contracts (e2e)', () => {
       providerProfileModel.deleteMany({}),
       contractModel.deleteMany({}),
       bookingModel.deleteMany({}),
+      userModel.deleteMany({}),
       providerAvailabilityModel.deleteMany({}),
     ]);
   });
@@ -124,8 +129,8 @@ describe('contracts (e2e)', () => {
   };
 
   it('accept offer creates pending contract and pauses request', async () => {
-    const client = await registerAndGetToken(app, 'client', 'client-contract1@test.local', 'Client Contract1');
-    const provider = await registerAndGetToken(app, 'provider', 'prov-contract1@test.local', 'Provider Contract1');
+    const client = await registerAndGetToken(app, 'client', uniqueEmail('client-contract1'), 'Client Contract1');
+    const provider = await registerAndGetToken(app, 'provider', uniqueEmail('prov-contract1'), 'Provider Contract1');
 
     await setupProvider(provider.userId);
     const req = await createPublishedRequest(client.userId);
@@ -147,8 +152,8 @@ describe('contracts (e2e)', () => {
   });
 
   it('confirm contract creates booking and sets statuses', async () => {
-    const client = await registerAndGetToken(app, 'client', 'client-contract2@test.local', 'Client Contract2');
-    const provider = await registerAndGetToken(app, 'provider', 'prov-contract2@test.local', 'Provider Contract2');
+    const client = await registerAndGetToken(app, 'client', uniqueEmail('client-contract2'), 'Client Contract2');
+    const provider = await registerAndGetToken(app, 'provider', uniqueEmail('prov-contract2'), 'Provider Contract2');
 
     await setupProvider(provider.userId);
     const req = await createPublishedRequest(client.userId);
@@ -180,8 +185,8 @@ describe('contracts (e2e)', () => {
   });
 
   it('cancel pending contract returns request to published', async () => {
-    const client = await registerAndGetToken(app, 'client', 'client-contract3@test.local', 'Client Contract3');
-    const provider = await registerAndGetToken(app, 'provider', 'prov-contract3@test.local', 'Provider Contract3');
+    const client = await registerAndGetToken(app, 'client', uniqueEmail('client-contract3'), 'Client Contract3');
+    const provider = await registerAndGetToken(app, 'provider', uniqueEmail('prov-contract3'), 'Provider Contract3');
 
     await setupProvider(provider.userId);
     const req = await createPublishedRequest(client.userId);
@@ -210,8 +215,8 @@ describe('contracts (e2e)', () => {
   });
 
   it('complete confirmed contract closes request and booking', async () => {
-    const client = await registerAndGetToken(app, 'client', 'client-contract4@test.local', 'Client Contract4');
-    const provider = await registerAndGetToken(app, 'provider', 'prov-contract4@test.local', 'Provider Contract4');
+    const client = await registerAndGetToken(app, 'client', uniqueEmail('client-contract4'), 'Client Contract4');
+    const provider = await registerAndGetToken(app, 'provider', uniqueEmail('prov-contract4'), 'Provider Contract4');
 
     await setupProvider(provider.userId);
     const req = await createPublishedRequest(client.userId);
