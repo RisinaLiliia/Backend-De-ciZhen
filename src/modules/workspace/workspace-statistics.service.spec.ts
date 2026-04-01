@@ -388,6 +388,16 @@ describe('WorkspaceStatisticsService (unit)', () => {
       lat: 52.52,
       lng: 13.405,
     });
+    expect(result.demand.cityList).toMatchObject({
+      page: 1,
+      limit: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+    expect(result.demand.cityList?.items[0]).toMatchObject({
+      cityName: 'Berlin',
+      rank: 1,
+    });
     expect(result.opportunityRadar).toHaveLength(1);
     expect(result.opportunityRadar[0]).toMatchObject({
       rank: 1,
@@ -482,6 +492,38 @@ describe('WorkspaceStatisticsService (unit)', () => {
       code: 'top_category_demand',
       type: 'demand',
       title: 'Hohe Nachfrage in Cleaning',
+    });
+  });
+
+  it('paginates city list server-side', () => {
+    const paginated = (service as unknown as {
+      paginateCityList: (params: {
+        cities: Array<{ cityName: string; rank: number | null }>;
+        page: number;
+        limit: number;
+      }) => {
+        items: Array<{ cityName: string; rank: number | null }>;
+        page: number;
+        limit: number;
+        totalItems: number;
+        totalPages: number;
+      };
+    }).paginateCityList({
+      cities: [
+        { cityName: 'Berlin', rank: 1 },
+        { cityName: 'Hamburg', rank: 2 },
+        { cityName: 'Muenchen', rank: 3 },
+      ] as Array<{ cityName: string; rank: number | null }>,
+      page: 2,
+      limit: 2,
+    });
+
+    expect(paginated).toEqual({
+      items: [{ cityName: 'Muenchen', rank: 3 }],
+      page: 2,
+      limit: 2,
+      totalItems: 3,
+      totalPages: 2,
     });
   });
 

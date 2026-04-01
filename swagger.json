@@ -6606,17 +6606,17 @@
         ]
       }
     },
-    "/chat/threads": {
+    "/chat/conversations": {
       "post": {
-        "operationId": "ChatsController_createThread",
-        "summary": "Create or get thread by requestId + providerUserId",
+        "operationId": "ChatsController_createConversation",
+        "summary": "Create or get a conversation with related request/offer/order context",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateThreadDto"
+                "$ref": "#/components/schemas/CreateConversationDto"
               }
             }
           }
@@ -6627,7 +6627,231 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChatThreadDto"
+                  "$ref": "#/components/schemas/ChatConversationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ChatsController_listConversations",
+        "summary": "List my chat conversations with filters, search, and cursor pagination",
+        "parameters": [
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "customer",
+                "provider"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "active",
+                "archived"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "frankfurt",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 24,
+              "example": 24,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "eyJ2YWx1ZSI6IjIwMjYtMDMtMzFUMTc6MDU6MDAuMDAwWiIsImlkIjoiNjZmMGMxYTIifQ",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatConversationsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/conversations/{id}": {
+      "get": {
+        "operationId": "ChatsController_getConversation",
+        "summary": "Get a single conversation payload for thread header/info drawer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatConversationDto"
                 }
               }
             }
@@ -6703,105 +6927,10 @@
         ]
       }
     },
-    "/chat/inbox": {
+    "/chat/conversations/{id}/messages": {
       "get": {
-        "operationId": "ChatsController_inbox",
-        "summary": "List my chat threads",
-        "parameters": [
-          {
-            "name": "role",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "default": "all",
-              "enum": [
-                "client",
-                "provider",
-                "all"
-              ],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ChatThreadDto"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request / Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "chat"
-        ],
-        "security": [
-          {
-            "access-token": []
-          }
-        ]
-      }
-    },
-    "/chat/threads/{id}/messages": {
-      "get": {
-        "operationId": "ChatsController_listMessages",
-        "summary": "List messages for a thread",
+        "operationId": "ChatsController_listConversationMessages",
+        "summary": "List conversation messages with cursor pagination",
         "parameters": [
           {
             "name": "id",
@@ -6816,19 +6945,18 @@
             "required": false,
             "in": "query",
             "schema": {
-              "default": 50,
-              "example": 50,
+              "default": 24,
+              "example": 24,
               "type": "number"
             }
           },
           {
-            "name": "offset",
+            "name": "cursor",
             "required": false,
             "in": "query",
             "schema": {
-              "default": 0,
-              "example": 0,
-              "type": "number"
+              "example": "eyJ2YWx1ZSI6IjIwMjYtMDMtMzFUMTc6MDA6MDAuMDAwWiIsImlkIjoiNjZmMGMxYTIifQ",
+              "type": "string"
             }
           }
         ],
@@ -6838,10 +6966,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ChatMessageDto"
-                  }
+                  "$ref": "#/components/schemas/ChatMessagesResponseDto"
                 }
               }
             }
@@ -6917,8 +7042,8 @@
         ]
       },
       "post": {
-        "operationId": "ChatsController_sendMessage",
-        "summary": "Send message to thread",
+        "operationId": "ChatsController_createConversationMessage",
+        "summary": "Send a message to a conversation using the path param",
         "parameters": [
           {
             "name": "id",
@@ -7021,10 +7146,620 @@
         ]
       }
     },
+    "/chat/messages": {
+      "post": {
+        "operationId": "ChatsController_createMessage",
+        "summary": "Send a message using conversationId in the request body",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/conversations/{id}/read": {
+      "post": {
+        "operationId": "ChatsController_markConversationRead",
+        "summary": "Mark a conversation as read for the current user",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "ok": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/threads": {
+      "post": {
+        "operationId": "ChatsController_createThread",
+        "summary": "Legacy: create or get thread by requestId + providerUserId",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateThreadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatThreadDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/inbox": {
+      "get": {
+        "operationId": "ChatsController_inbox",
+        "summary": "Legacy: list my chat threads",
+        "parameters": [
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "enum": [
+                "client",
+                "provider",
+                "all"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatThreadDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/threads/{id}/messages": {
+      "get": {
+        "operationId": "ChatsController_listThreadMessages",
+        "summary": "Legacy: list messages for a thread",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 50,
+              "example": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatLegacyMessageDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "ChatsController_sendLegacyMessage",
+        "summary": "Legacy: send message to thread",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatLegacyMessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/chat/threads/{id}/read": {
       "post": {
-        "operationId": "ChatsController_markRead",
-        "summary": "Mark thread as read for current user",
+        "operationId": "ChatsController_markLegacyRead",
+        "summary": "Legacy: mark thread as read for current user",
         "parameters": [
           {
             "name": "id",
@@ -7344,6 +8079,16 @@
             "description": "Optional category focus for the decision dashboard context.",
             "schema": {
               "example": "cleaning",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subcategoryKey",
+            "required": false,
+            "in": "query",
+            "description": "Optional service focus within the selected category for the decision dashboard context.",
+            "schema": {
+              "example": "wc_repair",
               "type": "string"
             }
           },
@@ -7932,9 +8677,22 @@
             "type": "string",
             "example": "city_berlin"
           },
+          "source": {
+            "type": "string",
+            "example": "geonames"
+          },
+          "sourceId": {
+            "type": "object",
+            "example": "2950159",
+            "nullable": true
+          },
           "name": {
             "type": "string",
             "example": "Berlin"
+          },
+          "normalizedName": {
+            "type": "string",
+            "example": "berlin"
           },
           "i18n": {
             "type": "object",
@@ -7946,6 +8704,36 @@
           "countryCode": {
             "type": "string",
             "example": "DE"
+          },
+          "stateCode": {
+            "type": "object",
+            "example": "BE",
+            "nullable": true
+          },
+          "stateName": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "districtName": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "population": {
+            "type": "object",
+            "example": 3669491,
+            "nullable": true
+          },
+          "lat": {
+            "type": "object",
+            "example": 52.52,
+            "nullable": true
+          },
+          "lng": {
+            "type": "object",
+            "example": 13.405,
+            "nullable": true
           },
           "isActive": {
             "type": "boolean",
@@ -7959,9 +8747,18 @@
         "required": [
           "_id",
           "key",
+          "source",
+          "sourceId",
           "name",
+          "normalizedName",
           "i18n",
           "countryCode",
+          "stateCode",
+          "stateName",
+          "districtName",
+          "population",
+          "lat",
+          "lng",
           "isActive",
           "sortOrder"
         ]
@@ -10329,6 +11126,468 @@
           "ok"
         ]
       },
+      "CreateConversationRelatedEntityDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "request",
+              "offer",
+              "order"
+            ],
+            "example": "offer"
+          },
+          "id": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ]
+      },
+      "CreateConversationDto": {
+        "type": "object",
+        "properties": {
+          "relatedEntity": {
+            "$ref": "#/components/schemas/CreateConversationRelatedEntityDto"
+          },
+          "participantUserId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c9"
+          },
+          "participantRole": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "provider"
+            ],
+            "example": "provider"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "providerUserId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c9"
+          },
+          "offerId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa"
+          },
+          "orderId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ab"
+          },
+          "contractId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ab"
+          }
+        },
+        "required": [
+          "relatedEntity",
+          "participantUserId"
+        ]
+      },
+      "ChatParticipantDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "provider"
+            ],
+            "example": "provider"
+          },
+          "name": {
+            "type": "object",
+            "example": "Provider Chat",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "object",
+            "example": "Provider Chat",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "object",
+            "example": "/avatars/default.png",
+            "nullable": true
+          },
+          "isOnline": {
+            "type": "object",
+            "example": false,
+            "nullable": true
+          },
+          "lastSeenAt": {
+            "type": "object",
+            "example": "2026-03-31T17:00:00.000Z",
+            "nullable": true
+          }
+        },
+        "required": [
+          "userId",
+          "role"
+        ]
+      },
+      "ChatRelatedEntityDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "request",
+              "offer",
+              "order"
+            ],
+            "example": "offer"
+          },
+          "id": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa"
+          },
+          "requestId": {
+            "type": "object",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+            "nullable": true
+          },
+          "offerId": {
+            "type": "object",
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa",
+            "nullable": true
+          },
+          "orderId": {
+            "type": "object",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ab",
+            "nullable": true
+          },
+          "title": {
+            "type": "object",
+            "example": "Window cleaning in Frankfurt",
+            "nullable": true
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Frankfurt am Main",
+            "nullable": true
+          },
+          "status": {
+            "type": "object",
+            "example": "accepted",
+            "nullable": true
+          },
+          "amount": {
+            "type": "object",
+            "example": 180,
+            "nullable": true
+          },
+          "amountLabel": {
+            "type": "object",
+            "example": "EUR 180",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ]
+      },
+      "ChatConversationLastMessageDto": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ff"
+          },
+          "text": {
+            "type": "string",
+            "example": "Hello! I can start tomorrow."
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-03-31T17:00:00.000Z"
+          },
+          "senderId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          }
+        },
+        "required": [
+          "messageId",
+          "text",
+          "createdAt",
+          "senderId"
+        ]
+      },
+      "ChatConversationCounterpartDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c9"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "provider"
+            ],
+            "example": "provider"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Provider Chat"
+          },
+          "avatarUrl": {
+            "type": "object",
+            "example": "/avatars/default.png",
+            "nullable": true
+          },
+          "isOnline": {
+            "type": "object",
+            "example": true,
+            "nullable": true
+          },
+          "lastSeenAt": {
+            "type": "object",
+            "example": "2026-03-31T17:00:00.000Z",
+            "nullable": true
+          }
+        },
+        "required": [
+          "userId",
+          "role",
+          "displayName"
+        ]
+      },
+      "ChatConversationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatParticipantDto"
+            }
+          },
+          "relatedEntity": {
+            "$ref": "#/components/schemas/ChatRelatedEntityDto"
+          },
+          "lastMessage": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatConversationLastMessageDto"
+              }
+            ]
+          },
+          "counterpart": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatConversationCounterpartDto"
+              }
+            ]
+          },
+          "unreadCount": {
+            "type": "object",
+            "example": {
+              "64f0c1a2b3c4d5e6f7a8b9c0": 0,
+              "64f0c1a2b3c4d5e6f7a8b9c9": 2
+            },
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "unread": {
+            "type": "number",
+            "example": 2
+          },
+          "lastMessagePreview": {
+            "type": "object",
+            "example": "Hello! I can start tomorrow.",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived",
+              "closed"
+            ],
+            "example": "active"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-03-31T17:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-03-31T17:05:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "participants",
+          "relatedEntity",
+          "unreadCount",
+          "unread",
+          "state",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ChatConversationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatConversationDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "example": "eyJ2YWx1ZSI6IjIwMjYtMDMtMzFUMTc6MDU6MDAuMDAwWiIsImlkIjoiNjZmMGMxYTIifQ",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ChatAttachmentInputDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://cdn.example.com/files/quote.pdf"
+          },
+          "name": {
+            "type": "string",
+            "example": "quote.pdf"
+          },
+          "size": {
+            "type": "number",
+            "example": 20480
+          },
+          "mimeType": {
+            "type": "string",
+            "example": "application/pdf"
+          }
+        }
+      },
+      "ChatMessageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9ff"
+          },
+          "conversationId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa"
+          },
+          "senderId": {
+            "type": "string",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "attachment",
+              "system"
+            ],
+            "example": "text"
+          },
+          "text": {
+            "type": "object",
+            "example": "Hello!"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatAttachmentInputDto"
+            }
+          },
+          "deliveryStatus": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "delivered",
+              "read"
+            ],
+            "example": "read"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-03-31T17:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "conversationId",
+          "senderId",
+          "type",
+          "deliveryStatus",
+          "createdAt"
+        ]
+      },
+      "ChatMessagesResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "example": "eyJ2YWx1ZSI6IjIwMjYtMDMtMzFUMTc6MDA6MDAuMDAwWiIsImlkIjoiNjZmMGMxYTIifQ",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CreateMessageDto": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa",
+            "description": "Required for POST /chat/messages. Legacy thread routes can use the path param instead."
+          },
+          "text": {
+            "type": "string",
+            "example": "Hi! I can start tomorrow."
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatAttachmentInputDto"
+            }
+          }
+        }
+      },
       "CreateThreadDto": {
         "type": "object",
         "properties": {
@@ -10446,7 +11705,7 @@
           "updatedAt"
         ]
       },
-      "ChatMessageDto": {
+      "ChatLegacyMessageDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -10468,7 +11727,7 @@
           "createdAt": {
             "format": "date-time",
             "type": "string",
-            "example": "2026-02-12T10:00:00.000Z"
+            "example": "2026-03-31T17:00:00.000Z"
           }
         },
         "required": [
@@ -10477,18 +11736,6 @@
           "senderId",
           "text",
           "createdAt"
-        ]
-      },
-      "CreateMessageDto": {
-        "type": "object",
-        "properties": {
-          "text": {
-            "type": "string",
-            "example": "Hi! I can start tomorrow."
-          }
-        },
-        "required": [
-          "text"
         ]
       },
       "WorkspacePublicSummaryDto": {
@@ -11937,6 +13184,38 @@
           "sharePercent"
         ]
       },
+      "WorkspaceStatisticsOpportunityPeerContextDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "focus",
+              "competitor"
+            ],
+            "example": "focus"
+          },
+          "distanceKm": {
+            "type": "object",
+            "example": 13.4,
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "selected_city",
+              "nearby_competitor",
+              "top_ranked"
+            ],
+            "example": "selected_city"
+          }
+        },
+        "required": [
+          "role",
+          "distanceKm",
+          "reason"
+        ]
+      },
       "WorkspaceStatisticsCityDemandDto": {
         "type": "object",
         "properties": {
@@ -11975,6 +13254,24 @@
             "nullable": true,
             "description": "Demand-to-supply market balance ratio (demand activity / provider activity) used for opportunity scoring."
           },
+          "providersActive": {
+            "type": "object",
+            "example": 18,
+            "nullable": true,
+            "description": "Distinct providers with activity in the selected city scope during the selected period."
+          },
+          "score": {
+            "type": "object",
+            "example": 7.8,
+            "nullable": true,
+            "description": "Canonical city opportunity score used for ranking and competitor selection."
+          },
+          "rank": {
+            "type": "object",
+            "example": 2,
+            "nullable": true,
+            "description": "Rank of the city inside the backend-selected statistics city scope."
+          },
           "signal": {
             "type": "string",
             "enum": [
@@ -11994,6 +13291,14 @@
             "type": "object",
             "example": 13.405,
             "nullable": true
+          },
+          "peerContext": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsOpportunityPeerContextDto"
+              }
+            ]
           }
         },
         "required": [
@@ -12074,132 +13379,6 @@
           "value",
           "semanticTone",
           "semanticKey"
-        ]
-      },
-      "WorkspaceStatisticsOpportunityRadarItemDto": {
-        "type": "object",
-        "properties": {
-          "rank": {
-            "type": "number",
-            "enum": [
-              1,
-              2,
-              3
-            ],
-            "example": 1
-          },
-          "cityId": {
-            "type": "object",
-            "example": "64f0c1a2b3c4d5e6f7a8b9c0",
-            "nullable": true
-          },
-          "city": {
-            "type": "string",
-            "example": "Berlin"
-          },
-          "categoryKey": {
-            "type": "object",
-            "example": "cleaning",
-            "nullable": true
-          },
-          "category": {
-            "type": "object",
-            "example": "Cleaning & Housekeeping",
-            "nullable": true
-          },
-          "demand": {
-            "type": "number",
-            "example": 127
-          },
-          "providers": {
-            "type": "object",
-            "example": 23,
-            "nullable": true
-          },
-          "marketBalanceRatio": {
-            "type": "object",
-            "example": 1.56,
-            "nullable": true
-          },
-          "score": {
-            "type": "number",
-            "example": 8.2
-          },
-          "demandScore": {
-            "type": "number",
-            "example": 9.1
-          },
-          "competitionScore": {
-            "type": "number",
-            "example": 6.4
-          },
-          "growthScore": {
-            "type": "number",
-            "example": 7.2
-          },
-          "activityScore": {
-            "type": "number",
-            "example": 6.8
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "very_high",
-              "good",
-              "balanced",
-              "competitive",
-              "low"
-            ],
-            "example": "balanced"
-          },
-          "tone": {
-            "type": "string",
-            "enum": [
-              "very-high",
-              "high",
-              "balanced",
-              "supply-heavy"
-            ],
-            "example": "balanced"
-          },
-          "summaryKey": {
-            "type": "string",
-            "enum": [
-              "very_high",
-              "good",
-              "balanced_competitive",
-              "balanced",
-              "competitive",
-              "low_demand",
-              "low"
-            ],
-            "example": "balanced_competitive"
-          },
-          "metrics": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkspaceStatisticsOpportunityMetricDto"
-            }
-          }
-        },
-        "required": [
-          "rank",
-          "cityId",
-          "city",
-          "categoryKey",
-          "category",
-          "demand",
-          "providers",
-          "marketBalanceRatio",
-          "score",
-          "demandScore",
-          "competitionScore",
-          "growthScore",
-          "activityScore",
-          "status",
-          "tone",
-          "summaryKey",
-          "metrics"
         ]
       },
       "WorkspaceStatisticsPriceIntelligenceDto": {
@@ -12318,6 +13497,148 @@
           "recommendation",
           "profitPotentialScore",
           "profitPotentialStatus"
+        ]
+      },
+      "WorkspaceStatisticsOpportunityRadarItemDto": {
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": "number",
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "example": 1
+          },
+          "cityId": {
+            "type": "object",
+            "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "categoryKey": {
+            "type": "object",
+            "example": "cleaning",
+            "nullable": true
+          },
+          "category": {
+            "type": "object",
+            "example": "Cleaning & Housekeeping",
+            "nullable": true
+          },
+          "demand": {
+            "type": "number",
+            "example": 127
+          },
+          "providers": {
+            "type": "object",
+            "example": 23,
+            "nullable": true
+          },
+          "marketBalanceRatio": {
+            "type": "object",
+            "example": 1.56,
+            "nullable": true
+          },
+          "score": {
+            "type": "number",
+            "example": 8.2
+          },
+          "demandScore": {
+            "type": "number",
+            "example": 9.1
+          },
+          "competitionScore": {
+            "type": "number",
+            "example": 6.4
+          },
+          "growthScore": {
+            "type": "number",
+            "example": 7.2
+          },
+          "activityScore": {
+            "type": "number",
+            "example": 6.8
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "very_high",
+              "good",
+              "balanced",
+              "competitive",
+              "low"
+            ],
+            "example": "balanced"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "very-high",
+              "high",
+              "balanced",
+              "supply-heavy"
+            ],
+            "example": "balanced"
+          },
+          "summaryKey": {
+            "type": "string",
+            "enum": [
+              "very_high",
+              "good",
+              "balanced_competitive",
+              "balanced",
+              "competitive",
+              "low_demand",
+              "low"
+            ],
+            "example": "balanced_competitive"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsOpportunityMetricDto"
+            }
+          },
+          "peerContext": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsOpportunityPeerContextDto"
+              }
+            ]
+          },
+          "priceIntelligence": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsPriceIntelligenceDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "rank",
+          "cityId",
+          "city",
+          "categoryKey",
+          "category",
+          "demand",
+          "providers",
+          "marketBalanceRatio",
+          "score",
+          "demandScore",
+          "competitionScore",
+          "growthScore",
+          "activityScore",
+          "status",
+          "tone",
+          "summaryKey",
+          "metrics"
         ]
       },
       "WorkspaceStatisticsProfileFunnelStageDto": {

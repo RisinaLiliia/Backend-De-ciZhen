@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export type WorkspaceStatisticsRange = '24h' | '7d' | '30d' | '90d';
 export type WorkspaceStatisticsViewerMode = 'provider' | 'customer';
@@ -41,6 +42,30 @@ export class WorkspaceStatisticsQueryDto {
   @IsOptional()
   @IsString()
   subcategoryKey?: string;
+
+  @ApiPropertyOptional({
+    example: 1,
+    minimum: 1,
+    description: 'Page of the paginated Staedte & Regionen list.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  citiesPage?: number;
+
+  @ApiPropertyOptional({
+    example: 10,
+    minimum: 1,
+    maximum: 50,
+    description: 'Page size of the paginated Staedte & Regionen list.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  citiesLimit?: number;
 
   @ApiPropertyOptional({
     enum: ['provider', 'customer'],

@@ -1,7 +1,7 @@
 // src/modules/catalog/cities/cities.service.ts
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { City, CityDocument } from "./schemas/city.schema";
 
 const CITY_GEO_FALLBACK: Record<string, { lat: number; lng: number }> = {
@@ -44,20 +44,76 @@ type CityGeoResolution = {
   lng: number | null;
 };
 
+type NormalizedCityGeoReference = {
+  cityId: string | null;
+  citySlug: string;
+  cityName: string;
+  countryCode: string;
+};
+
+type NearbyCityParams = {
+  cityId: string;
+  radiusKm?: number;
+  countryCode?: string;
+  limit?: number;
+};
+
+type CitySearchTokens = {
+  normalizedQuery: string;
+  nameToken: string;
+  postalToken: string;
+};
+
 @Injectable()
 export class CitiesService {
   constructor(@InjectModel(City.name) private readonly cityModel: Model<CityDocument>) {}
 
-  async listActive(countryCode?: string): Promise<CityDocument[]> {
+  private buildActiveFilter(countryCode?: string): Record<string, unknown> {
     const filter: Record<string, unknown> = { isActive: true };
 
     if (countryCode && countryCode.trim().length > 0) {
       filter.countryCode = countryCode.trim().toUpperCase();
     }
 
+    return filter;
+  }
+
+  async listActive(countryCode?: string, limit?: number): Promise<CityDocument[]> {
+    const filter = this.buildActiveFilter(countryCode);
+    const safeLimit =
+      typeof limit === "number"
+        ? Math.max(1, Math.min(100, Math.round(limit)))
+        : null;
+
+    const query = this.cityModel
+      .find(filter)
+      .sort({ sortOrder: 1, population: -1, "i18n.en": 1, name: 1 });
+
+    if (safeLimit !== null) {
+      query.limit(safeLimit);
+    }
+
+    return query.exec();
+  }
+
+  async listByIds(ids: string[], countryCode?: string): Promise<CityDocument[]> {
+    const normalizedIds = Array.from(
+      new Set(
+        ids
+          .map((id) => String(id ?? "").trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+    if (normalizedIds.length === 0) return [];
+
+    const filter: Record<string, unknown> = {
+      ...this.buildActiveFilter(countryCode),
+      _id: { $in: normalizedIds },
+    };
+
     return this.cityModel
       .find(filter)
-      .sort({ sortOrder: 1, "i18n.en": 1, name: 1 })
+      .sort({ sortOrder: 1, population: -1, "i18n.en": 1, name: 1 })
       .exec();
   }
 
@@ -69,10 +125,16 @@ export class CitiesService {
 
   private normalizeGeoKey(value: string | null | undefined): string {
     return String(value ?? "")
+      .replace(/ß/g, "ss")
+      .replace(/ä/gi, (match) => (match === "Ä" ? "Ae" : "ae"))
+      .replace(/ö/gi, (match) => (match === "Ö" ? "Oe" : "oe"))
+      .replace(/ü/gi, (match) => (match === "Ü" ? "Ue" : "ue"))
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, "");
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
   }
 
   private roundCoord(value: number, decimals = 6): number {
@@ -96,6 +158,273 @@ export class CitiesService {
     };
   }
 
+  private toLocation(lat: number | null, lng: number | null) {
+    if (lat === null || lng === null) return null;
+    return {
+      type: "Point" as const,
+      coordinates: [lng, lat] as [number, number],
+    };
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  private toCatalogKeyToken(value: string): string {
+    return value.replace(/\s+/g, "_");
+  }
+
+  private normalizePostalCode(value: string | null | undefined): string {
+    return String(value ?? "").replace(/\D+/g, "").trim();
+  }
+
+  private extractSearchTokens(rawQuery: string): CitySearchTokens {
+    const compactQuery = String(rawQuery ?? "").trim().replace(/\s+/g, " ");
+    const postalToken = this.normalizePostalCode(compactQuery.match(/\b\d{3,10}\b/)?.[0]);
+    const textPart = postalToken
+      ? compactQuery.replace(new RegExp(`\\b${this.escapeRegex(postalToken)}\\b`, "g"), " ")
+      : compactQuery;
+
+    return {
+      normalizedQuery: this.normalizeGeoKey(compactQuery),
+      nameToken: this.normalizeGeoKey(textPart),
+      postalToken,
+    };
+  }
+
+  private getCitySearchPostalCodes(city: Partial<CityDocument>): string[] {
+    return Array.isArray(city.postalCodes)
+      ? city.postalCodes
+          .map((value) => this.normalizePostalCode(value))
+          .filter((value) => value.length > 0)
+      : [];
+  }
+
+  private getCitySearchNameTokens(city: Partial<CityDocument>): string[] {
+    const i18nValues =
+      city.i18n && typeof city.i18n === "object"
+        ? Object.values(city.i18n).map((value) => this.normalizeGeoKey(String(value ?? "")))
+        : [];
+    const aliasValues = Array.isArray(city.normalizedAliases)
+      ? city.normalizedAliases.map((value) => this.normalizeGeoKey(value))
+      : [];
+
+    return Array.from(
+      new Set(
+        [
+          this.normalizeGeoKey(city.normalizedName),
+          this.normalizeGeoKey(city.name),
+          this.normalizeGeoKey(city.key?.replace(/_/g, " ")),
+          ...aliasValues,
+          ...i18nValues,
+        ].filter((value) => value.length > 0),
+      ),
+    );
+  }
+
+  private scoreCitySearchMatch(city: Partial<CityDocument>, tokens: CitySearchTokens): number {
+    let score = 0;
+    const postalCodes = this.getCitySearchPostalCodes(city);
+    const nameTokens = this.getCitySearchNameTokens(city);
+
+    if (tokens.postalToken) {
+      if (postalCodes.some((postalCode) => postalCode === tokens.postalToken)) {
+        score += 500;
+      } else if (postalCodes.some((postalCode) => postalCode.startsWith(tokens.postalToken))) {
+        score += 320;
+      }
+    }
+
+    if (tokens.nameToken) {
+      const exactNameMatch = nameTokens.some((token) => token === tokens.nameToken);
+      const prefixNameMatch = nameTokens.some((token) => token.startsWith(tokens.nameToken));
+
+      if (exactNameMatch) {
+        score += 220;
+      } else if (prefixNameMatch) {
+        score += 160;
+      }
+    }
+
+    if (!tokens.nameToken && !tokens.postalToken && tokens.normalizedQuery) {
+      if (nameTokens.some((token) => token === tokens.normalizedQuery)) {
+        score += 180;
+      } else if (nameTokens.some((token) => token.startsWith(tokens.normalizedQuery))) {
+        score += 120;
+      }
+    }
+
+    const population = typeof city.population === "number" ? city.population : 0;
+    if (population > 0) {
+      score += Math.min(60, Math.round(Math.log10(population + 1) * 10));
+    }
+
+    const sortOrder = typeof city.sortOrder === "number" ? city.sortOrder : 0;
+    score += Math.max(0, 20 - Math.min(sortOrder, 20));
+
+    return score;
+  }
+
+  private buildActivityLookupQuery(refs: NormalizedCityGeoReference[]): Record<string, unknown> | null {
+    const cityIds = Array.from(
+      new Set(
+        refs
+          .map((ref) => ref.cityId)
+          .filter(
+            (cityId): cityId is string =>
+              typeof cityId === "string"
+              && cityId.length > 0
+              && Types.ObjectId.isValid(cityId),
+          ),
+      ),
+    );
+    const geoTokens = Array.from(
+      new Set(
+        refs.flatMap((ref) => [ref.citySlug, ref.cityName]).filter((token) => token.length > 0),
+      ),
+    );
+    const keyTokens = Array.from(new Set(geoTokens.map((token) => this.toCatalogKeyToken(token))));
+
+    const conditions: Record<string, unknown>[] = [];
+    if (cityIds.length > 0) {
+      conditions.push({ _id: { $in: cityIds } });
+    }
+    if (keyTokens.length > 0) {
+      conditions.push({ key: { $in: keyTokens } });
+    }
+    if (geoTokens.length > 0) {
+      conditions.push({ normalizedName: { $in: geoTokens } });
+      conditions.push({ normalizedAliases: { $in: geoTokens } });
+    }
+
+    if (conditions.length === 0) return null;
+
+    const countryCodes = Array.from(new Set(refs.map((ref) => ref.countryCode)));
+    return {
+      isActive: true,
+      ...(countryCodes.length === 1
+        ? { countryCode: countryCodes[0] }
+        : { countryCode: { $in: countryCodes } }),
+      $or: conditions,
+    };
+  }
+
+  async resolveCityByName(name: string, countryCode?: string): Promise<CityDocument | null> {
+    const normalizedName = this.normalizeGeoKey(name);
+    if (!normalizedName) return null;
+
+    const filter: Record<string, unknown> = { isActive: true };
+    if (countryCode && countryCode.trim().length > 0) {
+      filter.countryCode = countryCode.trim().toUpperCase();
+    }
+
+    return this.cityModel
+      .findOne({
+        ...filter,
+        $or: [
+          { normalizedName },
+          { normalizedAliases: normalizedName },
+          { key: normalizedName.replace(/\s+/g, "_") },
+        ],
+      })
+      .exec();
+  }
+
+  async searchCities(query: string, limit = 10, countryCode?: string): Promise<CityDocument[]> {
+    const tokens = this.extractSearchTokens(query);
+    if (!tokens.normalizedQuery && !tokens.postalToken) return [];
+
+    const safeLimit = Math.max(1, Math.min(50, Math.round(limit || 10)));
+    const filter = this.buildActiveFilter(countryCode);
+    const candidateLimit = Math.min(100, Math.max(safeLimit * 4, 12));
+    const lookups: Promise<CityDocument[]>[] = [];
+
+    if (tokens.postalToken) {
+      const postalPrefix = new RegExp(`^${this.escapeRegex(tokens.postalToken)}`);
+      lookups.push(
+        this.cityModel
+          .find({
+            ...filter,
+            postalCodes: postalPrefix,
+          })
+          .sort({ sortOrder: 1, population: -1, normalizedName: 1 })
+          .limit(candidateLimit)
+          .exec(),
+      );
+    }
+
+    const nameQuery = tokens.nameToken || (!tokens.postalToken ? tokens.normalizedQuery : "");
+    if (nameQuery) {
+      const prefix = new RegExp(`^${this.escapeRegex(nameQuery)}`, "i");
+      lookups.push(
+        this.cityModel
+          .find({
+            ...filter,
+            $or: [{ normalizedName: prefix }, { normalizedAliases: prefix }],
+          })
+          .sort({ sortOrder: 1, population: -1, normalizedName: 1 })
+          .limit(candidateLimit)
+          .exec(),
+      );
+    }
+
+    const resultSets = await Promise.all(lookups);
+    const unique = new Map<string, CityDocument>();
+    for (const resultSet of resultSets) {
+      for (const city of resultSet) {
+        const cityId = city._id.toString();
+        if (!unique.has(cityId)) {
+          unique.set(cityId, city);
+        }
+      }
+    }
+
+    return Array.from(unique.values())
+      .sort((left, right) => {
+        const scoreDelta = this.scoreCitySearchMatch(right, tokens) - this.scoreCitySearchMatch(left, tokens);
+        if (scoreDelta !== 0) return scoreDelta;
+
+        const leftSortOrder = typeof left.sortOrder === "number" ? left.sortOrder : 0;
+        const rightSortOrder = typeof right.sortOrder === "number" ? right.sortOrder : 0;
+        if (leftSortOrder !== rightSortOrder) return leftSortOrder - rightSortOrder;
+
+        const leftPopulation = typeof left.population === "number" ? left.population : 0;
+        const rightPopulation = typeof right.population === "number" ? right.population : 0;
+        if (leftPopulation !== rightPopulation) return rightPopulation - leftPopulation;
+
+        const leftName = this.normalizeGeoKey(left.name ?? left.normalizedName ?? left.key);
+        const rightName = this.normalizeGeoKey(right.name ?? right.normalizedName ?? right.key);
+        return leftName.localeCompare(rightName);
+      })
+      .slice(0, safeLimit);
+  }
+
+  async getNearbyCities(params: NearbyCityParams): Promise<CityDocument[]> {
+    const anchor = await this.getById(params.cityId);
+    if (!anchor || !anchor.location?.coordinates) return [];
+
+    const radiusKm = Math.max(1, params.radiusKm ?? 50);
+    const limit = Math.max(1, Math.min(100, Math.round(params.limit ?? 20)));
+    const filter: Record<string, unknown> = {
+      isActive: true,
+      _id: { $ne: anchor._id },
+      location: {
+        $nearSphere: {
+          $geometry: anchor.location,
+          $maxDistance: radiusKm * 1000,
+        },
+      },
+    };
+    if (params.countryCode && params.countryCode.trim().length > 0) {
+      filter.countryCode = params.countryCode.trim().toUpperCase();
+    }
+
+    return this.cityModel
+      .find(filter)
+      .limit(limit)
+      .exec();
+  }
+
   async resolveActivityCoords(
     refs: CityGeoReference[],
   ): Promise<Map<string, CityGeoResolution>> {
@@ -106,14 +435,14 @@ export class CitiesService {
         cityName: this.normalizeGeoKey(ref.cityName),
         countryCode: (ref.countryCode ?? "").trim().toUpperCase() || "DE",
       }))
-      .filter((ref) => ref.citySlug.length > 0);
+      .filter((ref) => ref.cityId !== null || ref.citySlug.length > 0 || ref.cityName.length > 0);
 
     if (normalizedRefs.length === 0) return new Map();
 
-    const countryCodes = Array.from(new Set(normalizedRefs.map((ref) => ref.countryCode)));
-    const cities = await this.cityModel
-      .find(countryCodes.length === 1 ? { countryCode: countryCodes[0] } : { countryCode: { $in: countryCodes } })
-      .exec();
+    const lookupQuery = this.buildActivityLookupQuery(normalizedRefs);
+    if (!lookupQuery) return new Map();
+
+    const cities = await this.cityModel.find(lookupQuery).exec();
 
     const byId = new Map<string, CityDocument>();
     const byGeoKey = new Map<string, CityDocument>();
@@ -136,6 +465,8 @@ export class CitiesService {
 
     const resolved = new Map<string, CityGeoResolution>();
     for (const ref of normalizedRefs) {
+      const resultKey = ref.citySlug || ref.cityName || ref.cityId || "";
+      if (!resultKey) continue;
       const city =
         (ref.cityId ? byId.get(ref.cityId) : undefined) ??
         byGeoKey.get(ref.citySlug) ??
@@ -149,7 +480,7 @@ export class CitiesService {
       const coords = catalogCoords ?? fallbackCoords ?? null;
       const resolvedCityId = city?._id?.toString?.();
 
-      resolved.set(ref.citySlug, {
+      resolved.set(resultKey, {
         cityId:
           typeof resolvedCityId === "string" && resolvedCityId.trim().length > 0
             ? resolvedCityId
@@ -175,6 +506,7 @@ export class CitiesService {
     const rawName = (name ?? "").trim();
     if (!rawName) throw new BadRequestException("cityName is required");
 
+    const normalizedName = this.normalizeGeoKey(rawName);
     const baseKey = this.normalizeKey(rawName);
     if (!baseKey) throw new BadRequestException("cityName is invalid");
 
@@ -195,8 +527,18 @@ export class CitiesService {
 
     return this.cityModel.create({
       key,
+      source: "manual",
+      sourceId: null,
       name: rawName,
+      normalizedName,
+      aliases: [rawName],
+      normalizedAliases: normalizedName ? [normalizedName] : [],
+      stateCode: null,
+      stateName: null,
+      districtName: null,
+      postalCodes: [],
       countryCode: country,
+      population: null,
       lat: null,
       lng: null,
       isActive: false,

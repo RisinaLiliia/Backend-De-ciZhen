@@ -108,6 +108,8 @@ type RankedCityOpportunityCandidate = {
 @Injectable()
 export class WorkspaceStatisticsService {
   private static readonly CATEGORY_RESPONSE_LIMIT = 50;
+  private static readonly CITY_LIST_DEFAULT_LIMIT = 10;
+  private static readonly CITY_LIST_MAX_LIMIT = 50;
   private static readonly ALL_CITIES_LABEL = 'Alle Städte';
   private static readonly ALL_CATEGORIES_LABEL = 'Alle Kategorien';
   private static readonly ALL_REGIONS_LABEL = 'Alle Regionen';
@@ -142,9 +144,23 @@ export class WorkspaceStatisticsService {
         regionId: null,
         categoryKey: null,
         subcategoryKey: null,
+        citiesPage: 1,
+        citiesLimit: WorkspaceStatisticsService.CITY_LIST_DEFAULT_LIMIT,
         viewerMode: null,
       };
     }
+
+    const citiesPage =
+      typeof query.citiesPage === 'number' && Number.isFinite(query.citiesPage)
+        ? Math.max(1, Math.trunc(query.citiesPage))
+        : 1;
+    const citiesLimit =
+      typeof query.citiesLimit === 'number' && Number.isFinite(query.citiesLimit)
+        ? Math.min(
+            WorkspaceStatisticsService.CITY_LIST_MAX_LIMIT,
+            Math.max(1, Math.trunc(query.citiesLimit)),
+          )
+        : WorkspaceStatisticsService.CITY_LIST_DEFAULT_LIMIT;
 
     return {
       range: this.resolveRange(query.range),
@@ -152,6 +168,8 @@ export class WorkspaceStatisticsService {
       regionId: this.normalizeScopeFilter(query.regionId),
       categoryKey: this.normalizeScopeFilter(query.categoryKey)?.toLowerCase() ?? null,
       subcategoryKey: this.normalizeScopeFilter(query.subcategoryKey)?.toLowerCase() ?? null,
+      citiesPage,
+      citiesLimit,
       viewerMode: query.viewerMode ?? null,
     };
   }
@@ -1738,6 +1756,35 @@ export class WorkspaceStatisticsService {
     });
   }
 
+  private paginateCityList(params: {
+    cities: WorkspaceStatisticsCityDemandDto[];
+    page: number;
+    limit: number;
+  }): {
+    items: WorkspaceStatisticsCityDemandDto[];
+    page: number;
+    limit: number;
+    totalItems: number;
+    totalPages: number;
+  } {
+    const totalItems = params.cities.length;
+    const limit = Math.min(
+      WorkspaceStatisticsService.CITY_LIST_MAX_LIMIT,
+      Math.max(1, Math.trunc(params.limit)),
+    );
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+    const page = Math.min(totalPages, Math.max(1, Math.trunc(params.page)));
+    const startIndex = (page - 1) * limit;
+
+    return {
+      items: params.cities.slice(startIndex, startIndex + limit),
+      page,
+      limit,
+      totalItems,
+      totalPages,
+    };
+  }
+
   private selectScopedCityRows(params: {
     rankedCandidates: RankedCityOpportunityCandidate[];
     cityId: string | null;
@@ -2256,7 +2303,16 @@ export class WorkspaceStatisticsService {
     userId?: string | null,
     role?: AppRole | null,
   ): Promise<WorkspaceStatisticsOverviewResponseDto> {
-    const { range, cityId, regionId, categoryKey, subcategoryKey, viewerMode: requestedViewerMode } = this.resolveFilters(query);
+    const {
+      range,
+      cityId,
+      regionId,
+      categoryKey,
+      subcategoryKey,
+      citiesPage,
+      citiesLimit,
+      viewerMode: requestedViewerMode,
+    } = this.resolveFilters(query);
     const { start, end } = this.resolveWindow(range);
     const filterOptionsRange = this.resolveFilterOptionsRange(range);
     const { start: filterOptionsStart, end: filterOptionsEnd } =
@@ -4318,6 +4374,11 @@ export class WorkspaceStatisticsService {
       : null;
 
     cities = scopedCityMarket.cities;
+    const cityList = this.paginateCityList({
+      cities,
+      page: citiesPage,
+      limit: citiesLimit,
+    });
     opportunityRadar = this.buildOpportunityRadarFromCluster({
       cluster: scopedCityMarket.opportunityCluster,
       focusCityId: cityId,
@@ -4777,6 +4838,7 @@ export class WorkspaceStatisticsService {
       demand: {
         categories,
         cities,
+        cityList,
       },
       opportunityRadar,
       priceIntelligence,

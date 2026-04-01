@@ -1,5 +1,5 @@
 # ---------- builder ----------
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package*.json ./
@@ -9,12 +9,13 @@ COPY . .
 RUN npm run build
 
 # ---------- runner ----------
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV SWAGGER_ENABLED=false
 
 # security: run as non-root
-RUN addgroup -S app && adduser -S app -G app
+RUN groupadd --system app && useradd --system --gid app app
 
 COPY package*.json ./
 RUN npm ci --omit=dev

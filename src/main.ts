@@ -20,6 +20,8 @@ async function bootstrap() {
   const logger = new Logger("Bootstrap");
 
   const isProd = config.get<string>("app.nodeEnv") === "production";
+  const swaggerEnabled = config.get<boolean>("app.swaggerEnabled") ?? !isProd;
+  const swaggerPath = config.get<string>("app.swaggerPath") ?? "docs";
   const trustProxyRaw = String(config.get<string | number | boolean>("app.trustProxy") ?? "0").trim();
   const trustProxyLower = trustProxyRaw.toLowerCase();
   if (trustProxyLower === "true") {
@@ -71,27 +73,32 @@ async function bootstrap() {
 
   app.useGlobalFilters(new GlobalExceptionFilter(!isProd));
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle("De’ciZhen API")
-    .setDescription("Interactive API documentation")
-    .setVersion("1.0.0")
-    .addBearerAuth({ type: "http", scheme: "bearer", bearerFormat: "JWT" }, "access-token")
-    .addCookieAuth(
-      "refreshToken",
-      {
-        type: "apiKey",
-        in: "cookie",
-        name: "refreshToken",
-      },
-      "refreshToken",
-    )
-    .addSecurityRequirements("access-token")
-    .build();
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle("De’ciZhen API")
+      .setDescription("Interactive API documentation")
+      .setVersion("1.0.0")
+      .addBearerAuth({ type: "http", scheme: "bearer", bearerFormat: "JWT" }, "access-token")
+      .addCookieAuth(
+        "refreshToken",
+        {
+          type: "apiKey",
+          in: "cookie",
+          name: "refreshToken",
+        },
+        "refreshToken",
+      )
+      .addSecurityRequirements("access-token")
+      .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup("docs", app, document, {
-    swaggerOptions: { persistAuthorization: true },
-  });
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup(swaggerPath, app, document, {
+      swaggerOptions: { persistAuthorization: true },
+    });
+    logger.log(`Swagger docs enabled at /${swaggerPath}`);
+  } else {
+    logger.log("Swagger docs disabled for this runtime");
+  }
 
 
   const port = Number(process.env.PORT ?? config.get<number>("app.port") ?? 3000);
