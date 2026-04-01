@@ -7,6 +7,7 @@ export default registerAs("app", () => ({
 
   mongoUri: process.env.MONGO_URI,
   mongoDbName: process.env.MONGO_DB_NAME ?? "decizhen",
+  mongoServerSelectionTimeoutMs: Number(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS ?? 30000),
 
   jwtSecret: process.env.JWT_SECRET,
   frontendUrl: process.env.FRONTEND_URL,
@@ -56,6 +57,8 @@ export default registerAs("app", () => ({
   geocodeCacheTtlSeconds: Number(process.env.GEOCODE_CACHE_TTL_SECONDS ?? 3600),
 
   presenceTtlSeconds: Number(process.env.PRESENCE_TTL_SECONDS ?? 60),
+  geoNamesImportRetryAttempts: Number(process.env.GEONAMES_IMPORT_RETRY_ATTEMPTS ?? 5),
+  geoNamesImportRetryBaseDelayMs: Number(process.env.GEONAMES_IMPORT_RETRY_BASE_DELAY_MS ?? 1000),
 
   searchAnalyticsBucketSeconds: Number(process.env.SEARCH_ANALYTICS_BUCKET_SECONDS ?? 900),
   searchAnalyticsDedupeTtlSeconds: Number(process.env.SEARCH_ANALYTICS_DEDUPE_TTL_SECONDS ?? 1020),

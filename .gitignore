@@ -55,3 +55,14 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
+
+# local data (imports, dumps)
+data/
+
+# geonames / raw datasets
+*.txt
+*.zip
+*.tsv
+
+# optional temp
+tmp/

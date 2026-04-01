@@ -10,7 +10,9 @@ import { ConfigService } from "@nestjs/config";
       useFactory: (config: ConfigService) => ({
         uri: config.get<string>("app.mongoUri"),
         dbName: config.get<string>("app.mongoDbName") ?? "decizhen",
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: Number(
+          config.get<number>("app.mongoServerSelectionTimeoutMs") ?? 30000,
+        ),
       }),
     }),
   ],

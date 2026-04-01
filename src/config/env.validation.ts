@@ -7,6 +7,7 @@ export const envValidationSchema = Joi.object({
 
   MONGO_URI: Joi.string().required(),
   MONGO_DB_NAME: Joi.string().default("decizhen"),
+  MONGO_SERVER_SELECTION_TIMEOUT_MS: Joi.number().min(1000).default(30000),
 
   JWT_SECRET: Joi.string().min(32).required(),
   FRONTEND_URL: Joi.string().uri().optional(),
@@ -56,6 +57,8 @@ export const envValidationSchema = Joi.object({
   GEOCODE_CACHE_TTL_SECONDS: Joi.number().min(0).optional(),
 
   PRESENCE_TTL_SECONDS: Joi.number().min(5).max(3600).optional(),
+  GEONAMES_IMPORT_RETRY_ATTEMPTS: Joi.number().min(1).max(20).optional(),
+  GEONAMES_IMPORT_RETRY_BASE_DELAY_MS: Joi.number().min(100).max(60000).optional(),
 
   SEARCH_ANALYTICS_BUCKET_SECONDS: Joi.number().min(60).max(86400).optional(),
   SEARCH_ANALYTICS_DEDUPE_TTL_SECONDS: Joi.number().min(60).max(172800).optional(),

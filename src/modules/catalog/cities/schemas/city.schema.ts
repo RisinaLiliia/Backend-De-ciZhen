@@ -61,9 +61,11 @@ export class City {
 
   @Prop({
     type: {
-      type: { type: String, enum: ["Point"] },
-      coordinates: { type: [Number] },
+      type: String,
+      enum: ["Point"],
     },
+    coordinates: { type: [Number] },
+    _id: false,
   })
   location?: GeoPoint | null;
 
