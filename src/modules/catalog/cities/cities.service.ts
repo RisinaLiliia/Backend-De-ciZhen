@@ -55,16 +55,52 @@ type NearbyCityParams = {
 export class CitiesService {
   constructor(@InjectModel(City.name) private readonly cityModel: Model<CityDocument>) {}
 
-  async listActive(countryCode?: string): Promise<CityDocument[]> {
+  private buildActiveFilter(countryCode?: string): Record<string, unknown> {
     const filter: Record<string, unknown> = { isActive: true };
 
     if (countryCode && countryCode.trim().length > 0) {
       filter.countryCode = countryCode.trim().toUpperCase();
     }
 
+    return filter;
+  }
+
+  async listActive(countryCode?: string, limit?: number): Promise<CityDocument[]> {
+    const filter = this.buildActiveFilter(countryCode);
+    const safeLimit =
+      typeof limit === "number"
+        ? Math.max(1, Math.min(100, Math.round(limit)))
+        : null;
+
+    const query = this.cityModel
+      .find(filter)
+      .sort({ sortOrder: 1, population: -1, "i18n.en": 1, name: 1 });
+
+    if (safeLimit !== null) {
+      query.limit(safeLimit);
+    }
+
+    return query.exec();
+  }
+
+  async listByIds(ids: string[], countryCode?: string): Promise<CityDocument[]> {
+    const normalizedIds = Array.from(
+      new Set(
+        ids
+          .map((id) => String(id ?? "").trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+    if (normalizedIds.length === 0) return [];
+
+    const filter: Record<string, unknown> = {
+      ...this.buildActiveFilter(countryCode),
+      _id: { $in: normalizedIds },
+    };
+
     return this.cityModel
       .find(filter)
-      .sort({ sortOrder: 1, "i18n.en": 1, name: 1 })
+      .sort({ sortOrder: 1, population: -1, "i18n.en": 1, name: 1 })
       .exec();
   }
 
@@ -147,10 +183,7 @@ export class CitiesService {
     if (!normalizedQuery) return [];
 
     const safeLimit = Math.max(1, Math.min(50, Math.round(limit || 10)));
-    const filter: Record<string, unknown> = { isActive: true };
-    if (countryCode && countryCode.trim().length > 0) {
-      filter.countryCode = countryCode.trim().toUpperCase();
-    }
+    const filter = this.buildActiveFilter(countryCode);
 
     const prefix = new RegExp(`^${this.escapeRegex(normalizedQuery)}`, "i");
     return this.cityModel

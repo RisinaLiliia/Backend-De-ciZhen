@@ -43,7 +43,7 @@ describe("CitiesService", () => {
     await service.listActive();
 
     expect(modelMock.find).toHaveBeenCalledWith({ isActive: true });
-    expect(chain.sort).toHaveBeenCalledWith({ sortOrder: 1, "i18n.en": 1, name: 1 });
+    expect(chain.sort).toHaveBeenCalledWith({ sortOrder: 1, population: -1, "i18n.en": 1, name: 1 });
   });
 
   it("listActive normalizes countryCode to uppercase", async () => {
@@ -52,6 +52,27 @@ describe("CitiesService", () => {
     await service.listActive("de");
 
     expect(modelMock.find).toHaveBeenCalledWith({ isActive: true, countryCode: "DE" });
+  });
+
+  it("listActive applies a safe limit when requested", async () => {
+    chain.exec.mockResolvedValue([]);
+
+    await service.listActive("de", 999);
+
+    expect(chain.limit).toHaveBeenCalledWith(100);
+  });
+
+  it("listByIds returns only requested active cities", async () => {
+    chain.exec.mockResolvedValue([{ _id: "c1" }]);
+
+    const result = await service.listByIds([" c1 ", "", "c2", "c1"], "de");
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      isActive: true,
+      countryCode: "DE",
+      _id: { $in: ["c1", "c2"] },
+    });
+    expect(result).toEqual([{ _id: "c1" }]);
   });
 
   it("resolveActivityCoords returns catalog coordinates when present", async () => {
