@@ -89,5 +89,6 @@ CitySchema.index(
   },
 );
 CitySchema.index({ normalizedName: 1, countryCode: 1 });
+CitySchema.index({ isActive: 1, countryCode: 1, postalCodes: 1 });
 CitySchema.index({ location: "2dsphere" }, { sparse: true });
 CitySchema.index({ isActive: 1, countryCode: 1, sortOrder: 1, "i18n.en": 1, name: 1 });

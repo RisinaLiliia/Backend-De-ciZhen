@@ -64,6 +64,8 @@ Domain modules are organized by business responsibility:
   - `categoryKey=<category-key>` optional focus
   - `regionId=<region-id>` optional contract field; currently informational until region-level aggregation is available
   - `viewerMode=provider|customer` optional personalized perspective for authenticated Analyse
+  - `citiesPage=<n>` optional server-owned page for `Staedte & Regionen`
+  - `citiesLimit=1..50` optional page size for `Staedte & Regionen`
   - guest -> `mode=platform` with platform-level KPI/demand/funnel
   - authenticated -> `mode=personalized` with private KPI/funnel fields
   - all analytics blocks are now returned from one server-side source of truth for the selected context
@@ -364,8 +366,20 @@ npm run swagger
 - `npm run swagger`
 - `npm run security:audit`
 - `npm run seed:cities`
+- `npm run import:cities:geonames -- /path/to/DE.txt`
+- `npm run import:cities:postal:geonames -- /path/to/DE.txt`
+- `npm run migrate:cities:state-labels`
 - `npm run seed:services`
 - `npm run seed:demo`
+
+## Catalog Data Workflow
+- GeoNames city import seeds the base city catalog and search aliases.
+- GeoNames postal import enriches existing city documents with `postalCodes[]` for ZIP-first autocomplete and mixed queries like `10115 Berlin`.
+- `migrate:cities:state-labels` fixes legacy German state labels after older imports.
+- Recommended order for a fresh Germany catalog:
+  1. `npm run import:cities:geonames -- ./data/geonames/DE.txt`
+  2. `npm run import:cities:postal:geonames -- ./data/geonames-postal/DE.txt`
+  3. `npm run migrate:cities:state-labels`
 
 ## Security Notes
 - Do not commit `.env`.

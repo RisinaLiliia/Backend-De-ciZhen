@@ -23,7 +23,7 @@ export class CitiesListQueryDto {
   @IsString()
   countryCode?: string;
 
-  @ApiPropertyOptional({ example: "ber" })
+  @ApiPropertyOptional({ example: "10115 Berlin" })
   @IsOptional()
   @IsString()
   q?: string;

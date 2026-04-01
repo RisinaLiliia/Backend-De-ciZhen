@@ -1,4 +1,5 @@
 import {
+  GEO_NAMES_DE_STATE_LABELS,
   cityIdentityKey,
   isRetryableMongoError,
   mergeCities,
@@ -37,6 +38,15 @@ describe('import-geonames-cities', () => {
     expect(merged.aliases).toEqual(
       expect.arrayContaining(['Zwochau', 'Gut Zwochau', 'Cvokhau', 'Grebehna', 'Zwochau vald', 'ci wo hao']),
     );
+  });
+
+  it('maps GeoNames Germany admin1 codes to the correct state labels', () => {
+    expect(GEO_NAMES_DE_STATE_LABELS['04']).toBe('Hamburg');
+    expect(GEO_NAMES_DE_STATE_LABELS['05']).toBe('Hessen');
+    expect(GEO_NAMES_DE_STATE_LABELS['07']).toBe('Nordrhein-Westfalen');
+    expect(GEO_NAMES_DE_STATE_LABELS['10']).toBe('Schleswig-Holstein');
+    expect(GEO_NAMES_DE_STATE_LABELS['11']).toBe('Brandenburg');
+    expect(GEO_NAMES_DE_STATE_LABELS['16']).toBe('Berlin');
   });
 
   it('adds a suffix when normalized key collides with another city', async () => {

@@ -4,6 +4,11 @@ import { registerAs } from "@nestjs/config";
 export default registerAs("app", () => ({
   nodeEnv: process.env.NODE_ENV,
   port: Number(process.env.PORT),
+  swaggerEnabled:
+    process.env.SWAGGER_ENABLED === undefined
+      ? process.env.NODE_ENV !== "production"
+      : process.env.SWAGGER_ENABLED === "true",
+  swaggerPath: process.env.SWAGGER_PATH ?? "docs",
 
   mongoUri: process.env.MONGO_URI,
   mongoDbName: process.env.MONGO_DB_NAME ?? "decizhen",

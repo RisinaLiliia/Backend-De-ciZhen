@@ -40,6 +40,9 @@ export class CityResponseDto {
   @ApiProperty({ example: "Berlin", nullable: true })
   districtName: string | null;
 
+  @ApiProperty({ example: ["10115", "10117"] })
+  postalCodes: string[];
+
   @ApiProperty({ example: 3669491, nullable: true })
   population: number | null;
 

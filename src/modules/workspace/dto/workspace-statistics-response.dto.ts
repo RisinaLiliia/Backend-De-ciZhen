@@ -393,12 +393,32 @@ export class WorkspaceStatisticsCityDemandDto {
   peerContext?: WorkspaceStatisticsOpportunityPeerContextDto | null;
 }
 
+export class WorkspaceStatisticsCityListDto {
+  @ApiProperty({ type: WorkspaceStatisticsCityDemandDto, isArray: true })
+  items: WorkspaceStatisticsCityDemandDto[];
+
+  @ApiProperty({ example: 1 })
+  page: number;
+
+  @ApiProperty({ example: 10 })
+  limit: number;
+
+  @ApiProperty({ example: 27 })
+  totalItems: number;
+
+  @ApiProperty({ example: 3 })
+  totalPages: number;
+}
+
 export class WorkspaceStatisticsDemandDto {
   @ApiProperty({ type: WorkspaceStatisticsCategoryDemandDto, isArray: true })
   categories: WorkspaceStatisticsCategoryDemandDto[];
 
   @ApiProperty({ type: WorkspaceStatisticsCityDemandDto, isArray: true })
   cities: WorkspaceStatisticsCityDemandDto[];
+
+  @ApiPropertyOptional({ type: WorkspaceStatisticsCityListDto })
+  cityList?: WorkspaceStatisticsCityListDto;
 }
 
 export class WorkspaceStatisticsOpportunityMetricDto {

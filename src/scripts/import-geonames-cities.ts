@@ -93,23 +93,23 @@ const POPULATED_FEATURE_CODES = new Set([
   'STLMT',
 ]);
 
-const STATE_LABELS: Record<string, string> = {
+export const GEO_NAMES_DE_STATE_LABELS: Record<string, string> = {
   '01': 'Baden-Württemberg',
   '02': 'Bayern',
-  '03': 'Berlin',
-  '04': 'Brandenburg',
-  '05': 'Bremen',
-  '06': 'Hamburg',
-  '07': 'Hessen',
-  '08': 'Mecklenburg-Vorpommern',
-  '09': 'Niedersachsen',
-  '10': 'Nordrhein-Westfalen',
-  '11': 'Rheinland-Pfalz',
-  '12': 'Saarland',
+  '03': 'Bremen',
+  '04': 'Hamburg',
+  '05': 'Hessen',
+  '06': 'Niedersachsen',
+  '07': 'Nordrhein-Westfalen',
+  '08': 'Rheinland-Pfalz',
+  '09': 'Saarland',
+  '10': 'Schleswig-Holstein',
+  '11': 'Brandenburg',
+  '12': 'Mecklenburg-Vorpommern',
   '13': 'Sachsen',
   '14': 'Sachsen-Anhalt',
-  '15': 'Schleswig-Holstein',
-  '16': 'Thüringen',
+  '15': 'Thüringen',
+  '16': 'Berlin',
 };
 
 const SCAN_PROGRESS_EVERY = 10000;
@@ -197,7 +197,7 @@ export async function withMongoRetry<T>(
   }
 }
 
-function normalizeSearchName(value: string): string {
+export function normalizeSearchName(value: string): string {
   return value
     .replace(/ß/g, 'ss')
     .replace(/ä/gi, (match) => (match === 'Ä' ? 'Ae' : 'ae'))
@@ -268,7 +268,7 @@ export function toImportedCity(row: GeoNamesRow): ImportAccumulator | null {
     i18n: { de: name, en: row.asciiName || name },
     countryCode: row.countryCode,
     stateCode: row.admin1Code || null,
-    stateName: STATE_LABELS[row.admin1Code] ?? null,
+    stateName: GEO_NAMES_DE_STATE_LABELS[row.admin1Code] ?? null,
     districtName: row.admin2Code || null,
     postalCodes: [],
     population: row.population,

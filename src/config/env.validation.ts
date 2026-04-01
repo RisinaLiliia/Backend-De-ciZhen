@@ -4,6 +4,8 @@ import * as Joi from "joi";
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid("development", "test", "production").required(),
   PORT: Joi.number().required(),
+  SWAGGER_ENABLED: Joi.string().valid("true", "false").optional(),
+  SWAGGER_PATH: Joi.string().trim().min(1).optional(),
 
   MONGO_URI: Joi.string().required(),
   MONGO_DB_NAME: Joi.string().default("decizhen"),

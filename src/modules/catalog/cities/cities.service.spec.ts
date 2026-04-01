@@ -92,7 +92,16 @@ describe("CitiesService", () => {
       { cityId: "c1", citySlug: "berlin", cityName: "Berlin", countryCode: "de" },
     ]);
 
-    expect(modelMock.find).toHaveBeenCalledWith({ countryCode: "DE" });
+    expect(modelMock.find).toHaveBeenCalledWith({
+      isActive: true,
+      countryCode: "DE",
+      $or: [
+        { _id: { $in: ["c1"] } },
+        { key: { $in: ["berlin"] } },
+        { normalizedName: { $in: ["berlin"] } },
+        { normalizedAliases: { $in: ["berlin"] } },
+      ],
+    });
     expect(result.get("berlin")).toEqual({
       cityId: "c1",
       lat: 52.52,
@@ -121,6 +130,25 @@ describe("CitiesService", () => {
       cityId: "c2",
       lat: 49.4875,
       lng: 8.466,
+    });
+  });
+
+  it("resolveActivityCoords queries only referenced tokens without loading the full country catalog", async () => {
+    chain.exec.mockResolvedValue([]);
+
+    await service.resolveActivityCoords([
+      { citySlug: "baden baden", cityName: "Baden-Baden", countryCode: "de" },
+      { citySlug: "mannheim", cityName: "Mannheim", countryCode: "de" },
+    ]);
+
+    expect(modelMock.find).toHaveBeenCalledWith({
+      isActive: true,
+      countryCode: "DE",
+      $or: [
+        { key: { $in: ["baden_baden", "mannheim"] } },
+        { normalizedName: { $in: ["baden baden", "mannheim"] } },
+        { normalizedAliases: { $in: ["baden baden", "mannheim"] } },
+      ],
     });
   });
 
@@ -157,8 +185,77 @@ describe("CitiesService", () => {
       ],
     });
     expect(chain.sort).toHaveBeenCalledWith({ sortOrder: 1, population: -1, normalizedName: 1 });
-    expect(chain.limit).toHaveBeenCalledWith(5);
+    expect(chain.limit).toHaveBeenCalledWith(20);
     expect(result).toEqual([{ _id: "c1", normalizedName: "baden baden" }]);
+  });
+
+  it("searchCities supports postal code lookups and prioritizes exact postal matches", async () => {
+    chain.exec
+      .mockResolvedValueOnce([
+        {
+          _id: { toString: () => "c2" },
+          key: "berlin_mitte",
+          name: "Berlin",
+          normalizedName: "berlin",
+          normalizedAliases: [],
+          i18n: { de: "Berlin" },
+          postalCodes: ["10115"],
+          population: 10,
+          sortOrder: 2,
+        },
+        {
+          _id: { toString: () => "c1" },
+          key: "berlin_alt",
+          name: "Berlin",
+          normalizedName: "berlin",
+          normalizedAliases: [],
+          i18n: { de: "Berlin" },
+          postalCodes: ["1011"],
+          population: 10,
+          sortOrder: 1,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          _id: { toString: () => "c1" },
+          key: "berlin_alt",
+          name: "Berlin",
+          normalizedName: "berlin",
+          normalizedAliases: [],
+          i18n: { de: "Berlin" },
+          postalCodes: ["1011"],
+          population: 10,
+          sortOrder: 1,
+        },
+        {
+          _id: { toString: () => "c2" },
+          key: "berlin_mitte",
+          name: "Berlin",
+          normalizedName: "berlin",
+          normalizedAliases: [],
+          i18n: { de: "Berlin" },
+          postalCodes: ["10115"],
+          population: 10,
+          sortOrder: 2,
+        },
+      ]);
+
+    const result = await service.searchCities("10115 Berlin", 5, "DE");
+
+    expect(modelMock.find).toHaveBeenNthCalledWith(1, {
+      isActive: true,
+      countryCode: "DE",
+      postalCodes: /^10115/,
+    });
+    expect(modelMock.find).toHaveBeenNthCalledWith(2, {
+      isActive: true,
+      countryCode: "DE",
+      $or: [
+        { normalizedName: /^berlin/i },
+        { normalizedAliases: /^berlin/i },
+      ],
+    });
+    expect(result.map((city) => city._id.toString())).toEqual(["c2", "c1"]);
   });
 
   it("getNearbyCities queries by 2dsphere location", async () => {

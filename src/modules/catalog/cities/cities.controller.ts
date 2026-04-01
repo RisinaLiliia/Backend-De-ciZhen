@@ -31,6 +31,9 @@ export class CitiesController {
       stateCode: typeof doc.stateCode === "string" ? doc.stateCode : null,
       stateName: typeof doc.stateName === "string" ? doc.stateName : null,
       districtName: typeof doc.districtName === "string" ? doc.districtName : null,
+      postalCodes: Array.isArray(doc.postalCodes)
+        ? doc.postalCodes.map((value: unknown) => String(value ?? "").trim()).filter((value: string) => value.length > 0)
+        : [],
       population: typeof doc.population === "number" ? doc.population : null,
       lat: typeof doc.lat === "number" ? doc.lat : null,
       lng: typeof doc.lng === "number" ? doc.lng : null,
