@@ -89,7 +89,7 @@ async function bootstrap() {
 
   console.log('✓ demo users ready');
 
-  const ensureProviderProfile = async (userId: string, displayName: string, basePrice: number) => {
+  const ensureProviderProfile = async (userId: string, displayName: string, basePrice: number, bio: string) => {
     const existing = await providerModel.findOne({ userId }).exec();
     if (existing) {
       await providerModel
@@ -98,6 +98,7 @@ async function bootstrap() {
           {
             $set: {
               displayName: existing.displayName ?? displayName,
+              bio: existing.bio ?? bio,
               status: 'active',
               isBlocked: false,
               blockedAt: null,
@@ -114,6 +115,7 @@ async function bootstrap() {
     return providerModel.create({
       userId,
       displayName,
+      bio,
       legalType: 'individual',
       cityId,
       serviceKeys: [DEMO.serviceKey],
@@ -131,8 +133,18 @@ async function bootstrap() {
     } as any);
   };
 
-  await ensureProviderProfile(p1Id, 'Anna Cleaner', 35);
-  await ensureProviderProfile(p2Id, 'Mila Cleaning', 32);
+  await ensureProviderProfile(
+    p1Id,
+    'Anna Cleaner',
+    35,
+    'Gründliche Wohnungsreinigung mit klarer Kommunikation und flexiblen Zeitfenstern.',
+  );
+  await ensureProviderProfile(
+    p2Id,
+    'Mila Cleaning',
+    32,
+    'Zuverlässige Reinigung mit strukturiertem Ablauf, sauberem Finish und schnellen Rückmeldungen.',
+  );
 
   console.log('✓ provider profiles ready');
 

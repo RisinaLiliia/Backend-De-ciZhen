@@ -11,6 +11,12 @@ export class ProviderPublicDto {
   @ApiPropertyOptional({ example: 'Anna K.', nullable: true })
   displayName: string | null;
 
+  @ApiPropertyOptional({
+    example: 'Spezialisiert auf saubere Ausführung, klare Kommunikation und verlässliche Termine.',
+    nullable: true,
+  })
+  bio?: string | null;
+
   @ApiPropertyOptional({ example: 'https://cdn.example.com/avatars/a.png', nullable: true })
   avatarUrl: string | null;
 

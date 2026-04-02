@@ -34,6 +34,14 @@ const FIRST_NAMES = [
 ];
 
 const LAST_INITIALS = ['K.', 'S.', 'M.', 'B.', 'T.', 'R.', 'W.', 'L.', 'F.', 'H.'];
+const PROVIDER_BIOS = [
+  'Spezialisiert auf saubere Ausführung, klare Absprachen und verlässliche Termine.',
+  'Mehrjährige Praxiserfahrung mit schnellen Rückmeldungen und transparentem Ablauf.',
+  'Arbeitet strukturiert, zuverlässig und mit hohem Qualitätsanspruch im Detail.',
+  'Unterstützt kurzfristig bei passenden Anfragen und kommuniziert proaktiv den Fortschritt.',
+  'Fokussiert auf effiziente Lösungen mit sauberem Finish und fairer Preisstruktur.',
+  'Setzt Anfragen pragmatisch um und hält Kunden mit klaren Updates auf dem Laufenden.',
+];
 
 function readSeedCount() {
   const raw = Number(process.env.SEED_PROVIDERS_COUNT ?? DEFAULT_COUNT);
@@ -57,6 +65,10 @@ function deriveRating(index: number) {
   return { ratingAvg, ratingCount, completedJobs };
 }
 
+function buildProviderBio(index: number) {
+  return PROVIDER_BIOS[index % PROVIDER_BIOS.length]!;
+}
+
 async function bootstrap() {
   process.env.REDIS_DISABLED = process.env.REDIS_DISABLED ?? 'true';
 
@@ -71,10 +83,30 @@ async function bootstrap() {
 
   console.log(`🌱 Seeding providers (${count})...`);
 
-  const [cities, services] = await Promise.all([
-    cityModel.find({ isActive: true }).sort({ sortOrder: 1, key: 1 }).exec(),
-    serviceModel.find({ isActive: true }).sort({ sortOrder: 1, key: 1 }).exec(),
+  const [citiesRaw, servicesRaw] = await Promise.all([
+    cityModel
+      .find({ isActive: true }, { _id: 1, key: 1, sortOrder: 1 })
+      .lean()
+      .exec(),
+    serviceModel
+      .find({ isActive: true }, { _id: 1, key: 1, sortOrder: 1 })
+      .lean()
+      .exec(),
   ]);
+
+  const cities = [...citiesRaw].sort((left: any, right: any) => {
+    const leftSort = Number(left?.sortOrder ?? 0);
+    const rightSort = Number(right?.sortOrder ?? 0);
+    if (leftSort !== rightSort) return leftSort - rightSort;
+    return String(left?.key ?? '').localeCompare(String(right?.key ?? ''));
+  });
+
+  const services = [...servicesRaw].sort((left: any, right: any) => {
+    const leftSort = Number(left?.sortOrder ?? 0);
+    const rightSort = Number(right?.sortOrder ?? 0);
+    if (leftSort !== rightSort) return leftSort - rightSort;
+    return String(left?.key ?? '').localeCompare(String(right?.key ?? ''));
+  });
 
   if (cities.length === 0) {
     throw new Error('No active cities found. Run `npm run seed:cities` first.');
@@ -100,6 +132,7 @@ async function bootstrap() {
 
     const { ratingAvg, ratingCount, completedJobs } = deriveRating(index);
     const basePrice = 35 + ((index * 9) % 120);
+    const bio = buildProviderBio(index);
 
     const existingUser = await userModel.findOne({ email }).exec();
 
@@ -141,6 +174,7 @@ async function bootstrap() {
         {
           $set: {
             displayName,
+            bio,
             avatarUrl: null,
             cityId: String((city as any)._id ?? (city as any).id),
             serviceKeys: [String((service as any).key ?? '')],
@@ -160,7 +194,6 @@ async function bootstrap() {
           $setOnInsert: {
             userId,
             legalType: 'individual',
-            bio: null,
             companyName: null,
             vatId: null,
           },

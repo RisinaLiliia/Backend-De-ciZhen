@@ -67,6 +67,7 @@ export class ProvidersController {
       id: p._id.toString(),
       userId: p.userId,
       displayName: p.displayName ?? null,
+      bio: p.bio ?? null,
       avatarUrl: p.avatarUrl ?? null,
       ratingAvg: p.ratingAvg ?? 0,
       ratingCount: p.ratingCount ?? 0,
