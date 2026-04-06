@@ -607,7 +607,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
 
     const result = await service.getStatisticsOverview('7d', 'user-1', 'provider');
 
-    expect(workspaceMock.getPrivateOverview).toHaveBeenCalledWith('user-1', 'provider');
+    expect(workspaceMock.getPrivateOverview).toHaveBeenCalledWith('user-1', 'provider', '7d');
     expect(result.mode).toBe('personalized');
     expect(result.kpis.requestsTotal).toBe(5);
     expect(result.kpis.completedJobsTotal).toBe(3);

@@ -125,10 +125,12 @@ describe('workspace (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/workspace/private')
+      .query({ period: '30d' })
       .set('Authorization', `Bearer ${account.accessToken}`)
       .expect(200);
 
     expect(res.body.user).toMatchObject({ userId });
+    expect(res.body.preferredRole).toBe('customer');
     expect(res.body.requestsByStatus.total).toBeGreaterThanOrEqual(0);
     expect(res.body.favorites).toHaveProperty('requests');
     expect(res.body.reviews).toHaveProperty('asProvider');

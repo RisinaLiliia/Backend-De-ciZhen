@@ -25,11 +25,20 @@ import type {
 } from './dto/workspace-public-response.dto';
 import type { RequestPublicDto } from '../requests/dto/request-public.dto';
 import type { WorkspacePublicRequestsBatchResponseDto } from './dto/workspace-public-requests-batch.dto';
-import type { WorkspacePrivateOverviewResponseDto } from './dto/workspace-private-response.dto';
+import type {
+  WorkspacePrivateOverviewResponseDto,
+  WorkspacePrivatePreferredRole,
+} from './dto/workspace-private-response.dto';
 
 const REQUEST_STATUSES = ['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'] as const;
 const OFFER_STATUSES = ['sent', 'accepted', 'declined', 'withdrawn'] as const;
 const CONTRACT_STATUSES = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] as const;
+const PRIVATE_OVERVIEW_PERIOD_MS = {
+  '24h': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+  '90d': 90 * 24 * 60 * 60 * 1000,
+} as const;
 
 @Injectable()
 export class WorkspaceService {
@@ -241,6 +250,50 @@ export class WorkspaceService {
     return { kind: 'percent', percent: safe };
   }
 
+  private resolvePrivateOverviewPeriodStart(period: keyof typeof PRIVATE_OVERVIEW_PERIOD_MS): Date {
+    return new Date(Date.now() - PRIVATE_OVERVIEW_PERIOD_MS[period]);
+  }
+
+  private parseActivityAt(value: Date | string | null | undefined): number | null {
+    if (!value) return null;
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+
+  private countItemsWithinPeriod<T extends { updatedAt?: Date | string | null; createdAt?: Date | string | null }>(
+    items: T[],
+    cutoffMs: number,
+  ) {
+    return items.reduce((count, item) => {
+      const activityAt = this.parseActivityAt(item.updatedAt) ?? this.parseActivityAt(item.createdAt);
+      return activityAt !== null && activityAt >= cutoffMs ? count + 1 : count;
+    }, 0);
+  }
+
+  private resolvePrivateOverviewPreferredRole(params: {
+    period: keyof typeof PRIVATE_OVERVIEW_PERIOD_MS;
+    requests: Array<{ createdAt?: Date | string | null }>;
+    providerOffers: Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>;
+    clientOffers: Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>;
+    providerContracts: Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>;
+    clientContracts: Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>;
+    userRole: AppRole;
+  }): WorkspacePrivatePreferredRole {
+    const cutoffMs = this.resolvePrivateOverviewPeriodStart(params.period).getTime();
+    const customerLoad =
+      this.countItemsWithinPeriod(params.requests, cutoffMs) +
+      this.countItemsWithinPeriod(params.clientOffers, cutoffMs) +
+      this.countItemsWithinPeriod(params.clientContracts, cutoffMs);
+    const providerLoad =
+      this.countItemsWithinPeriod(params.providerOffers, cutoffMs) +
+      this.countItemsWithinPeriod(params.providerContracts, cutoffMs);
+
+    if (customerLoad > providerLoad) return 'customer';
+    if (providerLoad > customerLoad) return 'provider';
+
+    return params.userRole === 'provider' ? 'provider' : 'customer';
+  }
+
   private computeProviderCompleteness(profile: any | null): number {
     if (!profile) return 0;
     let score = 0;
@@ -432,7 +485,11 @@ export class WorkspaceService {
     };
   }
 
-  async getPrivateOverview(userId: string, role: AppRole): Promise<WorkspacePrivateOverviewResponseDto> {
+  async getPrivateOverview(
+    userId: string,
+    role: AppRole,
+    period: keyof typeof PRIVATE_OVERVIEW_PERIOD_MS = '30d',
+  ): Promise<WorkspacePrivateOverviewResponseDto> {
     const uid = String(userId ?? '').trim();
 
     const now = Date.now();
@@ -441,6 +498,7 @@ export class WorkspaceService {
     const lastMonth = this.monthBoundsUTC(-1);
 
     const sixMonthStart = this.monthBoundsUTC(-5).start;
+    const roleWindowStart = this.resolvePrivateOverviewPeriodStart(period);
 
     const [
       requestStatusRows,
@@ -460,6 +518,10 @@ export class WorkspaceService {
       providerCompletedContracts,
       myRequests,
       clientCompletedContracts,
+      providerOfferActivityRows,
+      clientOfferActivityRows,
+      providerContractActivityRows,
+      clientContractActivityRows,
     ] = await Promise.all([
       this.requestModel
         .aggregate<{ _id: string; count: number }>([
@@ -555,6 +617,50 @@ export class WorkspaceService {
         .select({ completedAt: 1 })
         .lean()
         .exec(),
+      this.offerModel
+        .find({
+          providerUserId: uid,
+          $or: [
+            { updatedAt: { $gte: roleWindowStart } },
+            { createdAt: { $gte: roleWindowStart } },
+          ],
+        })
+        .select({ updatedAt: 1, createdAt: 1 })
+        .lean()
+        .exec(),
+      this.offerModel
+        .find({
+          clientUserId: uid,
+          $or: [
+            { updatedAt: { $gte: roleWindowStart } },
+            { createdAt: { $gte: roleWindowStart } },
+          ],
+        })
+        .select({ updatedAt: 1, createdAt: 1 })
+        .lean()
+        .exec(),
+      this.contractModel
+        .find({
+          providerUserId: uid,
+          $or: [
+            { updatedAt: { $gte: roleWindowStart } },
+            { createdAt: { $gte: roleWindowStart } },
+          ],
+        })
+        .select({ updatedAt: 1, createdAt: 1 })
+        .lean()
+        .exec(),
+      this.contractModel
+        .find({
+          clientId: uid,
+          $or: [
+            { updatedAt: { $gte: roleWindowStart } },
+            { createdAt: { $gte: roleWindowStart } },
+          ],
+        })
+        .select({ updatedAt: 1, createdAt: 1 })
+        .lean()
+        .exec(),
     ]);
 
     const requestsByStatus = this.toStatusCounts(requestStatusRows, REQUEST_STATUSES);
@@ -562,6 +668,15 @@ export class WorkspaceService {
     const clientOffersByStatus = this.toStatusCounts(clientOfferStatusRows, OFFER_STATUSES);
     const providerContractsByStatus = this.toStatusCounts(providerContractStatusRows, CONTRACT_STATUSES);
     const clientContractsByStatus = this.toStatusCounts(clientContractStatusRows, CONTRACT_STATUSES);
+    const preferredRole = this.resolvePrivateOverviewPreferredRole({
+      period,
+      requests: myRequests as Array<{ createdAt?: Date | string | null }>,
+      providerOffers: providerOfferActivityRows as Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>,
+      clientOffers: clientOfferActivityRows as Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>,
+      providerContracts: providerContractActivityRows as Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>,
+      clientContracts: clientContractActivityRows as Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>,
+      userRole: role,
+    });
 
     const favorites = {
       requests: favoriteRows.find((row) => row._id === 'request')?.count ?? 0,
@@ -662,6 +777,7 @@ export class WorkspaceService {
         userId: uid,
         role,
       },
+      preferredRole,
       requestsByStatus,
       providerOffersByStatus,
       clientOffersByStatus,

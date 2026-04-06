@@ -285,14 +285,50 @@
       "get": {
         "operationId": "CitiesController_list",
         "summary": "List active cities (public dictionary)",
-        "description": "Returns only active cities. Optionally filter by countryCode (e.g. DE).",
+        "description": "Returns active cities for browse and autocomplete flows. Supports countryCode, q, ids, and limit.",
         "parameters": [
           {
             "name": "countryCode",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
+              "example": "DE",
               "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "10115 Berlin",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 8,
+              "type": "number"
+            }
+          },
+          {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": [
+                "67f0c1a2b3c4d5e6f7a8b9c0",
+                "67f0c1a2b3c4d5e6f7a8b9c1"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -8093,6 +8129,29 @@
             }
           },
           {
+            "name": "citiesPage",
+            "required": false,
+            "in": "query",
+            "description": "Page of the paginated Staedte & Regionen list.",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "citiesLimit",
+            "required": false,
+            "in": "query",
+            "description": "Page size of the paginated Staedte & Regionen list.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
             "name": "viewerMode",
             "required": false,
             "in": "query",
@@ -8251,7 +8310,24 @@
         "operationId": "WorkspaceController_getPrivateOverview",
         "summary": "Private workspace overview (BFF view-model)",
         "description": "Returns personalized counts, KPI metrics and last-6-month chart series in one payload for authenticated user.",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "description": "Activity period used for backend-owned preferredRole resolution.",
+            "schema": {
+              "example": "30d",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -8720,6 +8796,16 @@
             "example": "Berlin",
             "nullable": true
           },
+          "postalCodes": {
+            "example": [
+              "10115",
+              "10117"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "population": {
             "type": "object",
             "example": 3669491,
@@ -8756,6 +8842,7 @@
           "stateCode",
           "stateName",
           "districtName",
+          "postalCodes",
           "population",
           "lat",
           "lng",
@@ -9359,6 +9446,11 @@
           "displayName": {
             "type": "object",
             "example": "Anna K.",
+            "nullable": true
+          },
+          "bio": {
+            "type": "object",
+            "example": "Spezialisiert auf saubere Ausführung, klare Kommunikation und verlässliche Termine.",
             "nullable": true
           },
           "avatarUrl": {
@@ -13314,6 +13406,40 @@
           "lng"
         ]
       },
+      "WorkspaceStatisticsCityListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsCityDemandDto"
+            }
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 10
+          },
+          "totalItems": {
+            "type": "number",
+            "example": 27
+          },
+          "totalPages": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "totalItems",
+          "totalPages"
+        ]
+      },
       "WorkspaceStatisticsDemandDto": {
         "type": "object",
         "properties": {
@@ -13328,6 +13454,9 @@
             "items": {
               "$ref": "#/components/schemas/WorkspaceStatisticsCityDemandDto"
             }
+          },
+          "cityList": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsCityListDto"
           }
         },
         "required": [
@@ -14823,6 +14952,15 @@
           "user": {
             "$ref": "#/components/schemas/WorkspacePrivateUserDto"
           },
+          "preferredRole": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "provider"
+            ],
+            "example": "customer",
+            "description": "Backend-owned default role for private workspace rendering."
+          },
           "requestsByStatus": {
             "$ref": "#/components/schemas/WorkspacePrivateStatusCountsDto"
           },
@@ -14869,6 +15007,7 @@
         "required": [
           "updatedAt",
           "user",
+          "preferredRole",
           "requestsByStatus",
           "providerOffersByStatus",
           "clientOffersByStatus",
