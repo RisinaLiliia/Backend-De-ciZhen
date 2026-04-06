@@ -214,6 +214,9 @@ Domain modules are organized by business responsibility:
   Batch-resolves public request details by ids (N+1 elimination endpoint).
 - `GET /workspace/private` (Bearer auth)
   Returns personalized counters/KPIs/series for private workspace dashboard.
+  - includes backend-owned `preferredRole: customer|provider`
+  - accepts optional `period=24h|7d|30d|90d` for context-aware preferred-role resolution
+  - frontend must render this field directly and must not infer dominant role from private counters client-side
 
 ## Analytics Ingestion Endpoint
 - `POST /analytics/search-event` (optional Bearer auth)

@@ -10,6 +10,7 @@ import {
   WorkspacePublicRequestsBatchDto,
   WorkspacePublicRequestsBatchResponseDto,
 } from './dto/workspace-public-requests-batch.dto';
+import { WorkspacePrivateQueryDto } from './dto/workspace-private-query.dto';
 import { WorkspacePrivateOverviewResponseDto } from './dto/workspace-private-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
@@ -86,7 +87,8 @@ export class WorkspaceController {
   @ApiErrors({ conflict: false, notFound: false })
   async getPrivateOverview(
     @CurrentUser() user: CurrentUserPayload,
+    @Query() query: WorkspacePrivateQueryDto,
   ): Promise<WorkspacePrivateOverviewResponseDto> {
-    return this.workspace.getPrivateOverview(user.userId, user.role);
+    return this.workspace.getPrivateOverview(user.userId, user.role, query.period);
   }
 }

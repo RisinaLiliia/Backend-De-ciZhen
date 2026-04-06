@@ -2,6 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import type { AppRole } from '../../users/schemas/user.schema';
 
+export type WorkspacePrivatePreferredRole = 'customer' | 'provider';
+
 export class WorkspacePrivateStatusCountsDto {
   @ApiProperty({ example: 0 })
   draft: number;
@@ -148,6 +150,13 @@ export class WorkspacePrivateOverviewResponseDto {
 
   @ApiProperty({ type: WorkspacePrivateUserDto })
   user: WorkspacePrivateUserDto;
+
+  @ApiProperty({
+    enum: ['customer', 'provider'],
+    example: 'customer',
+    description: 'Backend-owned default role for private workspace rendering.',
+  })
+  preferredRole: WorkspacePrivatePreferredRole;
 
   @ApiProperty({ type: WorkspacePrivateStatusCountsDto })
   requestsByStatus: WorkspacePrivateStatusCountsDto;

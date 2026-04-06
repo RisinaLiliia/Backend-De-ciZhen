@@ -4115,7 +4115,7 @@ export class WorkspaceStatisticsService {
     let privateOverview: WorkspacePrivateOverviewResponseDto | null = null;
 
     if (normalizedUserId) {
-      privateOverview = await this.workspace.getPrivateOverview(normalizedUserId, role ?? 'client');
+      privateOverview = await this.workspace.getPrivateOverview(normalizedUserId, role ?? 'client', range);
       mode = 'personalized';
     }
 
