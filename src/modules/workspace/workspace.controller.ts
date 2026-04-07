@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 
 import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
@@ -12,6 +12,8 @@ import {
 } from './dto/workspace-public-requests-batch.dto';
 import { WorkspacePrivateQueryDto } from './dto/workspace-private-query.dto';
 import { WorkspacePrivateOverviewResponseDto } from './dto/workspace-private-response.dto';
+import { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
+import { WorkspaceRequestsResponseDto } from './dto/workspace-requests-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -90,5 +92,23 @@ export class WorkspaceController {
     @Query() query: WorkspacePrivateQueryDto,
   ): Promise<WorkspacePrivateOverviewResponseDto> {
     return this.workspace.getPrivateOverview(user.userId, user.role, query.period);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('requests')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Personalized workspace requests board',
+    description:
+      'Returns the authenticated user request workflow board with backend-owned summary cards, progress states, list items, and side panel recommendations.',
+  })
+  @ApiOkResponse({ type: WorkspaceRequestsResponseDto })
+  @ApiErrors({ conflict: false, notFound: false })
+  async getRequestsOverview(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query() query: WorkspaceRequestsQueryDto,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<WorkspaceRequestsResponseDto> {
+    return this.workspace.getRequestsOverview(user.userId, user.role, query, acceptLanguage);
   }
 }

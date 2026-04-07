@@ -217,6 +217,35 @@ Domain modules are organized by business responsibility:
   - includes backend-owned `preferredRole: customer|provider`
   - accepts optional `period=24h|7d|30d|90d` for context-aware preferred-role resolution
   - frontend must render this field directly and must not infer dominant role from private counters client-side
+- `GET /workspace/requests` (Bearer auth)
+  Returns the authenticated user's request workflow board for `workspace?section=requests&scope=my`.
+  Backend owns workflow aggregation, list ordering, summary counters, progress state, and side-panel recommendations.
+  Supports:
+  - `scope=my` (current supported scope)
+  - `role=all|customer|provider`
+  - `state=all|attention|execution|completed`
+  - `period=24h|7d|30d|90d`
+  - `sort=activity|newest|deadline|budget|price_desc|oldest|date_asc`
+  - `page=<n>` and `limit=1..100`
+  - optional echo filters `city`, `category`, `service`
+  Response contract:
+  - `header`
+    - backend-owned section title
+  - `filters`
+    - canonical query state echoed back to the client
+  - `summary.items[]`
+    - filter cards for `Alle`, `Aktiv`, `In Ausführung`, `Abgeschlossen`
+  - `list.items[]`
+    - render-ready workflow cards with:
+      - `requestId`
+      - `role`
+      - `state`, `stateLabel`, `urgency`
+      - `activity`
+      - `progress.currentStep` and `progress.steps[]`
+      - `quickActions[]`
+  - `sidePanel`
+    - backend-owned focus/recommendation/context/next-steps blocks
+  Frontend should treat this endpoint as the source of truth for private requests workflow semantics and should render the contract directly instead of rebuilding states client-side.
 
 ## Analytics Ingestion Endpoint
 - `POST /analytics/search-event` (optional Bearer auth)
