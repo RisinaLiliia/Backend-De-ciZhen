@@ -99,6 +99,10 @@ describe('workspace (e2e)', () => {
     await request(app.getHttpServer()).get('/workspace/private').expect(401);
   });
 
+  it('GET /workspace/requests requires auth', async () => {
+    await request(app.getHttpServer()).get('/workspace/requests').expect(401);
+  });
+
   it('GET /workspace/private returns aggregated private overview', async () => {
     const account = await registerAndGetToken(
       app,
@@ -134,6 +138,151 @@ describe('workspace (e2e)', () => {
     expect(res.body.requestsByStatus.total).toBeGreaterThanOrEqual(0);
     expect(res.body.favorites).toHaveProperty('requests');
     expect(res.body.reviews).toHaveProperty('asProvider');
+  });
+
+  it('GET /workspace/requests returns personalized workflow board', async () => {
+    const account = await registerAndGetToken(
+      app,
+      'provider',
+      'workspace-requests@test.local',
+      'Workflow User',
+    );
+
+    const userId = String(account.userId);
+    const customerRequestId = new Types.ObjectId().toString();
+    const providerRequestId = new Types.ObjectId().toString();
+    const externalProviderId = new Types.ObjectId().toString();
+    const externalClientId = new Types.ObjectId().toString();
+    const providerOfferId = new Types.ObjectId().toString();
+
+    await requestModel.create([
+      {
+        _id: customerRequestId,
+        title: 'Wohnung reinigen',
+        clientId: userId,
+        serviceKey: 'home_cleaning',
+        cityId: 'berlin-city',
+        cityName: 'Berlin',
+        propertyType: 'apartment',
+        area: 50,
+        price: 140,
+        preferredDate: new Date('2026-04-07T10:00:00.000Z'),
+        isRecurring: false,
+        status: 'published',
+        categoryKey: 'cleaning',
+        categoryName: 'Reinigung',
+        subcategoryName: 'Grundreinigung',
+      },
+      {
+        _id: providerRequestId,
+        title: 'Büro reinigen',
+        clientId: externalClientId,
+        serviceKey: 'office_cleaning',
+        cityId: 'berlin-city',
+        cityName: 'Berlin',
+        propertyType: 'apartment',
+        area: 70,
+        price: 220,
+        preferredDate: new Date('2026-04-08T12:00:00.000Z'),
+        isRecurring: false,
+        status: 'matched',
+        categoryKey: 'cleaning',
+        categoryName: 'Reinigung',
+        subcategoryName: 'Büroreinigung',
+      },
+    ]);
+
+    await offerModel.create([
+      {
+        requestId: customerRequestId,
+        providerUserId: externalProviderId,
+        clientUserId: userId,
+        status: 'sent',
+        message: 'Kann morgen starten',
+        pricing: { amount: 150, type: 'fixed', details: null },
+        availability: { date: '2026-04-07T11:00:00.000Z', note: null },
+        metadata: {},
+      },
+      {
+        _id: providerOfferId,
+        requestId: providerRequestId,
+        providerUserId: userId,
+        clientUserId: externalClientId,
+        status: 'accepted',
+        message: 'Bereit für den Auftrag',
+        pricing: { amount: 220, type: 'fixed', details: null },
+        availability: { date: '2026-04-08T10:00:00.000Z', note: null },
+        metadata: {},
+      },
+    ]);
+
+    await contractModel.create({
+      requestId: providerRequestId,
+      offerId: providerOfferId,
+      clientId: externalClientId,
+      providerUserId: userId,
+      status: 'confirmed',
+      priceAmount: 220,
+      priceType: 'fixed',
+      priceDetails: null,
+      confirmedAt: new Date('2026-04-08T12:30:00.000Z'),
+      completedAt: null,
+      cancelledAt: null,
+      cancelReason: null,
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/workspace/requests')
+      .query({ scope: 'my', role: 'all', state: 'all', period: '30d' })
+      .set('Authorization', `Bearer ${account.accessToken}`)
+      .set('Accept-Language', 'de-DE')
+      .expect(200);
+
+    expect(res.body).toMatchObject({
+      section: 'requests',
+      scope: 'my',
+      header: { title: 'Meine Vorgänge' },
+      filters: {
+        role: 'all',
+        state: 'all',
+        period: '30d',
+      },
+    });
+    expect(res.body.summary.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'all', value: 2 }),
+        expect.objectContaining({ key: 'attention', value: 1 }),
+        expect.objectContaining({ key: 'execution', value: 1 }),
+      ]),
+    );
+    expect(res.body.list.items).toHaveLength(2);
+    expect(res.body.list.items[0]).toEqual(
+      expect.objectContaining({
+        requestId: providerRequestId,
+        role: 'provider',
+        state: 'active',
+      }),
+    );
+    expect(res.body.list.items[1]).toEqual(
+      expect.objectContaining({
+        requestId: customerRequestId,
+        role: 'customer',
+        state: 'clarifying',
+      }),
+    );
+    expect(res.body.list.items[0].progress.steps.map((step: { label: string }) => step.label)).toEqual([
+      'Anfrage',
+      'Angebote',
+      'Auswahl',
+      'Vertrag',
+      'Abschluss',
+    ]);
+    expect(res.body.sidePanel).toEqual(
+      expect.objectContaining({
+        focus: expect.any(Object),
+        recommendation: expect.any(Object),
+      }),
+    );
   });
 
   it('GET /workspace/statistics returns platform mode for guest', async () => {

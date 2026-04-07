@@ -29,6 +29,13 @@ import type {
   WorkspacePrivateOverviewResponseDto,
   WorkspacePrivatePreferredRole,
 } from './dto/workspace-private-response.dto';
+import type { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
+import type {
+  WorkspaceMyRequestCardDto,
+  WorkspaceRequestsResponseDto,
+  WorkspaceRequestsSidePanelDto,
+  WorkspaceRequestsSummaryItemDto,
+} from './dto/workspace-requests-response.dto';
 
 const REQUEST_STATUSES = ['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'] as const;
 const OFFER_STATUSES = ['sent', 'accepted', 'declined', 'withdrawn'] as const;
@@ -39,6 +46,86 @@ const PRIVATE_OVERVIEW_PERIOD_MS = {
   '30d': 30 * 24 * 60 * 60 * 1000,
   '90d': 90 * 24 * 60 * 60 * 1000,
 } as const;
+const WORKSPACE_REQUESTS_PERIOD_MS = PRIVATE_OVERVIEW_PERIOD_MS;
+
+type WorkspaceRequestsLocale = 'de' | 'en';
+type WorkspaceRequestsRole = 'all' | 'customer' | 'provider';
+type WorkspaceRequestsState = 'all' | 'attention' | 'execution' | 'completed';
+type WorkspaceRequestsWorkflowState = 'open' | 'clarifying' | 'active' | 'completed';
+type WorkspaceRequestsProgressStep = 'request' | 'offers' | 'selection' | 'contract' | 'done';
+type WorkspaceRequestCardRole = 'customer' | 'provider';
+
+type WorkspaceRequestSnapshot = {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  serviceKey?: string | null;
+  cityId?: string | null;
+  cityName?: string | null;
+  categoryKey?: string | null;
+  categoryName?: string | null;
+  subcategoryName?: string | null;
+  price?: number | null;
+  preferredDate?: Date | string | null;
+  status?: string | null;
+  createdAt?: Date | string | null;
+  imageUrl?: string | null;
+};
+
+type WorkspaceOfferSnapshot = {
+  id: string;
+  requestId: string;
+  providerUserId: string | null;
+  clientUserId: string | null;
+  status: 'sent' | 'accepted' | 'declined' | 'withdrawn';
+  message?: string | null;
+  amount?: number | null;
+  priceType?: 'fixed' | 'estimate' | 'hourly' | null;
+  availableAt?: Date | string | null;
+  availabilityNote?: string | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+  requestTitle?: string | null;
+  requestDescription?: string | null;
+  requestServiceKey?: string | null;
+  requestCityId?: string | null;
+  requestCityName?: string | null;
+  requestCategoryKey?: string | null;
+  requestCategoryName?: string | null;
+  requestSubcategoryName?: string | null;
+  requestPreferredDate?: Date | string | null;
+  requestStatus?: string | null;
+  requestPrice?: number | null;
+  requestCreatedAt?: Date | string | null;
+};
+
+type WorkspaceContractSnapshot = {
+  id: string;
+  requestId: string;
+  offerId: string;
+  clientId: string;
+  providerUserId: string;
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  priceAmount?: number | null;
+  priceType?: 'fixed' | 'estimate' | 'hourly' | null;
+  priceDetails?: string | null;
+  confirmedAt?: Date | string | null;
+  completedAt?: Date | string | null;
+  cancelledAt?: Date | string | null;
+  cancelReason?: string | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+};
+
+type WorkspaceRequestCardModel = {
+  item: WorkspaceMyRequestCardDto;
+  role: WorkspaceRequestCardRole;
+  workflowState: WorkspaceRequestsWorkflowState;
+  sortActivityAt: number;
+  sortCreatedAt: number;
+  sortBudget: number;
+  sortDeadlineAt: number | null;
+};
 
 @Injectable()
 export class WorkspaceService {
@@ -318,6 +405,545 @@ export class WorkspaceService {
     if (user.acceptedPrivacyPolicy) score += 5;
     if (hasClientProfile) score += 5;
     return Math.max(0, Math.min(100, score));
+  }
+
+  private resolveWorkspaceLocale(acceptLanguage?: string | null): WorkspaceRequestsLocale {
+    const raw = String(acceptLanguage ?? '').toLowerCase();
+    return raw.includes('de') ? 'de' : 'en';
+  }
+
+  private formatWorkspaceDate(value: Date | string | null | undefined, locale: WorkspaceRequestsLocale): string | null {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+
+    return new Intl.DateTimeFormat(locale === 'de' ? 'de-DE' : 'en-US', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(date);
+  }
+
+  private resolveWorkspaceCategoryLabel(request: WorkspaceRequestSnapshot): string {
+    const category = String(request.categoryName ?? '').trim();
+    if (category) return category;
+    const subcategory = String(request.subcategoryName ?? '').trim();
+    if (subcategory) return subcategory;
+    const serviceKey = String(request.serviceKey ?? '').trim();
+    if (serviceKey) return serviceKey;
+    return 'Service';
+  }
+
+  private resolveWorkspaceTitle(request: WorkspaceRequestSnapshot, category: string, locale: WorkspaceRequestsLocale): string {
+    const title = String(request.title ?? '').trim();
+    if (title) return title;
+    const description = String(request.description ?? '').trim();
+    if (description) return description.slice(0, 88);
+    return locale === 'de' ? `${category} anfragen` : `${category} request`;
+  }
+
+  private resolveWorkspaceStateLabel(
+    locale: WorkspaceRequestsLocale,
+    state: WorkspaceRequestsWorkflowState,
+  ): string {
+    if (locale === 'de') {
+      if (state === 'open') return 'Offen';
+      if (state === 'clarifying') return 'In Klärung';
+      if (state === 'active') return 'In Arbeit';
+      return 'Abgeschlossen';
+    }
+
+    if (state === 'open') return 'Open';
+    if (state === 'clarifying') return 'Clarifying';
+    if (state === 'active') return 'Active';
+    return 'Completed';
+  }
+
+  private resolveWorkspaceUrgency(deadlineAt: number | null, now: number): 'low' | 'medium' | 'high' | null {
+    if (!deadlineAt) return null;
+    const delta = deadlineAt - now;
+    if (delta <= 2 * 24 * 60 * 60 * 1000) return 'high';
+    if (delta <= 7 * 24 * 60 * 60 * 1000) return 'medium';
+    return 'low';
+  }
+
+  private resolveWorkspaceProgressSteps(
+    locale: WorkspaceRequestsLocale,
+    currentStep: WorkspaceRequestsProgressStep,
+  ): WorkspaceMyRequestCardDto['progress']['steps'] {
+    const steps = locale === 'de'
+      ? [
+          { key: 'request' as const, label: 'Anfrage' },
+          { key: 'offers' as const, label: 'Angebote' },
+          { key: 'selection' as const, label: 'Auswahl' },
+          { key: 'contract' as const, label: 'Vertrag' },
+          { key: 'done' as const, label: 'Abschluss' },
+        ]
+      : [
+          { key: 'request' as const, label: 'Request' },
+          { key: 'offers' as const, label: 'Offers' },
+          { key: 'selection' as const, label: 'Selection' },
+          { key: 'contract' as const, label: 'Contract' },
+          { key: 'done' as const, label: 'Done' },
+        ];
+
+    const activeIndex = steps.findIndex((step) => step.key === currentStep);
+
+    return steps.map((step, index) => ({
+      ...step,
+      status: index < activeIndex ? 'done' : index === activeIndex ? 'current' : 'upcoming',
+    }));
+  }
+
+  private pickLatestByRequest<T extends { requestId: string; updatedAt?: Date | string | null; createdAt?: Date | string | null }>(
+    items: T[],
+  ) {
+    return items.reduce((map, item) => {
+      const current = map.get(item.requestId);
+      const currentTs = this.parseActivityAt(current?.updatedAt) ?? this.parseActivityAt(current?.createdAt) ?? 0;
+      const nextTs = this.parseActivityAt(item.updatedAt) ?? this.parseActivityAt(item.createdAt) ?? 0;
+      if (!current || nextTs >= currentTs) {
+        map.set(item.requestId, item);
+      }
+      return map;
+    }, new Map<string, T>());
+  }
+
+  private buildWorkspaceCustomerCard(args: {
+    locale: WorkspaceRequestsLocale;
+    request: WorkspaceRequestSnapshot;
+    offers: WorkspaceOfferSnapshot[];
+    contract: WorkspaceContractSnapshot | null;
+    now: number;
+  }): WorkspaceRequestCardModel {
+    const { locale, request, offers, contract, now } = args;
+    const category = this.resolveWorkspaceCategoryLabel(request);
+    const title = this.resolveWorkspaceTitle(request, category, locale);
+    const city = String(request.cityName ?? '').trim() || String(request.cityId ?? '').trim() || null;
+    const preferredAt = this.parseActivityAt(request.preferredDate);
+    const createdAt = this.parseActivityAt(request.createdAt) ?? now;
+    const contractConfirmedAt = this.parseActivityAt(contract?.confirmedAt ?? contract?.createdAt ?? null);
+
+    let state: WorkspaceRequestsWorkflowState = 'open';
+    let progressStep: WorkspaceRequestsProgressStep = 'request';
+    let activity: WorkspaceMyRequestCardDto['activity'] = null;
+
+    if (contract) {
+      if (contract.status === 'completed' || contract.status === 'cancelled') {
+        state = 'completed';
+        progressStep = 'done';
+        activity = {
+          label: locale === 'de' ? 'Vorgang abgeschlossen' : 'Process completed',
+          tone: 'success',
+        };
+      } else {
+        state = 'active';
+        progressStep = 'contract';
+        activity = {
+          label: contractConfirmedAt
+            ? locale === 'de'
+              ? `Termin bestätigt für ${this.formatWorkspaceDate(contract.confirmedAt ?? contract.createdAt, locale)}`
+              : `Confirmed for ${this.formatWorkspaceDate(contract.confirmedAt ?? contract.createdAt, locale)}`
+            : locale === 'de'
+              ? 'Vertrag aktiv'
+              : 'Contract active',
+          tone: 'info',
+        };
+      }
+    } else if (request.status === 'closed' || request.status === 'cancelled') {
+      state = 'completed';
+      progressStep = 'done';
+      activity = {
+        label: locale === 'de' ? 'Anfrage geschlossen' : 'Request closed',
+        tone: 'neutral',
+      };
+    } else if (offers.length > 0) {
+      state = 'clarifying';
+      progressStep = 'selection';
+      activity = {
+        label: locale === 'de'
+          ? `${offers.length} neue Angebote warten auf deine Auswahl`
+          : `${offers.length} new offers are waiting for your decision`,
+        tone: 'warning',
+      };
+    } else if (request.status === 'matched') {
+      state = 'clarifying';
+      progressStep = 'offers';
+      activity = {
+        label: locale === 'de'
+          ? 'Anfrage ist gematcht und wartet auf Bestätigung'
+          : 'Request is matched and waiting for confirmation',
+        tone: 'warning',
+      };
+    } else {
+      activity = {
+        label: locale === 'de'
+          ? 'Anfrage ist aktiv und wartet auf Rückmeldungen'
+          : 'Request is active and waiting for replies',
+        tone: 'neutral',
+      };
+    }
+
+    const budgetValue = contract?.priceAmount ?? request.price ?? null;
+    const deadlineAt = contractConfirmedAt ?? preferredAt;
+
+    return {
+      item: {
+        id: `customer:${request.id}`,
+        requestId: request.id,
+        role: 'customer',
+        title,
+        category,
+        subcategory: request.subcategoryName ?? null,
+        city,
+        createdAt: this.formatWorkspaceDate(request.createdAt, locale),
+        nextEventAt: this.formatWorkspaceDate(contract?.confirmedAt ?? request.preferredDate ?? null, locale),
+        budget: typeof budgetValue === 'number' ? budgetValue : null,
+        agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
+        state,
+        stateLabel: this.resolveWorkspaceStateLabel(locale, state),
+        urgency: this.resolveWorkspaceUrgency(deadlineAt, now),
+        activity,
+        progress: {
+          currentStep: progressStep,
+          steps: this.resolveWorkspaceProgressSteps(locale, progressStep),
+        },
+        quickActions: [
+          {
+            key: 'open',
+            label: locale === 'de' ? 'Öffnen' : 'Open',
+            tone: 'primary',
+            href: `/requests/${request.id}`,
+          },
+          ...(offers.length > 0 && !contract
+            ? [
+                {
+                  key: 'compare',
+                  label: locale === 'de' ? 'Anbieter vergleichen' : 'Compare providers',
+                  tone: 'secondary' as const,
+                  href: `/requests/${request.id}`,
+                },
+              ]
+            : []),
+          ...(contract
+            ? [
+                {
+                  key: 'contract',
+                  label: locale === 'de' ? 'Vertrag ansehen' : 'View contract',
+                  tone: 'secondary' as const,
+                  href: `/requests/${request.id}`,
+                },
+              ]
+            : []),
+        ],
+      },
+      role: 'customer',
+      workflowState: state,
+      sortActivityAt: contractConfirmedAt ?? preferredAt ?? createdAt,
+      sortCreatedAt: createdAt,
+      sortBudget: budgetValue ?? 0,
+      sortDeadlineAt: deadlineAt,
+    };
+  }
+
+  private buildWorkspaceProviderCard(args: {
+    locale: WorkspaceRequestsLocale;
+    offer: WorkspaceOfferSnapshot;
+    contract: WorkspaceContractSnapshot | null;
+    now: number;
+  }): WorkspaceRequestCardModel {
+    const { locale, offer, contract, now } = args;
+    const request: WorkspaceRequestSnapshot = {
+      id: offer.requestId,
+      title: offer.requestTitle ?? null,
+      description: offer.requestDescription ?? offer.message ?? null,
+      serviceKey: offer.requestServiceKey ?? null,
+      cityId: offer.requestCityId ?? null,
+      cityName: offer.requestCityName ?? null,
+      categoryKey: offer.requestCategoryKey ?? null,
+      categoryName: offer.requestCategoryName ?? null,
+      subcategoryName: offer.requestSubcategoryName ?? null,
+      price: offer.requestPrice ?? offer.amount ?? null,
+      preferredDate: offer.requestPreferredDate ?? offer.availableAt ?? null,
+      status: offer.requestStatus ?? 'published',
+      createdAt: offer.requestCreatedAt ?? offer.createdAt ?? null,
+    };
+    const category = this.resolveWorkspaceCategoryLabel(request);
+    const title = this.resolveWorkspaceTitle(request, category, locale);
+    const city = String(request.cityName ?? '').trim() || String(request.cityId ?? '').trim() || null;
+    const offerCreatedAt = this.parseActivityAt(offer.createdAt) ?? now;
+    const nextEventAt = this.parseActivityAt(contract?.confirmedAt ?? request.preferredDate ?? offer.availableAt ?? null);
+    const contractCompleted = Boolean(contract && (contract.status === 'completed' || contract.status === 'cancelled'));
+
+    let state: WorkspaceRequestsWorkflowState;
+    let progressStep: WorkspaceRequestsProgressStep;
+    let activity: WorkspaceMyRequestCardDto['activity'];
+
+    if (contractCompleted) {
+      state = 'completed';
+      progressStep = 'done';
+      activity = {
+        label: locale === 'de' ? 'Auftrag abgeschlossen' : 'Job completed',
+        tone: 'success',
+      };
+    } else if (contract) {
+      state = 'active';
+      progressStep = 'contract';
+      activity = {
+        label: nextEventAt
+          ? locale === 'de'
+            ? `Auftrag beginnt ${this.formatWorkspaceDate(contract.confirmedAt ?? request.preferredDate ?? offer.availableAt, locale)}`
+            : `Job starts ${this.formatWorkspaceDate(contract.confirmedAt ?? request.preferredDate ?? offer.availableAt, locale)}`
+          : locale === 'de'
+            ? 'Vertrag aktiv'
+            : 'Contract active',
+        tone: 'info',
+      };
+    } else if (offer.status === 'accepted') {
+      state = 'active';
+      progressStep = 'contract';
+      activity = {
+        label: locale === 'de' ? 'Warte auf Vertragsbestätigung' : 'Waiting for contract confirmation',
+        tone: 'warning',
+      };
+    } else if (
+      offer.status === 'declined' ||
+      offer.status === 'withdrawn' ||
+      request.status === 'cancelled'
+    ) {
+      state = 'completed';
+      progressStep = 'done';
+      activity = {
+        label: locale === 'de' ? 'Anfrage nicht weiter aktiv' : 'Request is no longer active',
+        tone: 'neutral',
+      };
+    } else {
+      state = 'clarifying';
+      progressStep = 'selection';
+      activity = {
+        label: locale === 'de' ? 'Warte auf Rückmeldung des Kunden' : 'Waiting for the customer reply',
+        tone: 'warning',
+      };
+    }
+
+    const budgetValue = contract?.priceAmount ?? offer.amount ?? request.price ?? null;
+
+    return {
+      item: {
+        id: `provider:${offer.requestId}`,
+        requestId: offer.requestId,
+        role: 'provider',
+        title,
+        category,
+        subcategory: request.subcategoryName ?? null,
+        city,
+        createdAt: this.formatWorkspaceDate(offer.createdAt, locale),
+        nextEventAt: this.formatWorkspaceDate(contract?.confirmedAt ?? request.preferredDate ?? offer.availableAt ?? null, locale),
+        budget: typeof budgetValue === 'number' ? budgetValue : null,
+        agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
+        state,
+        stateLabel: this.resolveWorkspaceStateLabel(locale, state),
+        urgency: this.resolveWorkspaceUrgency(nextEventAt, now),
+        activity,
+        progress: {
+          currentStep: progressStep,
+          steps: this.resolveWorkspaceProgressSteps(locale, progressStep),
+        },
+        quickActions: [
+          {
+            key: 'open',
+            label: locale === 'de' ? 'Öffnen' : 'Open',
+            tone: 'primary',
+            href: `/requests/${offer.requestId}`,
+          },
+          {
+            key: 'message',
+            label: locale === 'de' ? 'Nachricht schreiben' : 'Write message',
+            tone: 'secondary',
+            href: '/chat',
+          },
+          ...(state === 'active'
+            ? [
+                {
+                  key: 'contract',
+                  label: locale === 'de' ? 'Vertrag ansehen' : 'View contract',
+                  tone: 'secondary' as const,
+                  href: `/requests/${offer.requestId}`,
+                },
+              ]
+            : []),
+        ],
+      },
+      role: 'provider',
+      workflowState: state,
+      sortActivityAt:
+        nextEventAt
+        ?? this.parseActivityAt(contract?.updatedAt ?? offer.updatedAt ?? offer.createdAt)
+        ?? offerCreatedAt,
+      sortCreatedAt: offerCreatedAt,
+      sortBudget: budgetValue ?? 0,
+      sortDeadlineAt: nextEventAt,
+    };
+  }
+
+  private buildWorkspaceSummary(args: {
+    locale: WorkspaceRequestsLocale;
+    cards: WorkspaceRequestCardModel[];
+    activeState: WorkspaceRequestsState;
+  }): WorkspaceRequestsSummaryItemDto[] {
+    const counts = {
+      all: args.cards.length,
+      attention: args.cards.filter((card) => card.workflowState === 'open' || card.workflowState === 'clarifying').length,
+      execution: args.cards.filter((card) => card.workflowState === 'active').length,
+      completed: args.cards.filter((card) => card.workflowState === 'completed').length,
+    };
+
+    return [
+      {
+        key: 'all',
+        label: args.locale === 'de' ? 'Alle' : 'All',
+        value: counts.all,
+        isHighlighted: args.activeState === 'all',
+      },
+      {
+        key: 'attention',
+        label: args.locale === 'de' ? 'Aktiv' : 'Active',
+        value: counts.attention,
+        isHighlighted: args.activeState === 'attention',
+      },
+      {
+        key: 'execution',
+        label: args.locale === 'de' ? 'In Ausführung' : 'In execution',
+        value: counts.execution,
+        isHighlighted: args.activeState === 'execution',
+      },
+      {
+        key: 'completed',
+        label: args.locale === 'de' ? 'Abgeschlossen' : 'Completed',
+        value: counts.completed,
+        isHighlighted: args.activeState === 'completed',
+      },
+    ];
+  }
+
+  private buildWorkspaceSidePanel(args: {
+    locale: WorkspaceRequestsLocale;
+    role: WorkspaceRequestsRole;
+    cards: WorkspaceRequestCardModel[];
+  }): WorkspaceRequestsSidePanelDto {
+    const stateWeight: Record<WorkspaceRequestsWorkflowState, number> = {
+      clarifying: 4,
+      active: 3,
+      open: 2,
+      completed: 1,
+    };
+
+    const actionableCards = [...args.cards].sort((left, right) => {
+      const leftWeight =
+        (stateWeight[left.workflowState] * 10) +
+        (left.item.urgency === 'high' ? 3 : left.item.urgency === 'medium' ? 2 : 1);
+      const rightWeight =
+        (stateWeight[right.workflowState] * 10) +
+        (right.item.urgency === 'high' ? 3 : right.item.urgency === 'medium' ? 2 : 1);
+
+      return rightWeight - leftWeight || right.sortActivityAt - left.sortActivityAt;
+    });
+
+    const focusCard = actionableCards[0] ?? null;
+    const clarifyingCount = args.cards.filter((card) => card.workflowState === 'clarifying').length;
+    const activeCount = args.cards.filter((card) => card.workflowState === 'active').length;
+    const highUrgencyCount = args.cards.filter((card) => card.item.urgency === 'high').length;
+    const customerCount = args.cards.filter((card) => card.role === 'customer').length;
+    const providerCount = args.cards.filter((card) => card.role === 'provider').length;
+
+    return {
+      focus: focusCard
+        ? {
+            title: args.locale === 'de' ? 'Aktueller Fokus' : 'Current focus',
+            description:
+              focusCard.item.activity?.label ??
+              (args.locale === 'de'
+                ? 'Dieser Vorgang sollte als Nächstes geöffnet werden.'
+                : 'This item should be opened next.'),
+            cta: focusCard.item.quickActions[0]?.href
+              ? {
+                  label: focusCard.item.quickActions[0].label,
+                  href: focusCard.item.quickActions[0].href,
+                }
+              : undefined,
+          }
+        : null,
+      recommendation: {
+        title: args.locale === 'de' ? 'KI-Empfehlung' : 'AI recommendation',
+        description:
+          args.role === 'provider'
+            ? args.locale === 'de'
+              ? 'Schnelle Rückmeldungen auf laufende Vorgänge erhöhen aktuell deine Abschlusschance.'
+              : 'Fast replies on active flows improve your close rate right now.'
+            : args.role === 'customer'
+              ? args.locale === 'de'
+                ? 'Prüfe neue Angebote zeitnah, damit Auswahl und Terminbestätigung nicht liegen bleiben.'
+                : 'Review new offers quickly so selection and confirmation keep moving.'
+              : args.locale === 'de'
+                ? 'Halte Klärungen kurz und bestätige aktive Vorgänge früh, damit offene Arbeit nicht blockiert.'
+                : 'Keep clarifications short and confirm active work early so the queue stays unblocked.',
+      },
+      contextItems: [
+        {
+          title: args.locale === 'de' ? 'Kontext' : 'Context',
+          description:
+            args.locale === 'de'
+              ? `Kunde ${customerCount} · Anbieter ${providerCount}`
+              : `Customer ${customerCount} · Provider ${providerCount}`,
+          meta: [
+            {
+              label: args.locale === 'de' ? 'In Klärung' : 'Clarifying',
+              value: String(clarifyingCount),
+            },
+            {
+              label: args.locale === 'de' ? 'Hohe Dringlichkeit' : 'High urgency',
+              value: String(highUrgencyCount),
+            },
+          ],
+        },
+        {
+          title: args.locale === 'de' ? 'Laufende Arbeit' : 'Active work',
+          description:
+            args.locale === 'de'
+              ? `${activeCount} Vorgänge sind aktuell in Arbeit.`
+              : `${activeCount} items are currently active.`,
+        },
+      ],
+      nextSteps: [
+        ...(clarifyingCount > 0
+          ? [
+              {
+                id: 'clarifying',
+                title: args.locale === 'de' ? 'Neue Rückmeldungen prüfen' : 'Review new responses',
+              },
+            ]
+          : []),
+        ...(highUrgencyCount > 0
+          ? [
+              {
+                id: 'urgent',
+                title: args.locale === 'de' ? 'Dringende Vorgänge priorisieren' : 'Prioritize urgent items',
+              },
+            ]
+          : []),
+        ...(activeCount > 0
+          ? [
+              {
+                id: 'active',
+                title:
+                  args.locale === 'de'
+                    ? 'Laufende Arbeit bestätigen oder abschließen'
+                    : 'Confirm or close active work',
+              },
+            ]
+          : []),
+      ],
+    };
   }
 
   async getPublicOverview(query: WorkspacePublicQueryDto): Promise<WorkspacePublicOverviewResponseDto> {
@@ -806,6 +1432,250 @@ export class WorkspaceService {
       },
       providerMonthlySeries,
       clientMonthlySeries,
+    };
+  }
+
+  async getRequestsOverview(
+    userId: string,
+    _role: AppRole,
+    query: WorkspaceRequestsQueryDto,
+    acceptLanguage?: string | null,
+  ): Promise<WorkspaceRequestsResponseDto> {
+    const uid = String(userId ?? '').trim();
+    const locale = this.resolveWorkspaceLocale(acceptLanguage);
+    const role: WorkspaceRequestsRole = query.role ?? 'all';
+    const state: WorkspaceRequestsState = query.state ?? 'all';
+    const period = query.period ?? '30d';
+    const sort = query.sort ?? 'activity';
+    const now = Date.now();
+    const page = Math.max(query.page ?? 1, 1);
+
+    const [myRequests, myClientOffers, myProviderOffers, myProviderContracts, myClientContracts] = await Promise.all([
+      this.requestModel.find({ clientId: uid }).sort({ createdAt: -1 }).lean().exec(),
+      this.offerModel.find({ clientUserId: uid }).sort({ createdAt: -1 }).lean().exec(),
+      this.offerModel
+        .aggregate<WorkspaceOfferSnapshot>([
+          { $match: { providerUserId: uid } },
+          { $sort: { createdAt: -1 } },
+          {
+            $addFields: {
+              requestObjId: {
+                $cond: [
+                  { $and: [{ $ne: ['$requestId', null] }, { $ne: ['$requestId', ''] }] },
+                  { $toObjectId: '$requestId' },
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'requests',
+              localField: 'requestObjId',
+              foreignField: '_id',
+              as: 'req',
+            },
+          },
+          { $unwind: { path: '$req', preserveNullAndEmptyArrays: true } },
+          {
+            $project: {
+              id: { $toString: '$_id' },
+              requestId: 1,
+              providerUserId: 1,
+              clientUserId: 1,
+              status: 1,
+              message: 1,
+              amount: '$pricing.amount',
+              priceType: '$pricing.type',
+              availableAt: '$availability.date',
+              availabilityNote: '$availability.note',
+              createdAt: 1,
+              updatedAt: 1,
+              requestTitle: '$req.title',
+              requestDescription: '$req.description',
+              requestServiceKey: '$req.serviceKey',
+              requestCityId: '$req.cityId',
+              requestCityName: '$req.cityName',
+              requestCategoryKey: '$req.categoryKey',
+              requestCategoryName: '$req.categoryName',
+              requestSubcategoryName: '$req.subcategoryName',
+              requestPreferredDate: '$req.preferredDate',
+              requestStatus: '$req.status',
+              requestPrice: '$req.price',
+              requestCreatedAt: '$req.createdAt',
+            },
+          },
+        ])
+        .exec(),
+      this.contractModel.find({ providerUserId: uid }).sort({ createdAt: -1 }).lean().exec(),
+      this.contractModel.find({ clientId: uid }).sort({ createdAt: -1 }).lean().exec(),
+    ]);
+
+    const customerOffersByRequest = (myClientOffers as Array<any>).reduce((map, offer) => {
+      const requestId = String(offer.requestId ?? '').trim();
+      if (!requestId) return map;
+      const current = map.get(requestId) ?? [];
+      current.push({
+        id: String(offer._id),
+        requestId,
+        providerUserId: this.normalizeId(offer.providerUserId),
+        clientUserId: this.normalizeId(offer.clientUserId),
+        status: offer.status,
+        message: offer.message ?? null,
+        amount: typeof offer.pricing?.amount === 'number' ? offer.pricing.amount : null,
+        priceType: offer.pricing?.type ?? null,
+        availableAt: offer.availability?.date ?? null,
+        availabilityNote: offer.availability?.note ?? null,
+        createdAt: offer.createdAt ?? null,
+        updatedAt: offer.updatedAt ?? null,
+      } satisfies WorkspaceOfferSnapshot);
+      map.set(requestId, current);
+      return map;
+    }, new Map<string, WorkspaceOfferSnapshot[]>());
+
+    const providerOfferByRequest = this.pickLatestByRequest(
+      (myProviderOffers ?? []).map((offer) => ({
+        ...offer,
+        requestId: String(offer.requestId ?? '').trim(),
+      })),
+    );
+    const providerContractByRequest = this.pickLatestByRequest(
+      (myProviderContracts as Array<any>).map((contract) => ({
+        id: String(contract._id),
+        requestId: String(contract.requestId ?? '').trim(),
+        offerId: String(contract.offerId ?? ''),
+        clientId: String(contract.clientId ?? ''),
+        providerUserId: String(contract.providerUserId ?? ''),
+        status: contract.status,
+        priceAmount: contract.priceAmount ?? null,
+        priceType: contract.priceType ?? null,
+        priceDetails: contract.priceDetails ?? null,
+        confirmedAt: contract.confirmedAt ?? null,
+        completedAt: contract.completedAt ?? null,
+        cancelledAt: contract.cancelledAt ?? null,
+        cancelReason: contract.cancelReason ?? null,
+        createdAt: contract.createdAt ?? null,
+        updatedAt: contract.updatedAt ?? null,
+      } satisfies WorkspaceContractSnapshot)),
+    );
+    const clientContractByRequest = this.pickLatestByRequest(
+      (myClientContracts as Array<any>).map((contract) => ({
+        id: String(contract._id),
+        requestId: String(contract.requestId ?? '').trim(),
+        offerId: String(contract.offerId ?? ''),
+        clientId: String(contract.clientId ?? ''),
+        providerUserId: String(contract.providerUserId ?? ''),
+        status: contract.status,
+        priceAmount: contract.priceAmount ?? null,
+        priceType: contract.priceType ?? null,
+        priceDetails: contract.priceDetails ?? null,
+        confirmedAt: contract.confirmedAt ?? null,
+        completedAt: contract.completedAt ?? null,
+        cancelledAt: contract.cancelledAt ?? null,
+        cancelReason: contract.cancelReason ?? null,
+        createdAt: contract.createdAt ?? null,
+        updatedAt: contract.updatedAt ?? null,
+      } satisfies WorkspaceContractSnapshot)),
+    );
+
+    const customerCards = (myRequests as Array<any>).map((request) =>
+      this.buildWorkspaceCustomerCard({
+        locale,
+        request: {
+          id: String(request._id),
+          title: request.title ?? null,
+          description: request.description ?? null,
+          serviceKey: request.serviceKey ?? null,
+          cityId: request.cityId ?? null,
+          cityName: request.cityName ?? null,
+          categoryKey: request.categoryKey ?? null,
+          categoryName: request.categoryName ?? null,
+          subcategoryName: request.subcategoryName ?? null,
+          price: request.price ?? null,
+          preferredDate: request.preferredDate ?? null,
+          status: request.status ?? null,
+          createdAt: request.createdAt ?? null,
+          imageUrl: request.imageUrl ?? null,
+        },
+        offers: customerOffersByRequest.get(String(request._id)) ?? [],
+        contract: clientContractByRequest.get(String(request._id)) ?? null,
+        now,
+      }),
+    );
+
+    const providerCards = Array.from(providerOfferByRequest.values()).map((offer) =>
+      this.buildWorkspaceProviderCard({
+        locale,
+        offer,
+        contract: providerContractByRequest.get(offer.requestId) ?? null,
+        now,
+      }),
+    );
+
+    const allCards = [...customerCards, ...providerCards];
+    const periodCutoff = now - WORKSPACE_REQUESTS_PERIOD_MS[period];
+    const cardsInPeriod = allCards.filter((card) => card.sortActivityAt >= periodCutoff);
+    const cardsByRole = role === 'all' ? cardsInPeriod : cardsInPeriod.filter((card) => card.role === role);
+    const cardsByState =
+      state === 'all'
+        ? cardsByRole
+        : cardsByRole.filter((card) => {
+            if (state === 'attention') return card.workflowState === 'open' || card.workflowState === 'clarifying';
+            if (state === 'execution') return card.workflowState === 'active';
+            return card.workflowState === 'completed';
+          });
+
+    const sortedCards = [...cardsByState].sort((left, right) => {
+      if (sort === 'deadline') {
+        if (left.sortDeadlineAt == null) return 1;
+        if (right.sortDeadlineAt == null) return -1;
+        return left.sortDeadlineAt - right.sortDeadlineAt || right.sortActivityAt - left.sortActivityAt;
+      }
+      if (sort === 'newest') return right.sortCreatedAt - left.sortCreatedAt;
+      if (sort === 'budget' || sort === 'price_desc') return right.sortBudget - left.sortBudget;
+      if (sort === 'oldest' || sort === 'date_asc') return left.sortCreatedAt - right.sortCreatedAt;
+      return right.sortActivityAt - left.sortActivityAt;
+    });
+
+    const total = sortedCards.length;
+    const limit = Math.min(Math.max(query.limit ?? Math.max(total, 1), 1), 100);
+    const offset = (page - 1) * limit;
+    const pagedCards = sortedCards.slice(offset, offset + limit);
+
+    return {
+      section: 'requests',
+      scope: 'my',
+      header: {
+        title: locale === 'de' ? 'Meine Vorgänge' : 'My workflows',
+      },
+      filters: {
+        city: query.city ?? null,
+        category: query.category ?? null,
+        service: query.service ?? null,
+        period,
+        role,
+        state,
+        sort,
+      },
+      summary: {
+        items: this.buildWorkspaceSummary({
+          locale,
+          cards: cardsByRole,
+          activeState: state,
+        }),
+      },
+      list: {
+        total,
+        page,
+        limit,
+        hasMore: offset + limit < total,
+        items: pagedCards.map((card) => card.item),
+      },
+      sidePanel: this.buildWorkspaceSidePanel({
+        locale,
+        role,
+        cards: cardsByRole,
+      }),
     };
   }
 }
