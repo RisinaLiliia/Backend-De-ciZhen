@@ -88,6 +88,14 @@ export class WorkspacePrivateReviewsDto {
   asClient: number;
 }
 
+export class WorkspacePrivateRatingSummaryDto {
+  @ApiProperty({ example: 4.7, description: 'Provider rating average used by private workspace shell UI.' })
+  average: number;
+
+  @ApiProperty({ example: 18, description: 'Provider rating count used by private workspace shell UI.' })
+  count: number;
+}
+
 export class WorkspacePrivateKpisDto {
   @ApiProperty({ example: 10 })
   myOpenRequests: number;
@@ -178,6 +186,9 @@ export class WorkspacePrivateOverviewResponseDto {
 
   @ApiProperty({ type: WorkspacePrivateReviewsDto })
   reviews: WorkspacePrivateReviewsDto;
+
+  @ApiProperty({ type: WorkspacePrivateRatingSummaryDto })
+  ratingSummary: WorkspacePrivateRatingSummaryDto;
 
   @ApiProperty({ type: WorkspacePrivateProfilesDto })
   profiles: WorkspacePrivateProfilesDto;

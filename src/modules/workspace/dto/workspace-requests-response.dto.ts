@@ -97,6 +97,112 @@ export class WorkspaceMyRequestCardQuickActionDto {
   action?: string;
 }
 
+export class WorkspaceRequestCardPreviewDto {
+  @ApiProperty({ example: '/requests/65f0c1a2b3c4d5e6f7a8b9c1' })
+  href: string;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/req/1.jpg', nullable: true })
+  imageUrl?: string | null;
+
+  @ApiPropertyOptional({ example: 'cleaning', nullable: true })
+  imageCategoryKey?: string | null;
+
+  @ApiPropertyOptional({ example: 'Einmalig', nullable: true })
+  badgeLabel?: string | null;
+
+  @ApiProperty({ example: 'Reinigung' })
+  categoryLabel: string;
+
+  @ApiProperty({ example: 'Wohnung reinigen' })
+  title: string;
+
+  @ApiPropertyOptional({ example: 'Badezimmer, Küche und Fenster.', nullable: true })
+  excerpt?: string | null;
+
+  @ApiPropertyOptional({ example: 'Berlin', nullable: true })
+  cityLabel?: string | null;
+
+  @ApiPropertyOptional({ example: '07.04.2026', nullable: true })
+  dateLabel?: string | null;
+
+  @ApiProperty({ example: '140 €' })
+  priceLabel: string;
+
+  @ApiPropertyOptional({ enum: ['up', 'down'], nullable: true, example: 'up' })
+  priceTrend?: 'up' | 'down' | null;
+
+  @ApiPropertyOptional({ example: 'Preis gestiegen', nullable: true })
+  priceTrendLabel?: string | null;
+
+  @ApiProperty({ type: String, isArray: true, example: ['Reinigung', 'Grundreinigung'] })
+  tags: string[];
+}
+
+export class WorkspaceRequestCardStatusActionDto {
+  @ApiProperty({ example: 'open' })
+  key: string;
+
+  @ApiProperty({
+    enum: ['link', 'send_offer', 'edit_offer', 'withdraw_offer', 'open_chat', 'delete_request'],
+    example: 'link',
+  })
+  kind: 'link' | 'send_offer' | 'edit_offer' | 'withdraw_offer' | 'open_chat' | 'delete_request';
+
+  @ApiProperty({ example: 'secondary' })
+  tone: 'primary' | 'secondary' | 'danger';
+
+  @ApiProperty({ example: 'briefcase' })
+  icon: 'briefcase' | 'chat' | 'edit' | 'send' | 'trash';
+
+  @ApiProperty({ example: 'Öffnen' })
+  label: string;
+
+  @ApiPropertyOptional({ example: '/requests/65f0c1a2b3c4d5e6f7a8b9c1', nullable: true })
+  href?: string | null;
+
+  @ApiPropertyOptional({ example: '65f0c1a2b3c4d5e6f7a8b9c1', nullable: true })
+  requestId?: string | null;
+
+  @ApiPropertyOptional({ example: '65f0c1a2b3c4d5e6f7a8b9d1', nullable: true })
+  offerId?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: {
+      relatedEntity: { type: 'offer', id: '65f0c1a2b3c4d5e6f7a8b9d1' },
+      participantUserId: '65f0c1a2b3c4d5e6f7a8b9d2',
+      participantRole: 'provider',
+      requestId: '65f0c1a2b3c4d5e6f7a8b9c1',
+      providerUserId: '65f0c1a2b3c4d5e6f7a8b9d2',
+      offerId: '65f0c1a2b3c4d5e6f7a8b9d1',
+    },
+  })
+  chatInput?: {
+    relatedEntity: {
+      type: 'offer' | 'order' | 'request';
+      id: string;
+    };
+    participantUserId: string;
+    participantRole?: 'customer' | 'provider';
+    requestId?: string;
+    providerUserId?: string;
+    offerId?: string;
+    orderId?: string;
+    contractId?: string;
+  } | null;
+}
+
+export class WorkspaceRequestCardStatusDto {
+  @ApiPropertyOptional({ example: 'In Prüfung', nullable: true })
+  badgeLabel?: string | null;
+
+  @ApiPropertyOptional({ enum: ['info', 'warning', 'success', 'danger'], nullable: true, example: 'warning' })
+  badgeTone?: 'info' | 'warning' | 'success' | 'danger' | null;
+
+  @ApiProperty({ type: WorkspaceRequestCardStatusActionDto, isArray: true })
+  actions: WorkspaceRequestCardStatusActionDto[];
+}
+
 export class WorkspaceMyRequestCardDto {
   @ApiProperty({ example: 'customer:65f0c1a2b3c4d5e6f7a8b9c1' })
   id: string;
@@ -148,6 +254,12 @@ export class WorkspaceMyRequestCardDto {
 
   @ApiProperty({ type: WorkspaceMyRequestCardQuickActionDto, isArray: true })
   quickActions: WorkspaceMyRequestCardQuickActionDto[];
+
+  @ApiProperty({ type: WorkspaceRequestCardPreviewDto })
+  requestPreview: WorkspaceRequestCardPreviewDto;
+
+  @ApiProperty({ type: WorkspaceRequestCardStatusDto })
+  status: WorkspaceRequestCardStatusDto;
 }
 
 export class WorkspaceRequestsListDto {

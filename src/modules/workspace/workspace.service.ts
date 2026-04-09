@@ -66,10 +66,14 @@ type WorkspaceRequestSnapshot = {
   categoryName?: string | null;
   subcategoryName?: string | null;
   price?: number | null;
+  previousPrice?: number | null;
+  priceTrend?: 'up' | 'down' | null;
   preferredDate?: Date | string | null;
   status?: string | null;
   createdAt?: Date | string | null;
+  isRecurring?: boolean | null;
   imageUrl?: string | null;
+  tags?: string[] | null;
 };
 
 type WorkspaceOfferSnapshot = {
@@ -96,7 +100,12 @@ type WorkspaceOfferSnapshot = {
   requestPreferredDate?: Date | string | null;
   requestStatus?: string | null;
   requestPrice?: number | null;
+  requestPreviousPrice?: number | null;
+  requestPriceTrend?: 'up' | 'down' | null;
   requestCreatedAt?: Date | string | null;
+  requestIsRecurring?: boolean | null;
+  requestImageUrl?: string | null;
+  requestTags?: string[] | null;
 };
 
 type WorkspaceContractSnapshot = {
@@ -424,6 +433,107 @@ export class WorkspaceService {
     }).format(date);
   }
 
+  private formatWorkspacePrice(value: number | null | undefined, locale: WorkspaceRequestsLocale): string {
+    const amount = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+
+    return new Intl.NumberFormat(locale === 'de' ? 'de-DE' : 'en-US', {
+      style: 'currency',
+      currency: 'EUR',
+      maximumFractionDigits: 0,
+    }).format(amount);
+  }
+
+  private resolveWorkspaceRecurringLabel(
+    locale: WorkspaceRequestsLocale,
+    isRecurring: boolean | null | undefined,
+  ): string {
+    if (isRecurring) {
+      return locale === 'de' ? 'Wiederkehrend' : 'Recurring';
+    }
+
+    return locale === 'de' ? 'Einmalig' : 'One-time';
+  }
+
+  private resolveWorkspacePriceTrendLabel(
+    locale: WorkspaceRequestsLocale,
+    trend: 'up' | 'down' | null | undefined,
+  ): string | null {
+    if (trend === 'down') {
+      return locale === 'de' ? 'Preis gesunken' : 'Price decreased';
+    }
+
+    if (trend === 'up') {
+      return locale === 'de' ? 'Preis gestiegen' : 'Price increased';
+    }
+
+    return null;
+  }
+
+  private resolveWorkspaceStatusBadge(args: {
+    locale: WorkspaceRequestsLocale;
+    role: WorkspaceRequestCardRole;
+    workflowState: WorkspaceRequestsWorkflowState;
+    requestStatus?: string | null;
+    offerStatus?: WorkspaceOfferSnapshot['status'];
+  }): {
+    label: string | null;
+    tone: 'info' | 'warning' | 'success' | 'danger' | null;
+  } {
+    if (args.role === 'customer') {
+      if (args.requestStatus === 'cancelled') {
+        return {
+          label: args.locale === 'de' ? 'Storniert' : 'Cancelled',
+          tone: 'danger',
+        };
+      }
+
+      if (args.workflowState === 'completed') {
+        return {
+          label: args.locale === 'de' ? 'Abgeschlossen' : 'Completed',
+          tone: 'success',
+        };
+      }
+
+      if (args.workflowState === 'active') {
+        return {
+          label: args.locale === 'de' ? 'In Arbeit' : 'In progress',
+          tone: 'warning',
+        };
+      }
+
+      return {
+        label: args.locale === 'de' ? 'Offen' : 'Open',
+        tone: 'info',
+      };
+    }
+
+    if (args.offerStatus === 'accepted') {
+      return {
+        label: args.locale === 'de' ? 'Angenommen' : 'Accepted',
+        tone: 'success',
+      };
+    }
+
+    if (args.offerStatus === 'declined' || args.offerStatus === 'withdrawn') {
+      return {
+        label: args.locale === 'de' ? 'Abgelehnt' : 'Declined',
+        tone: 'danger',
+      };
+    }
+
+    if (args.offerStatus === 'sent') {
+      return {
+        label: args.locale === 'de' ? 'In Prüfung' : 'In review',
+        tone: 'warning',
+      };
+    }
+
+    return {
+      label: null,
+      tone: null,
+    };
+  }
+
   private resolveWorkspaceCategoryLabel(request: WorkspaceRequestSnapshot): string {
     const category = String(request.categoryName ?? '').trim();
     if (category) return category;
@@ -432,6 +542,14 @@ export class WorkspaceService {
     const serviceKey = String(request.serviceKey ?? '').trim();
     if (serviceKey) return serviceKey;
     return 'Service';
+  }
+
+  private resolveWorkspaceServiceLabel(request: WorkspaceRequestSnapshot): string {
+    const subcategory = String(request.subcategoryName ?? '').trim();
+    if (subcategory) return subcategory;
+    const serviceKey = String(request.serviceKey ?? '').trim();
+    if (serviceKey) return serviceKey;
+    return this.resolveWorkspaceCategoryLabel(request);
   }
 
   private resolveWorkspaceTitle(request: WorkspaceRequestSnapshot, category: string, locale: WorkspaceRequestsLocale): string {
@@ -493,6 +611,190 @@ export class WorkspaceService {
       ...step,
       status: index < activeIndex ? 'done' : index === activeIndex ? 'current' : 'upcoming',
     }));
+  }
+
+  private buildWorkspaceRequestPreview(args: {
+    locale: WorkspaceRequestsLocale;
+    request: WorkspaceRequestSnapshot;
+    title: string;
+    categoryLabel: string;
+    budgetValue: number | null;
+    detailsHref: string;
+  }): WorkspaceMyRequestCardDto['requestPreview'] {
+    const excerpt = String(args.request.description ?? '').trim() || null;
+    const cityLabel = String(args.request.cityName ?? '').trim() || String(args.request.cityId ?? '').trim() || null;
+    const imageUrl = String(args.request.imageUrl ?? '').trim() || null;
+    const priceTrend =
+      args.request.priceTrend === 'up' || args.request.priceTrend === 'down'
+        ? args.request.priceTrend
+        : null;
+
+    return {
+      href: args.detailsHref,
+      imageUrl,
+      imageCategoryKey: args.request.categoryKey ?? args.request.serviceKey ?? null,
+      badgeLabel: this.resolveWorkspaceRecurringLabel(args.locale, args.request.isRecurring ?? false),
+      categoryLabel: args.categoryLabel,
+      title: args.title,
+      excerpt: excerpt && excerpt !== args.title ? excerpt : null,
+      cityLabel,
+      dateLabel: this.formatWorkspaceDate(args.request.preferredDate ?? args.request.createdAt ?? null, args.locale),
+      priceLabel: this.formatWorkspacePrice(args.budgetValue ?? args.request.price ?? null, args.locale),
+      priceTrend,
+      priceTrendLabel: this.resolveWorkspacePriceTrendLabel(args.locale, priceTrend),
+      tags: [
+        args.categoryLabel,
+        this.resolveWorkspaceServiceLabel(args.request),
+        ...((args.request.tags ?? []).slice(0, 2)),
+      ].filter((value, index, list) => Boolean(value) && list.indexOf(value) === index),
+    };
+  }
+
+  private buildWorkspaceCustomerStatus(args: {
+    locale: WorkspaceRequestsLocale;
+    requestId: string;
+    workflowState: WorkspaceRequestsWorkflowState;
+    requestStatus?: string | null;
+  }): WorkspaceMyRequestCardDto['status'] {
+    const badge = this.resolveWorkspaceStatusBadge({
+      locale: args.locale,
+      role: 'customer',
+      workflowState: args.workflowState,
+      requestStatus: args.requestStatus,
+    });
+
+    return {
+      badgeLabel: badge.label,
+      badgeTone: badge.tone,
+      actions: [
+        {
+          key: 'open',
+          kind: 'link',
+          tone: 'secondary',
+          icon: 'briefcase',
+          label: args.locale === 'de' ? 'Öffnen' : 'Open',
+          href: `/requests/${args.requestId}`,
+          requestId: args.requestId,
+        },
+        {
+          key: 'edit-request',
+          kind: 'link',
+          tone: 'secondary',
+          icon: 'edit',
+          label: args.locale === 'de' ? 'Bearbeiten' : 'Edit',
+          href: `/requests/${args.requestId}?edit=1`,
+          requestId: args.requestId,
+        },
+        {
+          key: 'delete-request',
+          kind: 'delete_request',
+          tone: 'danger',
+          icon: 'trash',
+          label: args.locale === 'de' ? 'Löschen' : 'Delete',
+          requestId: args.requestId,
+        },
+      ],
+    };
+  }
+
+  private buildWorkspaceProviderStatus(args: {
+    locale: WorkspaceRequestsLocale;
+    offer: WorkspaceOfferSnapshot;
+    workflowState: WorkspaceRequestsWorkflowState;
+  }): WorkspaceMyRequestCardDto['status'] {
+    const badge = this.resolveWorkspaceStatusBadge({
+      locale: args.locale,
+      role: 'provider',
+      workflowState: args.workflowState,
+      requestStatus: args.offer.requestStatus ?? null,
+      offerStatus: args.offer.status,
+    });
+
+    const actions: WorkspaceMyRequestCardDto['status']['actions'] = [];
+    const chatInput = args.offer.providerUserId
+      ? {
+          relatedEntity: {
+            type: 'offer' as const,
+            id: args.offer.id,
+          },
+          participantUserId: args.offer.providerUserId,
+          participantRole: 'provider' as const,
+          requestId: args.offer.requestId,
+          providerUserId: args.offer.providerUserId,
+          offerId: args.offer.id,
+        }
+      : null;
+
+    if (args.offer.status === 'sent') {
+      actions.push(
+        {
+          key: 'edit-offer',
+          kind: 'edit_offer',
+          tone: 'secondary',
+          icon: 'edit',
+          label: args.locale === 'de' ? 'Bearbeiten' : 'Edit',
+          requestId: args.offer.requestId,
+          offerId: args.offer.id,
+        },
+        {
+          key: 'withdraw-offer',
+          kind: 'withdraw_offer',
+          tone: 'danger',
+          icon: 'trash',
+          label: args.locale === 'de' ? 'Zurückziehen' : 'Withdraw',
+          requestId: args.offer.requestId,
+          offerId: args.offer.id,
+        },
+      );
+    } else if (args.offer.status === 'accepted') {
+      actions.push(
+        {
+          key: 'contract',
+          kind: 'link',
+          tone: 'primary',
+          icon: 'briefcase',
+          label: args.locale === 'de' ? 'Vertrag' : 'Contract',
+          href: '/workspace?tab=completed-jobs',
+          requestId: args.offer.requestId,
+          offerId: args.offer.id,
+        },
+        {
+          key: 'chat',
+          kind: 'open_chat',
+          tone: 'secondary',
+          icon: 'chat',
+          label: args.locale === 'de' ? 'Chat' : 'Chat',
+          requestId: args.offer.requestId,
+          offerId: args.offer.id,
+          chatInput,
+        },
+      );
+    } else if (args.offer.status === 'declined' || args.offer.status === 'withdrawn') {
+      actions.push({
+        key: 'send-offer',
+        kind: 'send_offer',
+        tone: 'primary',
+        icon: 'send',
+        label: args.locale === 'de' ? 'Neu anbieten' : 'Send again',
+        requestId: args.offer.requestId,
+      });
+    } else {
+      actions.push({
+        key: 'open',
+        kind: 'link',
+        tone: 'secondary',
+        icon: 'briefcase',
+        label: args.locale === 'de' ? 'Öffnen' : 'Open',
+        href: `/requests/${args.offer.requestId}`,
+        requestId: args.offer.requestId,
+      });
+    }
+
+    return {
+      badgeLabel: badge.label,
+      badgeTone: badge.tone,
+      actions,
+    };
   }
 
   private pickLatestByRequest<T extends { requestId: string; updatedAt?: Date | string | null; createdAt?: Date | string | null }>(
@@ -586,6 +888,7 @@ export class WorkspaceService {
 
     const budgetValue = contract?.priceAmount ?? request.price ?? null;
     const deadlineAt = contractConfirmedAt ?? preferredAt;
+    const detailsHref = `/requests/${request.id}`;
 
     return {
       item: {
@@ -613,7 +916,7 @@ export class WorkspaceService {
             key: 'open',
             label: locale === 'de' ? 'Öffnen' : 'Open',
             tone: 'primary',
-            href: `/requests/${request.id}`,
+            href: detailsHref,
           },
           ...(offers.length > 0 && !contract
             ? [
@@ -621,7 +924,7 @@ export class WorkspaceService {
                   key: 'compare',
                   label: locale === 'de' ? 'Anbieter vergleichen' : 'Compare providers',
                   tone: 'secondary' as const,
-                  href: `/requests/${request.id}`,
+                  href: detailsHref,
                 },
               ]
             : []),
@@ -631,11 +934,25 @@ export class WorkspaceService {
                   key: 'contract',
                   label: locale === 'de' ? 'Vertrag ansehen' : 'View contract',
                   tone: 'secondary' as const,
-                  href: `/requests/${request.id}`,
+                  href: detailsHref,
                 },
               ]
             : []),
         ],
+        requestPreview: this.buildWorkspaceRequestPreview({
+          locale,
+          request,
+          title,
+          categoryLabel: category,
+          budgetValue,
+          detailsHref,
+        }),
+        status: this.buildWorkspaceCustomerStatus({
+          locale,
+          requestId: request.id,
+          workflowState: state,
+          requestStatus: request.status ?? null,
+        }),
       },
       role: 'customer',
       workflowState: state,
@@ -664,9 +981,14 @@ export class WorkspaceService {
       categoryName: offer.requestCategoryName ?? null,
       subcategoryName: offer.requestSubcategoryName ?? null,
       price: offer.requestPrice ?? offer.amount ?? null,
+      previousPrice: offer.requestPreviousPrice ?? null,
+      priceTrend: offer.requestPriceTrend ?? null,
       preferredDate: offer.requestPreferredDate ?? offer.availableAt ?? null,
       status: offer.requestStatus ?? 'published',
       createdAt: offer.requestCreatedAt ?? offer.createdAt ?? null,
+      isRecurring: offer.requestIsRecurring ?? false,
+      imageUrl: offer.requestImageUrl ?? null,
+      tags: offer.requestTags ?? [],
     };
     const category = this.resolveWorkspaceCategoryLabel(request);
     const title = this.resolveWorkspaceTitle(request, category, locale);
@@ -727,6 +1049,7 @@ export class WorkspaceService {
     }
 
     const budgetValue = contract?.priceAmount ?? offer.amount ?? request.price ?? null;
+    const detailsHref = `/requests/${offer.requestId}`;
 
     return {
       item: {
@@ -754,7 +1077,7 @@ export class WorkspaceService {
             key: 'open',
             label: locale === 'de' ? 'Öffnen' : 'Open',
             tone: 'primary',
-            href: `/requests/${offer.requestId}`,
+            href: detailsHref,
           },
           {
             key: 'message',
@@ -768,11 +1091,24 @@ export class WorkspaceService {
                   key: 'contract',
                   label: locale === 'de' ? 'Vertrag ansehen' : 'View contract',
                   tone: 'secondary' as const,
-                  href: `/requests/${offer.requestId}`,
+                  href: detailsHref,
                 },
               ]
             : []),
         ],
+        requestPreview: this.buildWorkspaceRequestPreview({
+          locale,
+          request,
+          title,
+          categoryLabel: category,
+          budgetValue,
+          detailsHref,
+        }),
+        status: this.buildWorkspaceProviderStatus({
+          locale,
+          offer,
+          workflowState: state,
+        }),
       },
       role: 'provider',
       workflowState: state,
@@ -1313,6 +1649,10 @@ export class WorkspaceService {
       asProvider: reviewRows.find((row) => row._id === 'provider')?.count ?? 0,
       asClient: reviewRows.find((row) => row._id === 'client')?.count ?? 0,
     };
+    const ratingSummary = {
+      average: Number(providerProfile?.ratingAvg ?? 0),
+      count: Number(providerProfile?.ratingCount ?? reviews.asProvider ?? 0),
+    };
 
     const providerCompleteness = this.computeProviderCompleteness(providerProfile);
     const clientCompleteness = this.computeClientCompleteness(user, Boolean(clientProfile));
@@ -1411,6 +1751,7 @@ export class WorkspaceService {
       clientContractsByStatus,
       favorites,
       reviews,
+      ratingSummary,
       profiles: {
         providerCompleteness,
         clientCompleteness,
@@ -1502,7 +1843,12 @@ export class WorkspaceService {
               requestPreferredDate: '$req.preferredDate',
               requestStatus: '$req.status',
               requestPrice: '$req.price',
+              requestPreviousPrice: '$req.previousPrice',
+              requestPriceTrend: '$req.priceTrend',
               requestCreatedAt: '$req.createdAt',
+              requestIsRecurring: '$req.isRecurring',
+              requestImageUrl: '$req.imageUrl',
+              requestTags: '$req.tags',
             },
           },
         ])
@@ -1592,10 +1938,14 @@ export class WorkspaceService {
           categoryName: request.categoryName ?? null,
           subcategoryName: request.subcategoryName ?? null,
           price: request.price ?? null,
+          previousPrice: request.previousPrice ?? null,
+          priceTrend: request.priceTrend ?? null,
           preferredDate: request.preferredDate ?? null,
           status: request.status ?? null,
           createdAt: request.createdAt ?? null,
+          isRecurring: request.isRecurring ?? false,
           imageUrl: request.imageUrl ?? null,
+          tags: request.tags ?? [],
         },
         offers: customerOffersByRequest.get(String(request._id)) ?? [],
         contract: clientContractByRequest.get(String(request._id)) ?? null,
