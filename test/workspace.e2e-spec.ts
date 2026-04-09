@@ -261,6 +261,24 @@ describe('workspace (e2e)', () => {
         requestId: providerRequestId,
         role: 'provider',
         state: 'active',
+        requestPreview: expect.objectContaining({
+          href: `/requests/${providerRequestId}`,
+          categoryLabel: 'Reinigung',
+        }),
+        status: expect.objectContaining({
+          badgeLabel: 'Angenommen',
+          actions: expect.arrayContaining([
+            expect.objectContaining({
+              key: 'chat',
+              kind: 'open_chat',
+              chatInput: expect.objectContaining({
+                requestId: providerRequestId,
+                offerId: providerOfferId,
+                participantUserId: userId,
+              }),
+            }),
+          ]),
+        }),
       }),
     );
     expect(res.body.list.items[1]).toEqual(
@@ -268,6 +286,13 @@ describe('workspace (e2e)', () => {
         requestId: customerRequestId,
         role: 'customer',
         state: 'clarifying',
+        requestPreview: expect.objectContaining({
+          href: `/requests/${customerRequestId}`,
+          categoryLabel: 'Reinigung',
+        }),
+        status: expect.objectContaining({
+          badgeLabel: 'Offen',
+        }),
       }),
     );
     expect(res.body.list.items[0].progress.steps.map((step: { label: string }) => step.label)).toEqual([

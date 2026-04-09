@@ -360,6 +360,7 @@ describe('WorkspaceService (unit)', () => {
     expect(result.requestsByStatus.total).toBe(4);
     expect(result.clientOffersByStatus.total).toBe(2);
     expect(result.clientContractsByStatus.total).toBe(3);
+    expect(result.ratingSummary).toEqual({ average: 0, count: 0 });
   });
 
   it('getPrivateOverview falls back to account role when customer and provider loads are tied', async () => {
@@ -400,6 +401,7 @@ describe('WorkspaceService (unit)', () => {
     const result = await service.getPrivateOverview('user-2', 'provider', '30d');
 
     expect(result.preferredRole).toBe('provider');
+    expect(result.ratingSummary).toEqual({ average: 0, count: 0 });
     expect(result.requestsByStatus.total + result.clientOffersByStatus.total + result.clientContractsByStatus.total).toBe(
       result.providerOffersByStatus.total + result.providerContractsByStatus.total,
     );
@@ -450,6 +452,7 @@ describe('WorkspaceService (unit)', () => {
     const result = await service.getPrivateOverview('user-3', 'client', '24h');
 
     expect(result.preferredRole).toBe('provider');
+    expect(result.ratingSummary).toEqual({ average: 0, count: 0 });
   });
 
   it('getRequestsOverview returns backend-owned workflow summary and cards', async () => {
@@ -571,6 +574,14 @@ describe('WorkspaceService (unit)', () => {
         state: 'clarifying',
         stateLabel: 'In Klärung',
         progress: expect.objectContaining({ currentStep: 'selection' }),
+        requestPreview: expect.objectContaining({
+          href: '/requests/request-customer-1',
+          categoryLabel: 'Design',
+          title: 'Logo design for boutique',
+        }),
+        status: expect.objectContaining({
+          badgeLabel: 'Offen',
+        }),
       }),
     );
     expect(result.list.items[1]).toEqual(
@@ -580,6 +591,25 @@ describe('WorkspaceService (unit)', () => {
         state: 'active',
         stateLabel: 'In Arbeit',
         progress: expect.objectContaining({ currentStep: 'contract' }),
+        requestPreview: expect.objectContaining({
+          href: '/requests/request-provider-1',
+          categoryLabel: 'Photography',
+          title: 'Wedding photography',
+        }),
+        status: expect.objectContaining({
+          badgeLabel: 'Angenommen',
+          actions: expect.arrayContaining([
+            expect.objectContaining({
+              key: 'chat',
+              kind: 'open_chat',
+              chatInput: expect.objectContaining({
+                requestId: 'request-provider-1',
+                offerId: 'offer-provider-1',
+                participantUserId: 'user-1',
+              }),
+            }),
+          ]),
+        }),
       }),
     );
     expect(result.sidePanel.focus).toEqual(

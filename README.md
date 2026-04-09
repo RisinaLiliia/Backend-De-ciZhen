@@ -215,6 +215,7 @@ Domain modules are organized by business responsibility:
 - `GET /workspace/private` (Bearer auth)
   Returns personalized counters/KPIs/series for private workspace dashboard.
   - includes backend-owned `preferredRole: customer|provider`
+  - includes backend-owned `ratingSummary { average, count }` for shell navigation/review meta
   - accepts optional `period=24h|7d|30d|90d` for context-aware preferred-role resolution
   - frontend must render this field directly and must not infer dominant role from private counters client-side
 - `GET /workspace/requests` (Bearer auth)
@@ -243,6 +244,11 @@ Domain modules are organized by business responsibility:
       - `activity`
       - `progress.currentStep` and `progress.steps[]`
       - `quickActions[]`
+      - `requestPreview`
+        - self-contained shared request-card payload (`href`, image/category fallback key, labels, excerpt, price, tags)
+      - `status`
+        - badge + action descriptors for the card header (`link`, `send_offer`, `edit_offer`, `withdraw_offer`, `open_chat`, `delete_request`)
+        - `open_chat` actions include a ready-to-use `chatInput` payload so the frontend can open conversations without resolving raw offer entities client-side
   - `sidePanel`
     - backend-owned focus/recommendation/context/next-steps blocks
   Frontend should treat this endpoint as the source of truth for private requests workflow semantics and should render the contract directly instead of rebuilding states client-side.

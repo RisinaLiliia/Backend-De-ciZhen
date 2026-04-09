@@ -15010,6 +15010,25 @@
           "asClient"
         ]
       },
+      "WorkspacePrivateRatingSummaryDto": {
+        "type": "object",
+        "properties": {
+          "average": {
+            "type": "number",
+            "example": 4.7,
+            "description": "Provider rating average used by private workspace shell UI."
+          },
+          "count": {
+            "type": "number",
+            "example": 18,
+            "description": "Provider rating count used by private workspace shell UI."
+          }
+        },
+        "required": [
+          "average",
+          "count"
+        ]
+      },
       "WorkspacePrivateProfilesDto": {
         "type": "object",
         "properties": {
@@ -15171,6 +15190,9 @@
           "reviews": {
             "$ref": "#/components/schemas/WorkspacePrivateReviewsDto"
           },
+          "ratingSummary": {
+            "$ref": "#/components/schemas/WorkspacePrivateRatingSummaryDto"
+          },
           "profiles": {
             "$ref": "#/components/schemas/WorkspacePrivateProfilesDto"
           },
@@ -15204,6 +15226,7 @@
           "clientContractsByStatus",
           "favorites",
           "reviews",
+          "ratingSummary",
           "profiles",
           "kpis",
           "insights",
@@ -15453,6 +15476,188 @@
           "tone"
         ]
       },
+      "WorkspaceRequestCardPreviewDto": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "example": "/requests/65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "imageUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/req/1.jpg",
+            "nullable": true
+          },
+          "imageCategoryKey": {
+            "type": "object",
+            "example": "cleaning",
+            "nullable": true
+          },
+          "badgeLabel": {
+            "type": "object",
+            "example": "Einmalig",
+            "nullable": true
+          },
+          "categoryLabel": {
+            "type": "string",
+            "example": "Reinigung"
+          },
+          "title": {
+            "type": "string",
+            "example": "Wohnung reinigen"
+          },
+          "excerpt": {
+            "type": "object",
+            "example": "Badezimmer, Küche und Fenster.",
+            "nullable": true
+          },
+          "cityLabel": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "dateLabel": {
+            "type": "object",
+            "example": "07.04.2026",
+            "nullable": true
+          },
+          "priceLabel": {
+            "type": "string",
+            "example": "140 €"
+          },
+          "priceTrend": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ],
+            "nullable": true,
+            "example": "up"
+          },
+          "priceTrendLabel": {
+            "type": "object",
+            "example": "Preis gestiegen",
+            "nullable": true
+          },
+          "tags": {
+            "example": [
+              "Reinigung",
+              "Grundreinigung"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "href",
+          "categoryLabel",
+          "title",
+          "priceLabel",
+          "tags"
+        ]
+      },
+      "WorkspaceRequestCardStatusActionDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "open"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "link",
+              "send_offer",
+              "edit_offer",
+              "withdraw_offer",
+              "open_chat",
+              "delete_request"
+            ],
+            "example": "link"
+          },
+          "tone": {
+            "type": "string",
+            "example": "secondary"
+          },
+          "icon": {
+            "type": "string",
+            "example": "briefcase"
+          },
+          "label": {
+            "type": "string",
+            "example": "Öffnen"
+          },
+          "href": {
+            "type": "object",
+            "example": "/requests/65f0c1a2b3c4d5e6f7a8b9c1",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "object",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+            "nullable": true
+          },
+          "offerId": {
+            "type": "object",
+            "example": "65f0c1a2b3c4d5e6f7a8b9d1",
+            "nullable": true
+          },
+          "chatInput": {
+            "type": "object",
+            "nullable": true,
+            "example": {
+              "relatedEntity": {
+                "type": "offer",
+                "id": "65f0c1a2b3c4d5e6f7a8b9d1"
+              },
+              "participantUserId": "65f0c1a2b3c4d5e6f7a8b9d2",
+              "participantRole": "provider",
+              "requestId": "65f0c1a2b3c4d5e6f7a8b9c1",
+              "providerUserId": "65f0c1a2b3c4d5e6f7a8b9d2",
+              "offerId": "65f0c1a2b3c4d5e6f7a8b9d1"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "tone",
+          "icon",
+          "label"
+        ]
+      },
+      "WorkspaceRequestCardStatusDto": {
+        "type": "object",
+        "properties": {
+          "badgeLabel": {
+            "type": "object",
+            "example": "In Prüfung",
+            "nullable": true
+          },
+          "badgeTone": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "success",
+              "danger"
+            ],
+            "nullable": true,
+            "example": "warning"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRequestCardStatusActionDto"
+            }
+          }
+        },
+        "required": [
+          "actions"
+        ]
+      },
       "WorkspaceMyRequestCardDto": {
         "type": "object",
         "properties": {
@@ -15550,6 +15755,12 @@
             "items": {
               "$ref": "#/components/schemas/WorkspaceMyRequestCardQuickActionDto"
             }
+          },
+          "requestPreview": {
+            "$ref": "#/components/schemas/WorkspaceRequestCardPreviewDto"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkspaceRequestCardStatusDto"
           }
         },
         "required": [
@@ -15561,7 +15772,9 @@
           "state",
           "stateLabel",
           "progress",
-          "quickActions"
+          "quickActions",
+          "requestPreview",
+          "status"
         ]
       },
       "WorkspaceRequestsListDto": {
