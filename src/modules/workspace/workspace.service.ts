@@ -32,7 +32,9 @@ import type {
 import type { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
 import type {
   WorkspaceMyRequestCardDto,
+  WorkspaceRequestDecisionDto,
   WorkspaceRequestsResponseDto,
+  WorkspaceRequestsDecisionPanelDto,
   WorkspaceRequestsSidePanelDto,
   WorkspaceRequestsSummaryItemDto,
 } from './dto/workspace-requests-response.dto';
@@ -54,6 +56,14 @@ type WorkspaceRequestsState = 'all' | 'attention' | 'execution' | 'completed';
 type WorkspaceRequestsWorkflowState = 'open' | 'clarifying' | 'active' | 'completed';
 type WorkspaceRequestsProgressStep = 'request' | 'offers' | 'selection' | 'contract' | 'done';
 type WorkspaceRequestCardRole = 'customer' | 'provider';
+type WorkspaceRequestDecisionActionType =
+  | 'review_offers'
+  | 'reply_required'
+  | 'confirm_contract'
+  | 'confirm_completion'
+  | 'overdue_followup'
+  | 'none';
+type WorkspaceRequestDecisionPriorityLevel = 'high' | 'medium' | 'low' | 'none';
 
 type WorkspaceRequestSnapshot = {
   id: string;
@@ -130,6 +140,7 @@ type WorkspaceRequestCardModel = {
   item: WorkspaceMyRequestCardDto;
   role: WorkspaceRequestCardRole;
   workflowState: WorkspaceRequestsWorkflowState;
+  decision: WorkspaceRequestDecisionDto;
   sortActivityAt: number;
   sortCreatedAt: number;
   sortBudget: number;
@@ -613,6 +624,151 @@ export class WorkspaceService {
     }));
   }
 
+  private resolveWorkspaceDecisionPriorityLevel(
+    priority: number,
+  ): WorkspaceRequestDecisionPriorityLevel {
+    if (priority >= 90) return 'high';
+    if (priority >= 70) return 'medium';
+    if (priority > 0) return 'low';
+    return 'none';
+  }
+
+  private buildWorkspaceDecision(args: {
+    locale: WorkspaceRequestsLocale;
+    role: WorkspaceRequestCardRole;
+    workflowState: WorkspaceRequestsWorkflowState;
+    urgency: WorkspaceMyRequestCardDto['urgency'];
+    requestTitle: string;
+    requestCreatedAt: number;
+    requestStatus?: string | null;
+    offersCount?: number;
+    hasAcceptedOffer?: boolean;
+    contractStatus?: WorkspaceContractSnapshot['status'] | null;
+    activityAt?: number | null;
+    now: number;
+  }): WorkspaceRequestDecisionDto {
+    const staleMs = args.now - (args.activityAt ?? args.requestCreatedAt);
+    const isStale = staleMs >= 24 * 60 * 60 * 1000;
+    const urgencyBonus = args.urgency === 'high' ? 10 : args.urgency === 'medium' ? 5 : 0;
+    const staleBonus = isStale ? 5 : 0;
+
+    let actionType: WorkspaceRequestDecisionActionType = 'none';
+    let actionLabel: string | null = null;
+    let actionReason: string | null = null;
+    let actionPriority = 0;
+
+    if (args.role === 'customer') {
+      if (args.contractStatus === 'completed') {
+        actionType = 'confirm_completion';
+        actionLabel = args.locale === 'de' ? 'Ausführung bestätigen' : 'Confirm completion';
+        actionReason = args.locale === 'de'
+          ? 'Der Anbieter hat den Vorgang als erledigt markiert.'
+          : 'The provider marked the work as completed.';
+        actionPriority = 100;
+      } else if (args.contractStatus === 'pending' || (args.hasAcceptedOffer && !args.contractStatus)) {
+        actionType = 'confirm_contract';
+        actionLabel = args.locale === 'de' ? 'Vertrag bestätigen' : 'Confirm contract';
+        actionReason = args.locale === 'de'
+          ? 'Die nächsten Schritte hängen von deiner Vertragsbestätigung ab.'
+          : 'The next step depends on your contract confirmation.';
+        actionPriority = 90;
+      } else if ((args.offersCount ?? 0) > 0 && args.workflowState !== 'completed') {
+        actionType = 'review_offers';
+        actionLabel = args.locale === 'de'
+          ? `${args.offersCount} Angebote prüfen`
+          : `Review ${args.offersCount} offers`;
+        actionReason = args.locale === 'de'
+          ? 'Neue Angebote warten auf deine Auswahl.'
+          : 'New offers are waiting for your decision.';
+        actionPriority = 70;
+      } else if (
+        args.workflowState !== 'completed' &&
+        (args.requestStatus === 'published' || args.requestStatus === 'matched') &&
+        isStale
+      ) {
+        actionType = 'overdue_followup';
+        actionLabel = args.locale === 'de' ? 'Seit 24h ohne Aktion' : 'No action in the last 24h';
+        actionReason = args.locale === 'de'
+          ? 'Dieser Vorgang wartet zu lange auf deine Entscheidung.'
+          : 'This workflow has been waiting too long for your decision.';
+        actionPriority = 60;
+      }
+    } else if (args.role === 'provider') {
+      if (args.contractStatus === 'pending' || args.workflowState === 'active' && !args.contractStatus) {
+        actionType = 'confirm_contract';
+        actionLabel = args.locale === 'de' ? 'Vertrag bestätigen' : 'Confirm contract';
+        actionReason = args.locale === 'de'
+          ? 'Der Auftrag ist bereit für die nächste Bestätigung.'
+          : 'The job is ready for the next confirmation.';
+        actionPriority = 90;
+      } else if (args.workflowState === 'clarifying' && isStale) {
+        actionType = 'overdue_followup';
+        actionLabel = args.locale === 'de' ? 'Seit 24h ohne Aktion' : 'No action in the last 24h';
+        actionReason = args.locale === 'de'
+          ? 'Diese Anfrage braucht ein Follow-up, damit sie nicht blockiert.'
+          : 'This request needs a follow-up so it does not stay blocked.';
+        actionPriority = 60;
+      }
+    }
+
+    const boostedPriority = actionPriority > 0 ? actionPriority + urgencyBonus + staleBonus : 0;
+
+    return {
+      needsAction: actionType !== 'none',
+      actionType,
+      actionPriority: boostedPriority,
+      actionPriorityLevel: this.resolveWorkspaceDecisionPriorityLevel(boostedPriority),
+      actionLabel,
+      actionReason,
+      lastRelevantActivityAt:
+        actionType === 'none'
+          ? null
+          : new Date(args.activityAt ?? args.requestCreatedAt).toISOString(),
+      primaryAction: null,
+    };
+  }
+
+  private resolveWorkspaceDecisionPrimaryAction(args: {
+    locale: WorkspaceRequestsLocale;
+    requestId: string;
+    detailsHref: string;
+    decision: WorkspaceRequestDecisionDto;
+    statusActions: WorkspaceMyRequestCardDto['status']['actions'];
+  }): WorkspaceMyRequestCardDto['status']['actions'][number] | null {
+    if (!args.decision.needsAction) return null;
+
+    if (args.decision.actionType === 'reply_required') {
+      return args.statusActions.find((action) => action.kind === 'open_chat')
+        ?? args.statusActions.find((action) => action.key === 'open')
+        ?? null;
+    }
+
+    if (args.decision.actionType === 'confirm_contract') {
+      return args.statusActions.find((action) => action.key === 'contract')
+        ?? args.statusActions.find((action) => action.key === 'open')
+        ?? {
+          key: 'open',
+          kind: 'link',
+          tone: 'primary',
+          icon: 'briefcase',
+          label: args.locale === 'de' ? 'Öffnen' : 'Open',
+          href: args.detailsHref,
+          requestId: args.requestId,
+        };
+    }
+
+    return args.statusActions.find((action) => action.key === 'open')
+      ?? {
+        key: 'open',
+        kind: 'link',
+        tone: 'primary',
+        icon: 'briefcase',
+        label: args.locale === 'de' ? 'Öffnen' : 'Open',
+        href: args.detailsHref,
+        requestId: args.requestId,
+      };
+  }
+
   private buildWorkspaceRequestPreview(args: {
     locale: WorkspaceRequestsLocale;
     request: WorkspaceRequestSnapshot;
@@ -889,6 +1045,37 @@ export class WorkspaceService {
     const budgetValue = contract?.priceAmount ?? request.price ?? null;
     const deadlineAt = contractConfirmedAt ?? preferredAt;
     const detailsHref = `/requests/${request.id}`;
+    const status = this.buildWorkspaceCustomerStatus({
+      locale,
+      requestId: request.id,
+      workflowState: state,
+      requestStatus: request.status ?? null,
+    });
+    const decision = this.buildWorkspaceDecision({
+      locale,
+      role: 'customer',
+      workflowState: state,
+      urgency: this.resolveWorkspaceUrgency(deadlineAt, now),
+      requestTitle: title,
+      requestCreatedAt: createdAt,
+      requestStatus: request.status ?? null,
+      offersCount: offers.length,
+      hasAcceptedOffer: offers.some((offer) => offer.status === 'accepted'),
+      contractStatus: contract?.status ?? null,
+      activityAt: this.parseActivityAt(contract?.updatedAt ?? contract?.createdAt ?? null)
+        ?? this.parseActivityAt(offers[0]?.updatedAt ?? offers[0]?.createdAt ?? null)
+        ?? preferredAt
+        ?? createdAt,
+      now,
+    });
+    decision.primaryAction = this.resolveWorkspaceDecisionPrimaryAction({
+      locale,
+      requestId: request.id,
+      detailsHref,
+      decision,
+      statusActions: status.actions,
+    });
+    const urgency = this.resolveWorkspaceUrgency(deadlineAt, now);
 
     return {
       item: {
@@ -905,7 +1092,7 @@ export class WorkspaceService {
         agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
         state,
         stateLabel: this.resolveWorkspaceStateLabel(locale, state),
-        urgency: this.resolveWorkspaceUrgency(deadlineAt, now),
+        urgency,
         activity,
         progress: {
           currentStep: progressStep,
@@ -947,15 +1134,12 @@ export class WorkspaceService {
           budgetValue,
           detailsHref,
         }),
-        status: this.buildWorkspaceCustomerStatus({
-          locale,
-          requestId: request.id,
-          workflowState: state,
-          requestStatus: request.status ?? null,
-        }),
+        status,
+        decision,
       },
       role: 'customer',
       workflowState: state,
+      decision,
       sortActivityAt: contractConfirmedAt ?? preferredAt ?? createdAt,
       sortCreatedAt: createdAt,
       sortBudget: budgetValue ?? 0,
@@ -1050,6 +1234,35 @@ export class WorkspaceService {
 
     const budgetValue = contract?.priceAmount ?? offer.amount ?? request.price ?? null;
     const detailsHref = `/requests/${offer.requestId}`;
+    const status = this.buildWorkspaceProviderStatus({
+      locale,
+      offer,
+      workflowState: state,
+    });
+    const urgency = this.resolveWorkspaceUrgency(nextEventAt, now);
+    const decision = this.buildWorkspaceDecision({
+      locale,
+      role: 'provider',
+      workflowState: state,
+      urgency,
+      requestTitle: title,
+      requestCreatedAt: offerCreatedAt,
+      requestStatus: request.status ?? null,
+      contractStatus: contract?.status ?? null,
+      activityAt:
+        this.parseActivityAt(contract?.updatedAt ?? contract?.confirmedAt ?? null)
+        ?? this.parseActivityAt(offer.updatedAt ?? offer.createdAt)
+        ?? nextEventAt
+        ?? offerCreatedAt,
+      now,
+    });
+    decision.primaryAction = this.resolveWorkspaceDecisionPrimaryAction({
+      locale,
+      requestId: offer.requestId,
+      detailsHref,
+      decision,
+      statusActions: status.actions,
+    });
 
     return {
       item: {
@@ -1066,7 +1279,7 @@ export class WorkspaceService {
         agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
         state,
         stateLabel: this.resolveWorkspaceStateLabel(locale, state),
-        urgency: this.resolveWorkspaceUrgency(nextEventAt, now),
+        urgency,
         activity,
         progress: {
           currentStep: progressStep,
@@ -1104,14 +1317,12 @@ export class WorkspaceService {
           budgetValue,
           detailsHref,
         }),
-        status: this.buildWorkspaceProviderStatus({
-          locale,
-          offer,
-          workflowState: state,
-        }),
+        status,
+        decision,
       },
       role: 'provider',
       workflowState: state,
+      decision,
       sortActivityAt:
         nextEventAt
         ?? this.parseActivityAt(contract?.updatedAt ?? offer.updatedAt ?? offer.createdAt)
@@ -1162,11 +1373,73 @@ export class WorkspaceService {
     ];
   }
 
+  private buildWorkspaceDecisionPanel(args: {
+    locale: WorkspaceRequestsLocale;
+    cards: WorkspaceRequestCardModel[];
+  }): WorkspaceRequestsDecisionPanelDto {
+    const queue = [...args.cards]
+      .filter((card) => card.decision.needsAction)
+      .sort((left, right) => {
+        const leftRelevant = this.parseActivityAt(left.decision.lastRelevantActivityAt) ?? 0;
+        const rightRelevant = this.parseActivityAt(right.decision.lastRelevantActivityAt) ?? 0;
+
+        return (
+          right.decision.actionPriority - left.decision.actionPriority ||
+          rightRelevant - leftRelevant ||
+          right.sortCreatedAt - left.sortCreatedAt
+        );
+      });
+
+    const totalNeedsAction = queue.length;
+    const summary = {
+      totalNeedsAction,
+      highPriorityCount: queue.filter((card) => card.decision.actionPriorityLevel === 'high').length,
+      newOffersCount: queue.filter((card) => card.decision.actionType === 'review_offers').length,
+      replyRequiredCount: queue.filter((card) => card.decision.actionType === 'reply_required').length,
+      confirmCompletionCount: queue.filter((card) => card.decision.actionType === 'confirm_completion').length,
+      overdueCount: queue.filter((card) => card.decision.actionType === 'overdue_followup').length,
+    };
+
+    return {
+      summary,
+      primaryAction: {
+        label: args.locale === 'de' ? 'Jetzt handeln' : 'Act now',
+        mode: 'decision',
+        targetFilter: 'needs_action',
+      },
+      queue: queue.map((card) => ({
+        requestId: card.item.requestId,
+        title: card.item.title,
+        actionType: card.decision.actionType as Exclude<WorkspaceRequestDecisionActionType, 'none'>,
+        actionLabel:
+          card.decision.actionLabel
+          ?? (args.locale === 'de' ? 'Jetzt öffnen' : 'Open now'),
+        actionPriority: card.decision.actionPriority,
+        actionPriorityLevel:
+          card.decision.actionPriorityLevel === 'none'
+            ? 'low'
+            : card.decision.actionPriorityLevel,
+        actionReason: card.decision.actionReason ?? null,
+        categoryLabel: card.item.category ?? null,
+        cityLabel: card.item.city ?? null,
+      })),
+      overview: {
+        highUrgency: args.cards.filter((card) => card.item.urgency === 'high').length,
+        inProgress: args.cards.filter((card) => card.workflowState === 'active').length,
+        completedThisPeriod: args.cards.filter((card) => card.workflowState === 'completed').length,
+      },
+    };
+  }
+
   private buildWorkspaceSidePanel(args: {
     locale: WorkspaceRequestsLocale;
     role: WorkspaceRequestsRole;
     cards: WorkspaceRequestCardModel[];
   }): WorkspaceRequestsSidePanelDto {
+    const decisionPanel = this.buildWorkspaceDecisionPanel({
+      locale: args.locale,
+      cards: args.cards,
+    });
     const stateWeight: Record<WorkspaceRequestsWorkflowState, number> = {
       clarifying: 4,
       active: 3,
@@ -1191,6 +1464,7 @@ export class WorkspaceService {
     const highUrgencyCount = args.cards.filter((card) => card.item.urgency === 'high').length;
     const customerCount = args.cards.filter((card) => card.role === 'customer').length;
     const providerCount = args.cards.filter((card) => card.role === 'provider').length;
+    const primaryDecision = decisionPanel.queue[0] ?? null;
 
     return {
       focus: focusCard
@@ -1211,18 +1485,26 @@ export class WorkspaceService {
         : null,
       recommendation: {
         title: args.locale === 'de' ? 'KI-Empfehlung' : 'AI recommendation',
-        description:
-          args.role === 'provider'
-            ? args.locale === 'de'
-              ? 'Schnelle Rückmeldungen auf laufende Vorgänge erhöhen aktuell deine Abschlusschance.'
-              : 'Fast replies on active flows improve your close rate right now.'
-            : args.role === 'customer'
+        description: primaryDecision?.actionReason
+          ?? (
+            args.role === 'provider'
               ? args.locale === 'de'
-                ? 'Prüfe neue Angebote zeitnah, damit Auswahl und Terminbestätigung nicht liegen bleiben.'
-                : 'Review new offers quickly so selection and confirmation keep moving.'
-              : args.locale === 'de'
-                ? 'Halte Klärungen kurz und bestätige aktive Vorgänge früh, damit offene Arbeit nicht blockiert.'
-                : 'Keep clarifications short and confirm active work early so the queue stays unblocked.',
+                ? 'Schnelle Rückmeldungen auf laufende Vorgänge erhöhen aktuell deine Abschlusschance.'
+                : 'Fast replies on active flows improve your close rate right now.'
+              : args.role === 'customer'
+                ? args.locale === 'de'
+                  ? 'Prüfe neue Angebote zeitnah, damit Auswahl und Terminbestätigung nicht liegen bleiben.'
+                  : 'Review new offers quickly so selection and confirmation keep moving.'
+                : args.locale === 'de'
+                  ? 'Halte Klärungen kurz und bestätige aktive Vorgänge früh, damit offene Arbeit nicht blockiert.'
+                  : 'Keep clarifications short and confirm active work early so the queue stays unblocked.'
+          ),
+        cta: decisionPanel.summary.totalNeedsAction > 0
+          ? {
+              label: decisionPanel.primaryAction.label,
+              href: '/workspace?section=requests&scope=my&mode=decision',
+            }
+          : undefined,
       },
       contextItems: [
         {
@@ -1251,6 +1533,16 @@ export class WorkspaceService {
         },
       ],
       nextSteps: [
+        ...(decisionPanel.summary.totalNeedsAction > 0
+          ? [
+              {
+                id: 'needs-action',
+                title: args.locale === 'de'
+                  ? `${decisionPanel.summary.totalNeedsAction} Vorgänge brauchen deine Entscheidung`
+                  : `${decisionPanel.summary.totalNeedsAction} items need your decision`,
+              },
+            ]
+          : []),
         ...(clarifyingCount > 0
           ? [
               {
@@ -1991,6 +2283,10 @@ export class WorkspaceService {
     const limit = Math.min(Math.max(query.limit ?? Math.max(total, 1), 1), 100);
     const offset = (page - 1) * limit;
     const pagedCards = sortedCards.slice(offset, offset + limit);
+    const decisionPanel = this.buildWorkspaceDecisionPanel({
+      locale,
+      cards: cardsByRole,
+    });
 
     return {
       section: 'requests',
@@ -2021,6 +2317,7 @@ export class WorkspaceService {
         hasMore: offset + limit < total,
         items: pagedCards.map((card) => card.item),
       },
+      decisionPanel,
       sidePanel: this.buildWorkspaceSidePanel({
         locale,
         role,
