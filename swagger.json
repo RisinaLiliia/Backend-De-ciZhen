@@ -15658,6 +15658,70 @@
           "actions"
         ]
       },
+      "WorkspaceRequestDecisionDto": {
+        "type": "object",
+        "properties": {
+          "needsAction": {
+            "type": "boolean",
+            "example": true
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "review_offers",
+              "reply_required",
+              "confirm_contract",
+              "confirm_completion",
+              "overdue_followup",
+              "none"
+            ],
+            "example": "review_offers"
+          },
+          "actionPriority": {
+            "type": "number",
+            "example": 75
+          },
+          "actionPriorityLevel": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "none"
+            ],
+            "example": "high"
+          },
+          "actionLabel": {
+            "type": "object",
+            "example": "2 Angebote prüfen",
+            "nullable": true
+          },
+          "actionReason": {
+            "type": "object",
+            "example": "Neue Angebote warten auf deine Auswahl.",
+            "nullable": true
+          },
+          "lastRelevantActivityAt": {
+            "type": "object",
+            "example": "2026-04-07T09:00:00.000Z",
+            "nullable": true
+          },
+          "primaryAction": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceRequestCardStatusActionDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "needsAction",
+          "actionType",
+          "actionPriority",
+          "actionPriorityLevel"
+        ]
+      },
       "WorkspaceMyRequestCardDto": {
         "type": "object",
         "properties": {
@@ -15761,6 +15825,9 @@
           },
           "status": {
             "$ref": "#/components/schemas/WorkspaceRequestCardStatusDto"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/WorkspaceRequestDecisionDto"
           }
         },
         "required": [
@@ -15774,7 +15841,8 @@
           "progress",
           "quickActions",
           "requestPreview",
-          "status"
+          "status",
+          "decision"
         ]
       },
       "WorkspaceRequestsListDto": {
@@ -15809,6 +15877,183 @@
           "limit",
           "hasMore",
           "items"
+        ]
+      },
+      "WorkspaceRequestsDecisionPanelSummaryDto": {
+        "type": "object",
+        "properties": {
+          "totalNeedsAction": {
+            "type": "number",
+            "example": 3
+          },
+          "highPriorityCount": {
+            "type": "number",
+            "example": 1
+          },
+          "newOffersCount": {
+            "type": "number",
+            "example": 2
+          },
+          "replyRequiredCount": {
+            "type": "number",
+            "example": 0
+          },
+          "confirmCompletionCount": {
+            "type": "number",
+            "example": 1
+          },
+          "overdueCount": {
+            "type": "number",
+            "example": 0
+          }
+        },
+        "required": [
+          "totalNeedsAction",
+          "highPriorityCount",
+          "newOffersCount",
+          "replyRequiredCount",
+          "confirmCompletionCount",
+          "overdueCount"
+        ]
+      },
+      "WorkspaceRequestsDecisionPanelPrimaryActionDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Jetzt handeln"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "decision"
+            ],
+            "example": "decision"
+          },
+          "targetFilter": {
+            "type": "string",
+            "enum": [
+              "needs_action"
+            ],
+            "example": "needs_action"
+          }
+        },
+        "required": [
+          "label",
+          "mode",
+          "targetFilter"
+        ]
+      },
+      "WorkspaceRequestsDecisionPanelQueueItemDto": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "title": {
+            "type": "string",
+            "example": "Wohnung reinigen"
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "review_offers",
+              "reply_required",
+              "confirm_contract",
+              "confirm_completion",
+              "overdue_followup"
+            ],
+            "example": "review_offers"
+          },
+          "actionLabel": {
+            "type": "string",
+            "example": "2 Angebote prüfen"
+          },
+          "actionPriority": {
+            "type": "number",
+            "example": 75
+          },
+          "actionPriorityLevel": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "actionReason": {
+            "type": "object",
+            "example": "Neue Angebote warten auf deine Auswahl.",
+            "nullable": true
+          },
+          "categoryLabel": {
+            "type": "object",
+            "example": "Design",
+            "nullable": true
+          },
+          "cityLabel": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          }
+        },
+        "required": [
+          "requestId",
+          "title",
+          "actionType",
+          "actionLabel",
+          "actionPriority",
+          "actionPriorityLevel"
+        ]
+      },
+      "WorkspaceRequestsDecisionPanelOverviewDto": {
+        "type": "object",
+        "properties": {
+          "highUrgency": {
+            "type": "number",
+            "example": 1
+          },
+          "inProgress": {
+            "type": "number",
+            "example": 2
+          },
+          "completedThisPeriod": {
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "highUrgency",
+          "inProgress",
+          "completedThisPeriod"
+        ]
+      },
+      "WorkspaceRequestsDecisionPanelDto": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/WorkspaceRequestsDecisionPanelSummaryDto"
+          },
+          "primaryAction": {
+            "$ref": "#/components/schemas/WorkspaceRequestsDecisionPanelPrimaryActionDto"
+          },
+          "queue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRequestsDecisionPanelQueueItemDto"
+            }
+          },
+          "overview": {
+            "$ref": "#/components/schemas/WorkspaceRequestsDecisionPanelOverviewDto"
+          }
+        },
+        "required": [
+          "summary",
+          "primaryAction",
+          "queue",
+          "overview"
         ]
       },
       "WorkspaceRequestsSidePanelCtaDto": {
@@ -15984,6 +16229,14 @@
           },
           "list": {
             "$ref": "#/components/schemas/WorkspaceRequestsListDto"
+          },
+          "decisionPanel": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceRequestsDecisionPanelDto"
+              }
+            ]
           },
           "sidePanel": {
             "nullable": true,

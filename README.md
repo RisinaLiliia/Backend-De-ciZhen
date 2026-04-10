@@ -243,12 +243,33 @@ Domain modules are organized by business responsibility:
       - `state`, `stateLabel`, `urgency`
       - `activity`
       - `progress.currentStep` and `progress.steps[]`
+      - `decision`
+        - backend-owned action state for the work queue:
+          - `needsAction`
+          - `actionType`
+          - `actionPriority`
+          - `actionPriorityLevel`
+          - `actionLabel`
+          - `actionReason`
+          - `lastRelevantActivityAt`
+          - `primaryAction`
+            - canonical executable CTA for the active decision card
       - `quickActions[]`
       - `requestPreview`
         - self-contained shared request-card payload (`href`, image/category fallback key, labels, excerpt, price, tags)
       - `status`
         - badge + action descriptors for the card header (`link`, `send_offer`, `edit_offer`, `withdraw_offer`, `open_chat`, `delete_request`)
         - `open_chat` actions include a ready-to-use `chatInput` payload so the frontend can open conversations without resolving raw offer entities client-side
+  - `decisionPanel`
+    - backend-owned decision queue for the right rail / decision mode:
+      - `summary`
+        - `totalNeedsAction`, `highPriorityCount`, `newOffersCount`, `replyRequiredCount`, `confirmCompletionCount`, `overdueCount`
+      - `primaryAction`
+        - `label`, `mode`, `targetFilter`
+      - `queue[]`
+        - sorted actionable items (`requestId`, `title`, `actionType`, `actionLabel`, `actionPriority`, `actionPriorityLevel`, `actionReason`, optional `categoryLabel`, `cityLabel`)
+      - `overview`
+        - `highUrgency`, `inProgress`, `completedThisPeriod`
   - `sidePanel`
     - backend-owned focus/recommendation/context/next-steps blocks
   Frontend should treat this endpoint as the source of truth for private requests workflow semantics and should render the contract directly instead of rebuilding states client-side.

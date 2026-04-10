@@ -582,6 +582,17 @@ describe('WorkspaceService (unit)', () => {
         status: expect.objectContaining({
           badgeLabel: 'Offen',
         }),
+        decision: expect.objectContaining({
+          needsAction: true,
+          actionType: 'review_offers',
+          actionPriorityLevel: 'medium',
+          actionLabel: '1 Angebote prüfen',
+          primaryAction: expect.objectContaining({
+            key: 'open',
+            kind: 'link',
+            href: '/requests/request-customer-1',
+          }),
+        }),
       }),
     );
     expect(result.list.items[1]).toEqual(
@@ -609,6 +620,36 @@ describe('WorkspaceService (unit)', () => {
               }),
             }),
           ]),
+        }),
+        decision: expect.objectContaining({
+          needsAction: false,
+          actionType: 'none',
+          primaryAction: null,
+        }),
+      }),
+    );
+    expect(result.decisionPanel).toEqual(
+      expect.objectContaining({
+        summary: expect.objectContaining({
+          totalNeedsAction: 1,
+          newOffersCount: 1,
+          highPriorityCount: 0,
+        }),
+        primaryAction: {
+          label: 'Jetzt handeln',
+          mode: 'decision',
+          targetFilter: 'needs_action',
+        },
+        queue: [
+          expect.objectContaining({
+            requestId: 'request-customer-1',
+            actionType: 'review_offers',
+            actionLabel: '1 Angebote prüfen',
+          }),
+        ],
+        overview: expect.objectContaining({
+          inProgress: 1,
+          completedThisPeriod: 0,
         }),
       }),
     );
@@ -680,6 +721,10 @@ describe('WorkspaceService (unit)', () => {
       expect.objectContaining({
         requestId: 'request-provider-upcoming',
         role: 'provider',
+        decision: expect.objectContaining({
+          needsAction: true,
+          actionType: 'confirm_contract',
+        }),
       }),
     );
 

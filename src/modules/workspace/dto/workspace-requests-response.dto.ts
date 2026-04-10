@@ -203,6 +203,35 @@ export class WorkspaceRequestCardStatusDto {
   actions: WorkspaceRequestCardStatusActionDto[];
 }
 
+export class WorkspaceRequestDecisionDto {
+  @ApiProperty({ example: true })
+  needsAction: boolean;
+
+  @ApiProperty({
+    enum: ['review_offers', 'reply_required', 'confirm_contract', 'confirm_completion', 'overdue_followup', 'none'],
+    example: 'review_offers',
+  })
+  actionType: 'review_offers' | 'reply_required' | 'confirm_contract' | 'confirm_completion' | 'overdue_followup' | 'none';
+
+  @ApiProperty({ example: 75 })
+  actionPriority: number;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'none'], example: 'high' })
+  actionPriorityLevel: 'high' | 'medium' | 'low' | 'none';
+
+  @ApiPropertyOptional({ example: '2 Angebote prüfen', nullable: true })
+  actionLabel?: string | null;
+
+  @ApiPropertyOptional({ example: 'Neue Angebote warten auf deine Auswahl.', nullable: true })
+  actionReason?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-04-07T09:00:00.000Z', nullable: true })
+  lastRelevantActivityAt?: string | null;
+
+  @ApiPropertyOptional({ type: WorkspaceRequestCardStatusActionDto, nullable: true })
+  primaryAction?: WorkspaceRequestCardStatusActionDto | null;
+}
+
 export class WorkspaceMyRequestCardDto {
   @ApiProperty({ example: 'customer:65f0c1a2b3c4d5e6f7a8b9c1' })
   id: string;
@@ -260,6 +289,9 @@ export class WorkspaceMyRequestCardDto {
 
   @ApiProperty({ type: WorkspaceRequestCardStatusDto })
   status: WorkspaceRequestCardStatusDto;
+
+  @ApiProperty({ type: WorkspaceRequestDecisionDto })
+  decision: WorkspaceRequestDecisionDto;
 }
 
 export class WorkspaceRequestsListDto {
@@ -342,6 +374,94 @@ export class WorkspaceRequestsSidePanelDto {
   nextSteps?: WorkspaceRequestsSidePanelNextStepDto[];
 }
 
+export class WorkspaceRequestsDecisionPanelSummaryDto {
+  @ApiProperty({ example: 3 })
+  totalNeedsAction: number;
+
+  @ApiProperty({ example: 1 })
+  highPriorityCount: number;
+
+  @ApiProperty({ example: 2 })
+  newOffersCount: number;
+
+  @ApiProperty({ example: 0 })
+  replyRequiredCount: number;
+
+  @ApiProperty({ example: 1 })
+  confirmCompletionCount: number;
+
+  @ApiProperty({ example: 0 })
+  overdueCount: number;
+}
+
+export class WorkspaceRequestsDecisionPanelPrimaryActionDto {
+  @ApiProperty({ example: 'Jetzt handeln' })
+  label: string;
+
+  @ApiProperty({ enum: ['decision'], example: 'decision' })
+  mode: 'decision';
+
+  @ApiProperty({ enum: ['needs_action'], example: 'needs_action' })
+  targetFilter: 'needs_action';
+}
+
+export class WorkspaceRequestsDecisionPanelQueueItemDto {
+  @ApiProperty({ example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  requestId: string;
+
+  @ApiProperty({ example: 'Wohnung reinigen' })
+  title: string;
+
+  @ApiProperty({
+    enum: ['review_offers', 'reply_required', 'confirm_contract', 'confirm_completion', 'overdue_followup'],
+    example: 'review_offers',
+  })
+  actionType: 'review_offers' | 'reply_required' | 'confirm_contract' | 'confirm_completion' | 'overdue_followup';
+
+  @ApiProperty({ example: '2 Angebote prüfen' })
+  actionLabel: string;
+
+  @ApiProperty({ example: 75 })
+  actionPriority: number;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low'], example: 'high' })
+  actionPriorityLevel: 'high' | 'medium' | 'low';
+
+  @ApiPropertyOptional({ example: 'Neue Angebote warten auf deine Auswahl.', nullable: true })
+  actionReason?: string | null;
+
+  @ApiPropertyOptional({ example: 'Design', nullable: true })
+  categoryLabel?: string | null;
+
+  @ApiPropertyOptional({ example: 'Berlin', nullable: true })
+  cityLabel?: string | null;
+}
+
+export class WorkspaceRequestsDecisionPanelOverviewDto {
+  @ApiProperty({ example: 1 })
+  highUrgency: number;
+
+  @ApiProperty({ example: 2 })
+  inProgress: number;
+
+  @ApiProperty({ example: 1 })
+  completedThisPeriod: number;
+}
+
+export class WorkspaceRequestsDecisionPanelDto {
+  @ApiProperty({ type: WorkspaceRequestsDecisionPanelSummaryDto })
+  summary: WorkspaceRequestsDecisionPanelSummaryDto;
+
+  @ApiProperty({ type: WorkspaceRequestsDecisionPanelPrimaryActionDto })
+  primaryAction: WorkspaceRequestsDecisionPanelPrimaryActionDto;
+
+  @ApiProperty({ type: WorkspaceRequestsDecisionPanelQueueItemDto, isArray: true })
+  queue: WorkspaceRequestsDecisionPanelQueueItemDto[];
+
+  @ApiProperty({ type: WorkspaceRequestsDecisionPanelOverviewDto })
+  overview: WorkspaceRequestsDecisionPanelOverviewDto;
+}
+
 export class WorkspaceRequestsResponseDto {
   @ApiProperty({ example: 'requests' })
   section: 'requests';
@@ -360,6 +480,9 @@ export class WorkspaceRequestsResponseDto {
 
   @ApiProperty({ type: WorkspaceRequestsListDto })
   list: WorkspaceRequestsListDto;
+
+  @ApiPropertyOptional({ type: WorkspaceRequestsDecisionPanelDto, nullable: true })
+  decisionPanel?: WorkspaceRequestsDecisionPanelDto | null;
 
   @ApiPropertyOptional({ type: WorkspaceRequestsSidePanelDto, nullable: true })
   sidePanel?: WorkspaceRequestsSidePanelDto | null;

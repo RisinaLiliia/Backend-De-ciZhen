@@ -279,6 +279,11 @@ describe('workspace (e2e)', () => {
             }),
           ]),
         }),
+        decision: expect.objectContaining({
+          needsAction: false,
+          actionType: 'none',
+          primaryAction: null,
+        }),
       }),
     );
     expect(res.body.list.items[1]).toEqual(
@@ -293,6 +298,14 @@ describe('workspace (e2e)', () => {
         status: expect.objectContaining({
           badgeLabel: 'Offen',
         }),
+        decision: expect.objectContaining({
+          needsAction: true,
+          actionType: 'review_offers',
+          primaryAction: expect.objectContaining({
+            key: 'open',
+            kind: 'link',
+          }),
+        }),
       }),
     );
     expect(res.body.list.items[0].progress.steps.map((step: { label: string }) => step.label)).toEqual([
@@ -302,6 +315,25 @@ describe('workspace (e2e)', () => {
       'Vertrag',
       'Abschluss',
     ]);
+    expect(res.body.decisionPanel).toEqual(
+      expect.objectContaining({
+        summary: expect.objectContaining({
+          totalNeedsAction: 1,
+          newOffersCount: 1,
+        }),
+        primaryAction: {
+          label: 'Jetzt handeln',
+          mode: 'decision',
+          targetFilter: 'needs_action',
+        },
+        queue: [
+          expect.objectContaining({
+            requestId: customerRequestId,
+            actionType: 'review_offers',
+          }),
+        ],
+      }),
+    );
     expect(res.body.sidePanel).toEqual(
       expect.objectContaining({
         focus: expect.any(Object),
