@@ -558,7 +558,9 @@ export class WorkspaceStatisticsService {
               : bottleneck.actionCode === 'complete_profile'
                 ? 'Profil vervollständigen'
                 : 'Marktfokus schärfen',
-          target: bottleneck.actionCode === 'focus_market' ? '/workspace?section=stats&focus=cities' : '/workspace?tab=my-requests',
+          target: bottleneck.actionCode === 'focus_market'
+            ? '/workspace?section=stats&focus=cities'
+            : '/workspace?section=requests&scope=my&period=90d&range=90d',
         }
       : null;
 
@@ -1044,7 +1046,7 @@ export class WorkspaceStatisticsService {
                   : 'Marktfokus schärfen',
           target: rankedMetric.primaryActionCode === 'focus_market'
             ? '/workspace?section=stats&focus=cities'
-            : '/workspace?tab=my-requests',
+            : '/workspace?section=requests&scope=my&period=90d&range=90d',
         }
       : null;
 
@@ -1135,7 +1137,7 @@ export class WorkspaceStatisticsService {
       return {
         code: actionCode,
         label: 'Offene Vorgänge priorisieren',
-        target: '/workspace?tab=my-requests',
+        target: '/workspace?section=requests&scope=my&period=90d&range=90d',
       };
     }
     if (actionCode === 'focus_market') {

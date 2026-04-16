@@ -910,7 +910,7 @@ export class WorkspaceService {
           tone: 'primary',
           icon: 'briefcase',
           label: args.locale === 'de' ? 'Vertrag' : 'Contract',
-          href: '/workspace?tab=completed-jobs',
+          href: '/workspace?section=requests&scope=my&period=90d&range=90d',
           requestId: args.offer.requestId,
           offerId: args.offer.id,
         },
