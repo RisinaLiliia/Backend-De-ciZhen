@@ -785,7 +785,7 @@ export class WorkspaceStatisticsActionLinkDto {
   @ApiProperty({ example: 'Offene Anfragen priorisieren' })
   label: string;
 
-  @ApiProperty({ example: '/workspace?tab=my-requests', nullable: true })
+  @ApiProperty({ example: '/workspace?section=requests&scope=my&period=90d&range=90d', nullable: true })
   target: string | null;
 }
 

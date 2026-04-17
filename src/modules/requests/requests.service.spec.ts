@@ -16,6 +16,7 @@ describe('RequestsService', () => {
     findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
     countDocuments: jest.fn(),
+    deleteOne: jest.fn(),
   };
 
   const catalogMock = {
@@ -241,7 +242,7 @@ describe('RequestsService', () => {
     catalogMock.listServices.mockResolvedValue([]);
 
     await service.listPublic({});
-    expect(modelMock.find).toHaveBeenCalledWith({ status: 'published' });
+    expect(modelMock.find).toHaveBeenCalledWith({ status: 'published', archivedAt: null });
   });
 
   it('listPublic adds cityId and serviceKey only when non-empty', async () => {
@@ -253,11 +254,12 @@ describe('RequestsService', () => {
     catalogMock.listServices.mockResolvedValue([]);
 
     await service.listPublic({ cityId: '  ', serviceKey: ' ' });
-    expect(modelMock.find).toHaveBeenCalledWith({ status: 'published' });
+    expect(modelMock.find).toHaveBeenCalledWith({ status: 'published', archivedAt: null });
 
     await service.listPublic({ cityId: 'c1', serviceKey: ' Home_Cleaning ' });
     expect(modelMock.find).toHaveBeenLastCalledWith({
       status: 'published',
+      archivedAt: null,
       cityId: 'c1',
       serviceKey: 'home_cleaning',
     });
@@ -275,6 +277,7 @@ describe('RequestsService', () => {
 
     expect(modelMock.find).toHaveBeenCalledWith({
       status: 'published',
+      archivedAt: null,
       location: {
         $geoWithin: {
           $centerSphere: [[8.6821, 50.1109], 5 / 6378.1],
@@ -315,6 +318,7 @@ describe('RequestsService', () => {
     expect(catalogMock.listServices).toHaveBeenCalledWith('cleaning');
     expect(modelMock.find).toHaveBeenCalledWith({
       status: 'published',
+      archivedAt: null,
       serviceKey: { $in: ['window_cleaning', 'home_cleaning'] },
     });
   });
@@ -339,6 +343,7 @@ describe('RequestsService', () => {
 
     expect(modelMock.find).toHaveBeenCalledWith({
       status: 'published',
+      archivedAt: null,
       serviceKey: 'window_cleaning',
     });
   });
@@ -355,6 +360,7 @@ describe('RequestsService', () => {
 
     expect(modelMock.find).toHaveBeenCalledWith({
       status: 'published',
+      archivedAt: null,
       price: { $gte: 50, $lte: 200 },
     });
   });
@@ -379,6 +385,7 @@ describe('RequestsService', () => {
     expect(catalogMock.listServices).toHaveBeenCalledWith('cleaning');
     expect(modelMock.countDocuments).toHaveBeenCalledWith({
       status: 'published',
+      archivedAt: null,
       serviceKey: 'window_cleaning',
       price: { $gte: 50, $lte: 200 },
     });
@@ -408,12 +415,25 @@ describe('RequestsService', () => {
 
     expect(modelMock.find).toHaveBeenCalledWith({
       clientId: 'u1',
+      archivedAt: null,
       status: 'published',
       createdAt: { $gte: from, $lt: to },
     });
     expect(sort).toHaveBeenCalledWith({ createdAt: -1 });
     expect(skip).toHaveBeenCalledWith(5);
     expect(limit).toHaveBeenCalledWith(10);
+  });
+
+  it('getMyClientRequestById returns owned request', async () => {
+    const rid = '507f1f77bcf86cd799439021';
+    modelMock.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'draft' }),
+    });
+
+    const result = await service.getMyClientRequestById('u1', rid);
+
+    expect(modelMock.findById).toHaveBeenCalledWith(rid);
+    expect(result).toEqual(expect.objectContaining({ _id: rid, clientId: 'u1' }));
   });
 
   it('publishForClient publishes draft request for client', async () => {
@@ -465,7 +485,7 @@ describe('RequestsService', () => {
 
     const res: any = await service.getPublicById(rid);
 
-    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, status: 'published' });
+    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, status: 'published', archivedAt: null });
     expect(res.status).toBe('published');
   });
 
@@ -475,7 +495,7 @@ describe('RequestsService', () => {
     modelMock.findOne.mockReturnValue({ exec: execFind });
 
     await expect(service.getPublicById(rid)).rejects.toThrow('Request not found');
-    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, status: 'published' });
+    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, status: 'published', archivedAt: null });
   });
 
   it('getPublicById throws on invalid requestId', async () => {
@@ -498,7 +518,148 @@ describe('RequestsService', () => {
     expect(modelMock.find).toHaveBeenCalledWith({
       _id: { $in: ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'] },
       status: 'published',
+      archivedAt: null,
     });
     expect(res.length).toBe(1);
+  });
+
+  it('duplicateMyClientRequest creates a fresh draft copy for the same client', async () => {
+    const rid = '507f1f77bcf86cd799439015';
+    const source = {
+      _id: rid,
+      clientId: 'u1',
+      title: 'Original',
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      location: { type: 'Point', coordinates: [13.4, 52.5] },
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: new Date('2026-04-20T10:00:00.000Z'),
+      isRecurring: false,
+      comment: 'comment',
+      description: 'details',
+      photos: ['https://x/y.jpg'],
+      imageUrl: 'https://x/y.jpg',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
+      tags: ['tag1'],
+    };
+    modelMock.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(source) });
+    modelMock.create.mockResolvedValue({ _id: 'dup-1', clientId: 'u1', status: 'draft' });
+
+    const result: any = await service.duplicateMyClientRequest('u1', rid);
+
+    expect(modelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Original',
+        clientId: 'u1',
+        serviceKey: 'home_cleaning',
+        status: 'draft',
+        previousPrice: null,
+        priceTrend: null,
+        matchedProviderUserId: null,
+        assignedContractId: null,
+        matchedAt: null,
+        archivedAt: null,
+      }),
+    );
+    expect(result.status).toBe('draft');
+  });
+
+  it('duplicateMyClientRequest omits location when source request has no coordinates', async () => {
+    const rid = '507f1f77bcf86cd799439018';
+    modelMock.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: rid,
+        clientId: 'u1',
+        title: 'Original',
+        serviceKey: 'home_cleaning',
+        cityId: 'c1',
+        cityName: 'Berlin',
+        location: null,
+        propertyType: 'apartment',
+        area: 55,
+        price: 120,
+        preferredDate: new Date('2026-04-20T10:00:00.000Z'),
+        isRecurring: false,
+        comment: null,
+        description: null,
+        photos: [],
+        imageUrl: null,
+        categoryKey: 'cleaning',
+        categoryName: 'Cleaning',
+        subcategoryName: 'Home cleaning',
+        tags: [],
+      }),
+    });
+    modelMock.create.mockResolvedValue({ _id: 'dup-2', clientId: 'u1', status: 'draft' });
+
+    await service.duplicateMyClientRequest('u1', rid);
+
+    expect(modelMock.create).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        location: null,
+      }),
+    );
+    expect(modelMock.create).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        location: undefined,
+      }),
+    );
+  });
+
+  it('archiveMyClientRequest soft-deletes by setting archivedAt', async () => {
+    const rid = '507f1f77bcf86cd799439016';
+    modelMock.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', archivedAt: null }),
+    });
+    modelMock.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', archivedAt: new Date('2026-04-17T10:00:00.000Z') }),
+    });
+
+    const result = await service.archiveMyClientRequest('u1', rid);
+
+    expect(modelMock.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: rid, clientId: 'u1' },
+      { $set: { archivedAt: expect.any(Date) } },
+      { new: true },
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: true,
+        archivedRequestId: rid,
+        archivedAt: expect.any(Date),
+      }),
+    );
+  });
+
+  it('archiveMyClientRequest is idempotent for already archived requests', async () => {
+    const rid = '507f1f77bcf86cd799439017';
+    const archivedAt = new Date('2026-04-17T10:00:00.000Z');
+    modelMock.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', archivedAt }),
+    });
+
+    const result = await service.archiveMyClientRequest('u1', rid);
+
+    expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, archivedRequestId: rid, archivedAt });
+  });
+
+  it('publishForClient rejects archived requests', async () => {
+    const rid = '507f1f77bcf86cd799439010';
+    const execFind = jest.fn().mockResolvedValue({
+      _id: rid,
+      clientId: 'u1',
+      status: 'draft',
+      archivedAt: new Date('2026-04-17T10:00:00.000Z'),
+    });
+    modelMock.findById.mockReturnValue({ exec: execFind });
+
+    await expect(service.publishForClient('u1', rid)).rejects.toThrow('Archived requests cannot be published');
+    expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
   });
 });

@@ -33,6 +33,85 @@ export class RequestsService {
     return d;
   }
 
+  private buildSearchText(input: {
+    title: string;
+    description?: string | null;
+    tags?: string[] | null;
+    cityName?: string | null;
+    categoryName?: string | null;
+    subcategoryName?: string | null;
+  }) {
+    return [
+      input.title,
+      input.description,
+      (input.tags ?? []).join(' '),
+      input.cityName,
+      input.categoryName,
+      input.subcategoryName,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+  }
+
+  private async getOwnedRequestOrThrow(clientId: string, requestId: string): Promise<RequestDocument> {
+    const existing = await this.model.findById(requestId).exec();
+    if (!existing || String(existing.clientId) !== clientId) {
+      throw new NotFoundException('Request not found');
+    }
+    return existing;
+  }
+
+  private buildDuplicatePayload(source: RequestDocument, clientId: string) {
+    const location =
+      source.location
+      && source.location.type === 'Point'
+      && Array.isArray(source.location.coordinates)
+      && source.location.coordinates.length === 2
+      ? {
+          type: 'Point' as const,
+          coordinates: [source.location.coordinates[0], source.location.coordinates[1]] as [number, number],
+        }
+      : undefined;
+
+    return {
+      title: source.title,
+      clientId,
+      serviceKey: source.serviceKey,
+      cityId: source.cityId ?? null,
+      cityName: source.cityName,
+      ...(location ? { location } : {}),
+      propertyType: source.propertyType,
+      area: source.area,
+      price: typeof source.price === 'number' ? source.price : null,
+      previousPrice: null,
+      priceTrend: null,
+      preferredDate: source.preferredDate,
+      isRecurring: Boolean(source.isRecurring),
+      comment: source.comment ?? null,
+      description: source.description ?? null,
+      photos: Array.isArray(source.photos) ? [...source.photos] : [],
+      imageUrl: source.imageUrl ?? (source.photos?.[0] ?? null),
+      categoryKey: source.categoryKey,
+      categoryName: source.categoryName ?? null,
+      subcategoryName: source.subcategoryName ?? null,
+      tags: Array.isArray(source.tags) ? [...source.tags] : [],
+      searchText: this.buildSearchText({
+        title: source.title,
+        description: source.description ?? null,
+        tags: Array.isArray(source.tags) ? source.tags : [],
+        cityName: source.cityName,
+        categoryName: source.categoryName ?? null,
+        subcategoryName: source.subcategoryName ?? null,
+      }),
+      status: 'draft' as const,
+      matchedProviderUserId: null,
+      assignedContractId: null,
+      matchedAt: null,
+      archivedAt: null,
+    };
+  }
+
   private buildLocation(input: { lat?: number; lng?: number } | undefined): { type: 'Point'; coordinates: [number, number] } | null {
     if (!input) return null;
     const lat = typeof input.lat === 'number' ? input.lat : undefined;
@@ -149,10 +228,14 @@ export class RequestsService {
     const categoryName = category?.name ?? (category?.i18n as any)?.en ?? category?.key ?? null;
 
     const imageUrl = photos[0] ?? null;
-    const searchText = [title, description, tags.join(' '), cityName, categoryName, subcategoryName]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+    const searchText = this.buildSearchText({
+      title,
+      description,
+      tags,
+      cityName,
+      categoryName,
+      subcategoryName,
+    });
 
     const doc = await this.model.create({
       title,
@@ -234,10 +317,14 @@ export class RequestsService {
     const categoryName = category?.name ?? (category?.i18n as any)?.en ?? category?.key ?? null;
 
     const imageUrl = photos[0] ?? null;
-    const searchText = [title, description, tags.join(' '), cityName, categoryName, subcategoryName]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+    const searchText = this.buildSearchText({
+      title,
+      description,
+      tags,
+      cityName,
+      categoryName,
+      subcategoryName,
+    });
 
     const doc = await this.model.create({
       title,
@@ -271,9 +358,9 @@ export class RequestsService {
     if (!rid) throw new BadRequestException('requestId is required');
     this.ensureObjectId(rid, 'requestId');
 
-    const existing = await this.model.findById(rid).exec();
-    if (!existing || String(existing.clientId) !== clientId) {
-      throw new NotFoundException('Request not found');
+    const existing = await this.getOwnedRequestOrThrow(clientId, rid);
+    if (existing.archivedAt) {
+      throw new ConflictException('Archived requests cannot be published');
     }
     if (existing.status !== 'draft') {
       throw new ConflictException('Only draft requests can be published');
@@ -302,7 +389,7 @@ export class RequestsService {
     priceMin?: number;
     priceMax?: number;
   }): Promise<RequestDocument[]> {
-    const q: Record<string, unknown> = { status: 'published' };
+    const q: Record<string, unknown> = { status: 'published', archivedAt: null };
 
     const hasGeo = this.applyGeoFilter(q, {
       lat: filters.lat,
@@ -370,7 +457,7 @@ export class RequestsService {
     if (!rid) throw new BadRequestException('requestId is required');
     this.ensureObjectId(rid, 'requestId');
 
-    const doc = await this.model.findOne({ _id: rid, status: 'published' }).exec();
+    const doc = await this.model.findOne({ _id: rid, status: 'published', archivedAt: null }).exec();
     if (!doc) throw new NotFoundException('Request not found');
     return doc;
   }
@@ -384,7 +471,7 @@ export class RequestsService {
         )
       : [];
     if (ids.length === 0) return [];
-    return this.model.find({ _id: { $in: ids }, status: 'published' }).exec();
+    return this.model.find({ _id: { $in: ids }, status: 'published', archivedAt: null }).exec();
   }
 
   async countPublic(filters: {
@@ -398,7 +485,7 @@ export class RequestsService {
     priceMin?: number;
     priceMax?: number;
   }): Promise<number> {
-    const q: Record<string, unknown> = { status: 'published' };
+    const q: Record<string, unknown> = { status: 'published', archivedAt: null };
 
     const hasGeo = this.applyGeoFilter(q, {
       lat: filters.lat,
@@ -446,7 +533,7 @@ export class RequestsService {
     clientId: string,
     filters?: ListFilters & ListPagination,
   ): Promise<RequestDocument[]> {
-    const q: Record<string, any> = { clientId };
+    const q: Record<string, any> = { clientId, archivedAt: null };
     if (filters?.status) q.status = filters.status;
 
     if (filters?.from || filters?.to) {
@@ -461,6 +548,13 @@ export class RequestsService {
     return this.model.find(q).sort({ createdAt: -1 }).skip(offset).limit(limit).exec();
   }
 
+  async getMyClientRequestById(clientId: string, requestId: string): Promise<RequestDocument> {
+    const rid = String(requestId ?? '').trim();
+    if (!rid) throw new BadRequestException('requestId is required');
+    this.ensureObjectId(rid, 'requestId');
+    return this.getOwnedRequestOrThrow(clientId, rid);
+  }
+
   async updateMyClientRequest(
     clientId: string,
     requestId: string,
@@ -470,9 +564,9 @@ export class RequestsService {
     if (!rid) throw new BadRequestException('requestId is required');
     this.ensureObjectId(rid, 'requestId');
 
-    const existing = await this.model.findById(rid).exec();
-    if (!existing || String(existing.clientId) !== clientId) {
-      throw new NotFoundException('Request not found');
+    const existing = await this.getOwnedRequestOrThrow(clientId, rid);
+    if (existing.archivedAt) {
+      throw new ConflictException('Archived requests cannot be updated');
     }
     if (existing.status === 'matched' || existing.status === 'closed' || existing.status === 'cancelled') {
       throw new ConflictException('Only draft, published or paused requests can be updated');
@@ -523,23 +617,64 @@ export class RequestsService {
       (typeof existing.description === 'string' ? existing.description : '');
     const nextTags = (patch.tags as string[] | undefined) ?? (Array.isArray(existing.tags) ? existing.tags : []);
 
-    patch.searchText = [
-      nextTitle,
-      nextDescription,
-      nextTags.join(' '),
-      existing.cityName,
-      existing.categoryName,
-      existing.subcategoryName,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+    patch.searchText = this.buildSearchText({
+      title: nextTitle,
+      description: nextDescription,
+      tags: nextTags,
+      cityName: existing.cityName,
+      categoryName: existing.categoryName,
+      subcategoryName: existing.subcategoryName,
+    });
 
     const updated = await this.model
       .findOneAndUpdate({ _id: rid, clientId }, { $set: patch }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Request not found');
     return updated;
+  }
+
+  async duplicateMyClientRequest(clientId: string, requestId: string): Promise<RequestDocument> {
+    const rid = String(requestId ?? '').trim();
+    if (!rid) throw new BadRequestException('requestId is required');
+    this.ensureObjectId(rid, 'requestId');
+
+    const existing = await this.getOwnedRequestOrThrow(clientId, rid);
+    const payload = this.buildDuplicatePayload(existing, clientId);
+    if (!('location' in payload) || payload.location == null) {
+      delete (payload as { location?: unknown }).location;
+    }
+    return this.model.create(payload);
+  }
+
+  async archiveMyClientRequest(
+    clientId: string,
+    requestId: string,
+  ): Promise<{ ok: true; archivedRequestId: string; archivedAt: Date }> {
+    const rid = String(requestId ?? '').trim();
+    if (!rid) throw new BadRequestException('requestId is required');
+    this.ensureObjectId(rid, 'requestId');
+
+    const existing = await this.getOwnedRequestOrThrow(clientId, rid);
+    if (existing.archivedAt instanceof Date) {
+      return {
+        ok: true as const,
+        archivedRequestId: rid,
+        archivedAt: existing.archivedAt,
+      };
+    }
+
+    const archivedAt = new Date();
+    const updated = await this.model
+      .findOneAndUpdate({ _id: rid, clientId }, { $set: { archivedAt } }, { new: true })
+      .exec();
+
+    if (!updated) throw new NotFoundException('Request not found');
+
+    return {
+      ok: true as const,
+      archivedRequestId: rid,
+      archivedAt,
+    };
   }
 
   async deleteMyClientRequest(
@@ -550,10 +685,7 @@ export class RequestsService {
     if (!rid) throw new BadRequestException('requestId is required');
     this.ensureObjectId(rid, 'requestId');
 
-    const existing = await this.model.findById(rid).exec();
-    if (!existing || String(existing.clientId) !== clientId) {
-      throw new NotFoundException('Request not found');
-    }
+    const existing = await this.getOwnedRequestOrThrow(clientId, rid);
     if (existing.status === 'matched' || existing.status === 'closed') {
       throw new ConflictException('Matched or closed requests cannot be deleted');
     }

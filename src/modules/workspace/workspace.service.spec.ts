@@ -566,6 +566,7 @@ describe('WorkspaceService (unit)', () => {
       expect.objectContaining({ key: 'execution', value: 1 }),
       expect.objectContaining({ key: 'completed', value: 0 }),
     ]);
+    expect(modelMock.find).toHaveBeenNthCalledWith(1, { clientId: 'user-1', archivedAt: null });
     expect(result.list.items).toHaveLength(2);
     expect(result.list.items[0]).toEqual(
       expect.objectContaining({
@@ -581,6 +582,33 @@ describe('WorkspaceService (unit)', () => {
         }),
         status: expect.objectContaining({
           badgeLabel: 'Offen',
+          actions: expect.arrayContaining([
+            expect.objectContaining({
+              key: 'edit-request',
+              kind: 'link',
+              href: '/requests/request-customer-1/edit',
+            }),
+            expect.objectContaining({
+              key: 'duplicate-request',
+              kind: 'duplicate_request',
+              requestId: 'request-customer-1',
+            }),
+            expect.objectContaining({
+              key: 'share-request',
+              kind: 'share_request',
+              href: '/requests/request-customer-1',
+            }),
+            expect.objectContaining({
+              key: 'archive-request',
+              kind: 'archive_request',
+              requestId: 'request-customer-1',
+            }),
+            expect.objectContaining({
+              key: 'delete-request',
+              kind: 'delete_request',
+              requestId: 'request-customer-1',
+            }),
+          ]),
         }),
         decision: expect.objectContaining({
           needsAction: true,

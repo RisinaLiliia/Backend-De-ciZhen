@@ -838,7 +838,32 @@ export class WorkspaceService {
           tone: 'secondary',
           icon: 'edit',
           label: args.locale === 'de' ? 'Bearbeiten' : 'Edit',
-          href: `/requests/${args.requestId}?edit=1`,
+          href: `/requests/${args.requestId}/edit`,
+          requestId: args.requestId,
+        },
+        {
+          key: 'duplicate-request',
+          kind: 'duplicate_request',
+          tone: 'secondary',
+          icon: 'copy',
+          label: args.locale === 'de' ? 'Duplizieren' : 'Duplicate',
+          requestId: args.requestId,
+        },
+        {
+          key: 'share-request',
+          kind: 'share_request',
+          tone: 'secondary',
+          icon: 'share',
+          label: args.locale === 'de' ? 'Teilen' : 'Share',
+          href: `/requests/${args.requestId}`,
+          requestId: args.requestId,
+        },
+        {
+          key: 'archive-request',
+          kind: 'archive_request',
+          tone: 'secondary',
+          icon: 'archive',
+          label: args.locale === 'de' ? 'Archivieren' : 'Archive',
           requestId: args.requestId,
         },
         {
@@ -910,7 +935,7 @@ export class WorkspaceService {
           tone: 'primary',
           icon: 'briefcase',
           label: args.locale === 'de' ? 'Vertrag' : 'Contract',
-          href: '/workspace?tab=completed-jobs',
+          href: '/workspace?section=requests&scope=my&period=90d&range=90d',
           requestId: args.offer.requestId,
           offerId: args.offer.id,
         },
@@ -1596,7 +1621,7 @@ export class WorkspaceService {
     const [requestDocs, total, totalPublishedRequests, totalActiveProviders, activity, cityRows] = await Promise.all([
       this.requests.listPublic(filters),
       this.requests.countPublic(filters),
-      this.requestModel.countDocuments({ status: 'published' }).exec(),
+      this.requestModel.countDocuments({ status: 'published', archivedAt: null }).exec(),
       this.providerModel.countDocuments({ status: 'active', isBlocked: false }).exec(),
       this.analytics.getPlatformActivity(activityRange),
       this.requestModel
@@ -1604,6 +1629,7 @@ export class WorkspaceService {
           {
             $match: {
               status: 'published',
+              archivedAt: null,
               createdAt: { $gte: cityStart, $lte: cityEnd },
             },
           },
@@ -1779,7 +1805,7 @@ export class WorkspaceService {
     ] = await Promise.all([
       this.requestModel
         .aggregate<{ _id: string; count: number }>([
-          { $match: { clientId: uid } },
+          { $match: { clientId: uid, archivedAt: null } },
           { $group: { _id: '$status', count: { $sum: 1 } } },
         ])
         .exec(),
@@ -2084,7 +2110,7 @@ export class WorkspaceService {
     const page = Math.max(query.page ?? 1, 1);
 
     const [myRequests, myClientOffers, myProviderOffers, myProviderContracts, myClientContracts] = await Promise.all([
-      this.requestModel.find({ clientId: uid }).sort({ createdAt: -1 }).lean().exec(),
+      this.requestModel.find({ clientId: uid, archivedAt: null }).sort({ createdAt: -1 }).lean().exec(),
       this.offerModel.find({ clientUserId: uid }).sort({ createdAt: -1 }).lean().exec(),
       this.offerModel
         .aggregate<WorkspaceOfferSnapshot>([
