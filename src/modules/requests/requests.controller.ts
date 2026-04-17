@@ -30,6 +30,7 @@ import { RequestPhotosUploadResponseDto } from './dto/request-photos-upload-resp
 import { RequestsMyQueryDto } from './dto/requests-my-query.dto';
 import { UpdateMyRequestDto } from './dto/update-my-request.dto';
 import { DeleteMyRequestResponseDto } from './dto/delete-my-request-response.dto';
+import { ArchiveMyRequestResponseDto } from './dto/archive-my-request-response.dto';
 import { UsersService } from '../users/users.service';
 import { ClientProfilesService } from '../users/client-profiles.service';
 import { RequestPublicDto } from './dto/request-public.dto';
@@ -326,6 +327,21 @@ export class RequestsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('my/:requestId')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'User: get my request by id' })
+  @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @ApiOkResponse({ type: RequestResponseDto })
+  @ApiErrors()
+  async getMyById(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('requestId') requestId: string,
+  ): Promise<RequestResponseDto> {
+    const request = await this.requests.getMyClientRequestById(user.userId, requestId);
+    return this.toDto(request);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('my')
   @ApiBearerAuth('access-token')
   @ApiOperation({
@@ -474,6 +490,36 @@ export class RequestsController {
   ): Promise<RequestResponseDto> {
     const updated = await this.requests.updateMyClientRequest(user.userId, requestId, dto);
     return this.toDto(updated);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my/:requestId/duplicate')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'User: duplicate my request into a new draft' })
+  @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @ApiCreatedResponse({ type: RequestResponseDto })
+  @ApiErrors()
+  async duplicateMy(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('requestId') requestId: string,
+  ): Promise<RequestResponseDto> {
+    const duplicated = await this.requests.duplicateMyClientRequest(user.userId, requestId);
+    return this.toDto(duplicated);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my/:requestId/archive')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'User: archive my request (soft delete)' })
+  @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @ApiOkResponse({ type: ArchiveMyRequestResponseDto })
+  @ApiErrors()
+  @HttpCode(200)
+  async archiveMy(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('requestId') requestId: string,
+  ): Promise<ArchiveMyRequestResponseDto> {
+    return this.requests.archiveMyClientRequest(user.userId, requestId);
   }
 
   @UseGuards(JwtAuthGuard)

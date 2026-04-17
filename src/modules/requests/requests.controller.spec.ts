@@ -17,8 +17,12 @@ describe('RequestsController (unit)', () => {
     listPublic: jest.fn(),
     countPublic: jest.fn(),
     listMyClient: jest.fn(),
+    getMyClientRequestById: jest.fn(),
     normalizeFilters: jest.fn(),
     getPublicById: jest.fn(),
+    duplicateMyClientRequest: jest.fn(),
+    archiveMyClientRequest: jest.fn(),
+    deleteMyClientRequest: jest.fn(),
   };
 
   const uploadsMock = {
@@ -313,6 +317,46 @@ describe('RequestsController (unit)', () => {
     expect(res[0]).toEqual(expect.objectContaining({ id: 'r1', cityId: 'c1', status: 'published' }));
   });
 
+  it('getMyById returns owner request dto', async () => {
+    svcMock.getMyClientRequestById.mockResolvedValue({
+      _id: { toString: () => 'r-owner-1' },
+      title: 'Draft request',
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      categoryKey: 'cleaning',
+      categoryName: 'Cleaning',
+      subcategoryName: 'Home cleaning',
+      propertyType: 'apartment',
+      area: 55,
+      price: 120,
+      preferredDate: new Date('2026-02-01T10:00:00.000Z'),
+      isRecurring: false,
+      comment: null,
+      description: 'details',
+      photos: [],
+      imageUrl: null,
+      tags: [],
+      status: 'draft',
+      createdAt: new Date('2026-01-28T10:00:00.000Z'),
+      clientId: 'u1',
+    });
+
+    const result = await controller.getMyById(
+      { userId: 'u1', role: 'client' } as any,
+      'r-owner-1',
+    );
+
+    expect(svcMock.getMyClientRequestById).toHaveBeenCalledWith('u1', 'r-owner-1');
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'r-owner-1',
+        clientId: 'u1',
+        status: 'draft',
+      }),
+    );
+  });
+
   it('createMy creates draft for client', async () => {
     svcMock.createForClient.mockResolvedValue({
       _id: { toString: () => 'r2' },
@@ -496,5 +540,45 @@ describe('RequestsController (unit)', () => {
 
     expect(svcMock.publishForClient).toHaveBeenCalledWith('u1', 'r3');
     expect(res).toEqual(expect.objectContaining({ id: 'r3', status: 'published' }));
+  });
+
+  it('duplicateMy maps duplicated draft response', async () => {
+    svcMock.duplicateMyClientRequest.mockResolvedValue({
+      _id: { toString: () => 'r9' },
+      title: 'Duplicate',
+      serviceKey: 'home_cleaning',
+      cityId: 'c1',
+      cityName: 'Berlin',
+      propertyType: 'apartment',
+      area: 55,
+      preferredDate: new Date('2026-02-01T10:00:00.000Z'),
+      isRecurring: false,
+      comment: null,
+      description: null,
+      photos: [],
+      imageUrl: null,
+      tags: [],
+      status: 'draft',
+      createdAt: new Date('2026-01-28T10:00:00.000Z'),
+    });
+
+    const res = await controller.duplicateMy({ userId: 'u1', role: 'client' } as any, 'r9');
+
+    expect(svcMock.duplicateMyClientRequest).toHaveBeenCalledWith('u1', 'r9');
+    expect(res).toEqual(expect.objectContaining({ id: 'r9', status: 'draft' }));
+  });
+
+  it('archiveMy forwards backend soft-delete response', async () => {
+    const archivedAt = new Date('2026-04-17T10:00:00.000Z');
+    svcMock.archiveMyClientRequest.mockResolvedValue({
+      ok: true,
+      archivedRequestId: 'r10',
+      archivedAt,
+    });
+
+    const res = await controller.archiveMy({ userId: 'u1', role: 'client' } as any, 'r10');
+
+    expect(svcMock.archiveMyClientRequest).toHaveBeenCalledWith('u1', 'r10');
+    expect(res).toEqual({ ok: true, archivedRequestId: 'r10', archivedAt });
   });
 });

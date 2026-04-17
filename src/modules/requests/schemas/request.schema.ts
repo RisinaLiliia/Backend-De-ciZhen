@@ -100,6 +100,9 @@ export class Request {
 
   @Prop({ type: Date, default: null })
   matchedAt: Date | null;
+
+  @Prop({ type: Date, default: null, index: true })
+  archivedAt: Date | null;
 }
 
 export const RequestSchema = SchemaFactory.createForClass(Request);
@@ -107,6 +110,6 @@ export const RequestSchema = SchemaFactory.createForClass(Request);
 RequestSchema.index({ status: 1, cityId: 1, serviceKey: 1, preferredDate: 1 });
 RequestSchema.index({ location: '2dsphere' });
 RequestSchema.index({ createdAt: -1 });
-RequestSchema.index({ clientId: 1, status: 1, createdAt: -1 });
+RequestSchema.index({ clientId: 1, archivedAt: 1, status: 1, createdAt: -1 });
 RequestSchema.index({ matchedProviderUserId: 1, createdAt: -1 });
 RequestSchema.index({ searchText: 'text' });
