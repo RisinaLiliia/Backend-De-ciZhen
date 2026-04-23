@@ -616,8 +616,8 @@ describe('WorkspaceService (unit)', () => {
           actionPriorityLevel: 'medium',
           actionLabel: '1 Angebote prüfen',
           primaryAction: expect.objectContaining({
-            key: 'open',
-            kind: 'link',
+            key: 'review-responses',
+            kind: 'review_responses',
             href: '/requests/request-customer-1',
           }),
         }),
