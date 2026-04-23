@@ -4,6 +4,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { Request, RequestDocument, RequestStatus } from './schemas/request.schema';
+import { Offer, type OfferDocument } from '../offers/schemas/offer.schema';
+import { Favorite, type FavoriteDocument } from '../favorites/schemas/favorite.schema';
+import { ChatThread, type ChatThreadDocument } from '../chats/schemas/chat-thread.schema';
 import type { CreateRequestDto } from './dto/create-request.dto';
 import type { UpdateMyRequestDto } from './dto/update-my-request.dto';
 import { CatalogServicesService } from '../catalog/services/services.service';
@@ -11,12 +14,28 @@ import { CitiesService } from '../catalog/cities/cities.service';
 
 type ListFilters = { status?: RequestStatus; from?: Date; to?: Date };
 type ListPagination = { limit?: number; offset?: number };
+type DeleteMyClientRequestResult = {
+  ok: true;
+  deletedRequestId: string;
+  result: 'deleted' | 'cancelled';
+  removedFromPublicFeed: boolean;
+  retainedForParticipants: boolean;
+  purgeAt: Date | null;
+};
+
+const REQUEST_RETENTION_DAYS = 7;
 
 @Injectable()
 export class RequestsService {
   constructor(
     @InjectModel(Request.name)
     private readonly model: Model<RequestDocument>,
+    @InjectModel(Offer.name)
+    private readonly offerModel: Model<OfferDocument>,
+    @InjectModel(Favorite.name)
+    private readonly favoriteModel: Model<FavoriteDocument>,
+    @InjectModel(ChatThread.name)
+    private readonly chatThreadModel: Model<ChatThreadDocument>,
     private readonly catalogServices: CatalogServicesService,
     private readonly cities: CitiesService,
   ) {}
@@ -62,6 +81,46 @@ export class RequestsService {
     return existing;
   }
 
+  private calculatePurgeAt(from: Date) {
+    return new Date(from.getTime() + (REQUEST_RETENTION_DAYS * 24 * 60 * 60 * 1000));
+  }
+
+  private buildInactiveMessage() {
+    return 'Dieser Auftrag wurde vom Auftraggeber storniert.';
+  }
+
+  private async hasOffers(requestId: string) {
+    return (await this.offerModel.countDocuments({ requestId }).exec()) > 0;
+  }
+
+  private async hasRetainedParticipants(requestId: string) {
+    const [offersCount, favoritesCount, chatCount] = await Promise.all([
+      this.offerModel.countDocuments({ requestId }).exec(),
+      this.favoriteModel.countDocuments({ type: 'request', targetId: requestId }).exec(),
+      this.chatThreadModel.countDocuments({ requestId }).exec(),
+    ]);
+
+    return offersCount > 0 || favoritesCount > 0 || chatCount > 0;
+  }
+
+  private async canViewerAccessRetainedRequest(userId: string, requestId: string, ownerId?: string | null) {
+    if (userId === ownerId) return true;
+
+    const [hasOffer, hasFavorite, hasChat] = await Promise.all([
+      this.offerModel.countDocuments({
+        requestId,
+        $or: [{ providerUserId: userId }, { clientUserId: userId }],
+      }).exec(),
+      this.favoriteModel.countDocuments({ type: 'request', targetId: requestId, userId }).exec(),
+      this.chatThreadModel.countDocuments({
+        requestId,
+        $or: [{ clientId: userId }, { providerUserId: userId }, { participants: userId }],
+      }).exec(),
+    ]);
+
+    return hasOffer > 0 || hasFavorite > 0 || hasChat > 0;
+  }
+
   private buildDuplicatePayload(source: RequestDocument, clientId: string) {
     const location =
       source.location
@@ -86,7 +145,7 @@ export class RequestsService {
       price: typeof source.price === 'number' ? source.price : null,
       previousPrice: null,
       priceTrend: null,
-      preferredDate: source.preferredDate,
+      preferredDate: new Date(),
       isRecurring: Boolean(source.isRecurring),
       comment: source.comment ?? null,
       description: source.description ?? null,
@@ -105,6 +164,11 @@ export class RequestsService {
         subcategoryName: source.subcategoryName ?? null,
       }),
       status: 'draft' as const,
+      publishedAt: null,
+      cancelledAt: null,
+      purgeAt: null,
+      inactiveReason: null,
+      inactiveMessage: null,
       matchedProviderUserId: null,
       assignedContractId: null,
       matchedAt: null,
@@ -259,6 +323,11 @@ export class RequestsService {
       tags,
       searchText,
       status: 'published',
+      publishedAt: new Date(),
+      cancelledAt: null,
+      purgeAt: null,
+      inactiveReason: null,
+      inactiveMessage: null,
     });
 
     return doc;
@@ -348,6 +417,11 @@ export class RequestsService {
       tags,
       searchText,
       status: 'draft',
+      publishedAt: null,
+      cancelledAt: null,
+      purgeAt: null,
+      inactiveReason: null,
+      inactiveMessage: null,
     });
 
     return doc;
@@ -362,12 +436,62 @@ export class RequestsService {
     if (existing.archivedAt) {
       throw new ConflictException('Archived requests cannot be published');
     }
-    if (existing.status !== 'draft') {
-      throw new ConflictException('Only draft requests can be published');
+    if (!['draft', 'paused', 'cancelled'].includes(existing.status)) {
+      throw new ConflictException('Only draft, paused or cancelled requests can be published');
+    }
+
+    const publishedAt = new Date();
+    const updated = await this.model
+      .findOneAndUpdate(
+        { _id: rid, clientId },
+        {
+          $set: {
+            status: 'published',
+            publishedAt,
+            cancelledAt: null,
+            purgeAt: null,
+            inactiveReason: null,
+            inactiveMessage: null,
+          },
+        },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) throw new NotFoundException('Request not found');
+    return updated;
+  }
+
+  async unpublishMyClientRequest(clientId: string, requestId: string): Promise<RequestDocument> {
+    const rid = String(requestId ?? '').trim();
+    if (!rid) throw new BadRequestException('requestId is required');
+    this.ensureObjectId(rid, 'requestId');
+
+    const existing = await this.getOwnedRequestOrThrow(clientId, rid);
+    if (existing.archivedAt) {
+      throw new ConflictException('Archived requests cannot be unpublished');
+    }
+    if (existing.status !== 'published') {
+      throw new ConflictException('Only published requests can be unpublished');
+    }
+    if (await this.hasOffers(rid)) {
+      throw new ConflictException('Requests with offers cannot be unpublished');
     }
 
     const updated = await this.model
-      .findOneAndUpdate({ _id: rid, clientId }, { $set: { status: 'published' } }, { new: true })
+      .findOneAndUpdate(
+        { _id: rid, clientId },
+        {
+          $set: {
+            status: 'paused',
+            cancelledAt: null,
+            purgeAt: null,
+            inactiveReason: null,
+            inactiveMessage: null,
+          },
+        },
+        { new: true },
+      )
       .exec();
 
     if (!updated) throw new NotFoundException('Request not found');
@@ -433,12 +557,12 @@ export class RequestsService {
     const sortKey = filters.sort ?? 'date_desc';
     const sort: Record<string, 1 | -1> =
       sortKey === 'date_asc'
-        ? { createdAt: 1 }
+        ? { publishedAt: 1, createdAt: 1 }
         : sortKey === 'price_asc'
-          ? { price: 1, createdAt: -1 }
+          ? { price: 1, publishedAt: -1, createdAt: -1 }
           : sortKey === 'price_desc'
-            ? { price: -1, createdAt: -1 }
-            : { createdAt: -1 };
+            ? { price: -1, publishedAt: -1, createdAt: -1 }
+            : { publishedAt: -1, createdAt: -1 };
 
     const limit = Math.min(Math.max(filters.limit ?? 20, 1), 100);
     const offsetRaw =
@@ -452,14 +576,25 @@ export class RequestsService {
     return this.model.find(q).sort(sort).skip(offset).limit(limit).exec();
   }
 
-  async getPublicById(requestId: string): Promise<RequestDocument> {
+  async getPublicById(requestId: string, viewerUserId?: string | null): Promise<RequestDocument> {
     const rid = String(requestId ?? '').trim();
     if (!rid) throw new BadRequestException('requestId is required');
     this.ensureObjectId(rid, 'requestId');
 
-    const doc = await this.model.findOne({ _id: rid, status: 'published', archivedAt: null }).exec();
+    const doc = await this.model.findOne({ _id: rid, archivedAt: null }).exec();
     if (!doc) throw new NotFoundException('Request not found');
-    return doc;
+    if (doc.status === 'published') return doc;
+
+    const viewerId = String(viewerUserId ?? '').trim();
+    if (
+      doc.status === 'cancelled'
+      && viewerId
+      && await this.canViewerAccessRetainedRequest(viewerId, rid, String(doc.clientId ?? ''))
+    ) {
+      return doc;
+    }
+
+    throw new NotFoundException('Request not found');
   }
 
   async listPublicByIds(requestIds: string[]): Promise<RequestDocument[]> {
@@ -472,6 +607,28 @@ export class RequestsService {
       : [];
     if (ids.length === 0) return [];
     return this.model.find({ _id: { $in: ids }, status: 'published', archivedAt: null }).exec();
+  }
+
+  async listVisibleByIdsForUser(userId: string, requestIds: string[]): Promise<RequestDocument[]> {
+    const ids = Array.isArray(requestIds)
+      ? Array.from(new Set(requestIds.map((x) => String(x)).filter((x) => Types.ObjectId.isValid(x))))
+      : [];
+    if (ids.length === 0) return [];
+
+    return this.model
+      .find({
+        _id: { $in: ids },
+        archivedAt: null,
+        $or: [
+          { status: 'published' },
+          {
+            status: 'cancelled',
+            $or: [{ clientId: userId }, { _id: { $in: ids } }],
+          },
+        ],
+      })
+      .sort({ publishedAt: -1, createdAt: -1 })
+      .exec();
   }
 
   async countPublic(filters: {
@@ -568,12 +725,23 @@ export class RequestsService {
     if (existing.archivedAt) {
       throw new ConflictException('Archived requests cannot be updated');
     }
-    if (existing.status === 'matched' || existing.status === 'closed' || existing.status === 'cancelled') {
-      throw new ConflictException('Only draft, published or paused requests can be updated');
+    if (existing.status === 'matched' || existing.status === 'closed') {
+      throw new ConflictException('Only draft, published, paused or cancelled requests can be updated');
     }
 
     const patch: Record<string, unknown> = {};
     if (typeof dto.title === 'string') patch.title = dto.title.trim();
+    if (typeof dto.cityId === 'string') {
+      const nextCityId = dto.cityId.trim();
+      if (!Types.ObjectId.isValid(nextCityId)) {
+        throw new BadRequestException('cityId must be a valid ObjectId');
+      }
+      const city = await this.cities.getById(nextCityId);
+      if (!city) throw new BadRequestException('cityId not found');
+      patch.cityId = city._id?.toString?.() ?? nextCityId;
+      patch.cityName = city.name ?? (city.i18n as any)?.en ?? city.key ?? nextCityId;
+      patch.location = city.location ?? null;
+    }
     if (dto.propertyType !== undefined) patch.propertyType = dto.propertyType;
     if (typeof dto.area === 'number') patch.area = dto.area;
     if (typeof dto.price === 'number') {
@@ -621,7 +789,7 @@ export class RequestsService {
       title: nextTitle,
       description: nextDescription,
       tags: nextTags,
-      cityName: existing.cityName,
+      cityName: (patch.cityName as string | undefined) ?? existing.cityName,
       categoryName: existing.categoryName,
       subcategoryName: existing.subcategoryName,
     });
@@ -680,7 +848,7 @@ export class RequestsService {
   async deleteMyClientRequest(
     clientId: string,
     requestId: string,
-  ): Promise<{ ok: true; deletedRequestId: string }> {
+  ): Promise<DeleteMyClientRequestResult> {
     const rid = String(requestId ?? '').trim();
     if (!rid) throw new BadRequestException('requestId is required');
     this.ensureObjectId(rid, 'requestId');
@@ -690,7 +858,45 @@ export class RequestsService {
       throw new ConflictException('Matched or closed requests cannot be deleted');
     }
 
+    const retainedForParticipants = await this.hasRetainedParticipants(rid);
+    if (retainedForParticipants) {
+      const cancelledAt = new Date();
+      const purgeAt = this.calculatePurgeAt(cancelledAt);
+
+      await this.model
+        .findOneAndUpdate(
+          { _id: rid, clientId },
+          {
+            $set: {
+              status: 'cancelled',
+              cancelledAt,
+              purgeAt,
+              inactiveReason: 'cancelled_by_customer',
+              inactiveMessage: this.buildInactiveMessage(),
+            },
+          },
+          { new: true },
+        )
+        .exec();
+
+      return {
+        ok: true,
+        deletedRequestId: rid,
+        result: 'cancelled',
+        removedFromPublicFeed: true,
+        retainedForParticipants: true,
+        purgeAt,
+      };
+    }
+
     await this.model.deleteOne({ _id: rid, clientId }).exec();
-    return { ok: true as const, deletedRequestId: rid };
+    return {
+      ok: true,
+      deletedRequestId: rid,
+      result: 'deleted',
+      removedFromPublicFeed: true,
+      retainedForParticipants: false,
+      purgeAt: null,
+    };
   }
 }

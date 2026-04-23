@@ -235,6 +235,11 @@ export class WorkspaceService {
       imageUrl: doc.imageUrl ?? null,
       tags: doc.tags ?? [],
       status: doc.status,
+      publishedAt: doc.publishedAt ?? null,
+      purgeAt: doc.purgeAt ?? null,
+      isInactive: doc.status === 'cancelled',
+      inactiveReason: doc.inactiveReason ?? null,
+      inactiveMessage: doc.inactiveMessage ?? null,
       createdAt: doc.createdAt,
     };
   }
@@ -491,6 +496,20 @@ export class WorkspaceService {
     tone: 'info' | 'warning' | 'success' | 'danger' | null;
   } {
     if (args.role === 'customer') {
+      if (args.requestStatus === 'draft') {
+        return {
+          label: args.locale === 'de' ? 'Entwurf' : 'Draft',
+          tone: 'info',
+        };
+      }
+
+      if (args.requestStatus === 'paused') {
+        return {
+          label: args.locale === 'de' ? 'Nicht veröffentlicht' : 'Unpublished',
+          tone: 'warning',
+        };
+      }
+
       if (args.requestStatus === 'cancelled') {
         return {
           label: args.locale === 'de' ? 'Storniert' : 'Cancelled',
@@ -757,6 +776,9 @@ export class WorkspaceService {
         };
     }
 
+    const primaryAction = args.statusActions.find((action) => action.tone === 'primary');
+    if (primaryAction) return primaryAction;
+
     return args.statusActions.find((action) => action.key === 'open')
       ?? {
         key: 'open',
@@ -811,6 +833,7 @@ export class WorkspaceService {
     requestId: string;
     workflowState: WorkspaceRequestsWorkflowState;
     requestStatus?: string | null;
+    offersCount: number;
   }): WorkspaceMyRequestCardDto['status'] {
     const badge = this.resolveWorkspaceStatusBadge({
       locale: args.locale,
@@ -818,6 +841,35 @@ export class WorkspaceService {
       workflowState: args.workflowState,
       requestStatus: args.requestStatus,
     });
+
+    const primaryAction =
+      args.requestStatus === 'published' && args.offersCount > 0
+        ? {
+            key: 'review-responses',
+            kind: 'review_responses' as const,
+            tone: 'primary' as const,
+            icon: 'briefcase' as const,
+            label: args.locale === 'de' ? 'Antworten ansehen' : 'Review responses',
+            href: `/requests/${args.requestId}`,
+            requestId: args.requestId,
+          }
+        : args.requestStatus === 'published'
+          ? {
+              key: 'unpublish-request',
+              kind: 'unpublish_request' as const,
+              tone: 'primary' as const,
+              icon: 'pause' as const,
+              label: args.locale === 'de' ? 'Publikation aufheben' : 'Unpublish',
+              requestId: args.requestId,
+            }
+          : {
+              key: 'publish-request',
+              kind: 'publish_request' as const,
+              tone: 'primary' as const,
+              icon: 'send' as const,
+              label: args.locale === 'de' ? 'Veröffentlichen' : 'Publish',
+              requestId: args.requestId,
+            };
 
     return {
       badgeLabel: badge.label,
@@ -841,6 +893,7 @@ export class WorkspaceService {
           href: `/requests/${args.requestId}/edit`,
           requestId: args.requestId,
         },
+        primaryAction,
         {
           key: 'duplicate-request',
           kind: 'duplicate_request',
@@ -1033,12 +1086,29 @@ export class WorkspaceService {
           tone: 'info',
         };
       }
-    } else if (request.status === 'closed' || request.status === 'cancelled') {
+    } else if (request.status === 'cancelled') {
+      state = 'open';
+      progressStep = 'request';
+      activity = {
+        label: locale === 'de' ? 'Storniert. Du kannst die Anfrage erneut veröffentlichen.' : 'Cancelled. You can publish the request again.',
+        tone: 'neutral',
+      };
+    } else if (request.status === 'closed') {
       state = 'completed';
       progressStep = 'done';
       activity = {
         label: locale === 'de' ? 'Anfrage geschlossen' : 'Request closed',
         tone: 'neutral',
+      };
+    } else if (request.status === 'draft') {
+      activity = {
+        label: locale === 'de' ? 'Entwurf ist bereit zur Veröffentlichung' : 'Draft is ready to publish',
+        tone: 'info',
+      };
+    } else if (request.status === 'paused') {
+      activity = {
+        label: locale === 'de' ? 'Publikation wurde aufgehoben. Du kannst die Anfrage erneut veröffentlichen.' : 'Publication was removed. You can publish the request again.',
+        tone: 'warning',
       };
     } else if (offers.length > 0) {
       state = 'clarifying';
@@ -1075,6 +1145,7 @@ export class WorkspaceService {
       requestId: request.id,
       workflowState: state,
       requestStatus: request.status ?? null,
+      offersCount: offers.length,
     });
     const decision = this.buildWorkspaceDecision({
       locale,

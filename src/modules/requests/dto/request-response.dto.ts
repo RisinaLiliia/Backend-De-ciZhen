@@ -89,6 +89,24 @@ export class RequestResponseDto {
   @ApiProperty({ example: 'published', enum: ['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'] })
   status: 'draft' | 'published' | 'paused' | 'matched' | 'closed' | 'cancelled';
 
+  @ApiPropertyOptional({ example: '2026-04-22T11:20:30.123Z', nullable: true })
+  publishedAt: Date | null;
+
+  @ApiPropertyOptional({ example: '2026-04-22T18:20:30.123Z', nullable: true })
+  cancelledAt: Date | null;
+
+  @ApiPropertyOptional({ example: '2026-04-29T18:20:30.123Z', nullable: true })
+  purgeAt: Date | null;
+
+  @ApiPropertyOptional({ example: true, nullable: true })
+  isInactive: boolean | null;
+
+  @ApiPropertyOptional({ enum: ['cancelled_by_customer'], example: 'cancelled_by_customer', nullable: true })
+  inactiveReason: 'cancelled_by_customer' | null;
+
+  @ApiPropertyOptional({ example: 'Dieser Auftrag wurde vom Auftraggeber storniert.', nullable: true })
+  inactiveMessage: string | null;
+
   @ApiProperty({ example: '2026-01-28T10:20:30.123Z' })
   createdAt: Date;
 }

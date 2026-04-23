@@ -116,6 +116,11 @@ export class FavoritesController {
       imageUrl: doc.imageUrl ?? null,
       tags: doc.tags ?? [],
       status: doc.status,
+      publishedAt: doc.publishedAt ?? null,
+      purgeAt: doc.purgeAt ?? null,
+      isInactive: doc.status === 'cancelled',
+      inactiveReason: doc.inactiveReason ?? null,
+      inactiveMessage: doc.inactiveMessage ?? null,
       createdAt: doc.createdAt,
     }));
   }

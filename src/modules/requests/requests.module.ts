@@ -9,10 +9,18 @@ import { CitiesModule } from '../catalog/cities/cities.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { UsersModule } from '../users/users.module';
 import { PresenceModule } from '../presence/presence.module';
+import { Offer, OfferSchema } from '../offers/schemas/offer.schema';
+import { Favorite, FavoriteSchema } from '../favorites/schemas/favorite.schema';
+import { ChatThread, ChatThreadSchema } from '../chats/schemas/chat-thread.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Request.name, schema: RequestSchema }]),
+    MongooseModule.forFeature([
+      { name: Request.name, schema: RequestSchema },
+      { name: Offer.name, schema: OfferSchema },
+      { name: Favorite.name, schema: FavoriteSchema },
+      { name: ChatThread.name, schema: ChatThreadSchema },
+    ]),
     CatalogServicesModule,
     CitiesModule,
     UploadsModule,

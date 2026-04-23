@@ -8,6 +8,7 @@ export type RequestStatus = 'draft' | 'published' | 'paused' | 'matched' | 'clos
 export type PropertyType = 'apartment' | 'house';
 export type GeoPoint = { type: 'Point'; coordinates: [number, number] };
 export type PriceTrend = 'up' | 'down' | null;
+export type RequestInactiveReason = 'cancelled_by_customer' | null;
 
 @Schema({ timestamps: true, collection: 'requests' })
 export class Request {
@@ -92,6 +93,21 @@ export class Request {
   })
   status: RequestStatus;
 
+  @Prop({ type: Date, default: null, index: true })
+  publishedAt: Date | null;
+
+  @Prop({ type: Date, default: null, index: true })
+  cancelledAt: Date | null;
+
+  @Prop({ type: Date, default: null, index: true })
+  purgeAt: Date | null;
+
+  @Prop({ type: String, enum: ['cancelled_by_customer'], default: null })
+  inactiveReason: RequestInactiveReason;
+
+  @Prop({ type: String, trim: true, maxlength: 240, default: null })
+  inactiveMessage: string | null;
+
   @Prop({ type: String, default: null, index: true })
   matchedProviderUserId: string | null;
 
@@ -110,6 +126,16 @@ export const RequestSchema = SchemaFactory.createForClass(Request);
 RequestSchema.index({ status: 1, cityId: 1, serviceKey: 1, preferredDate: 1 });
 RequestSchema.index({ location: '2dsphere' });
 RequestSchema.index({ createdAt: -1 });
+RequestSchema.index({ publishedAt: -1, createdAt: -1 });
 RequestSchema.index({ clientId: 1, archivedAt: 1, status: 1, createdAt: -1 });
 RequestSchema.index({ matchedProviderUserId: 1, createdAt: -1 });
+RequestSchema.index({ purgeAt: 1, status: 1 });
+RequestSchema.index(
+  { purgeAt: 1 },
+  {
+    expireAfterSeconds: 0,
+    partialFilterExpression: { status: 'cancelled' },
+    name: 'idx_requests_cancelled_purge_at_ttl',
+  },
+);
 RequestSchema.index({ searchText: 'text' });

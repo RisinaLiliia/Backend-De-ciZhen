@@ -22,6 +22,12 @@ export class UpdateMyRequestDto {
   @MinLength(3)
   title?: string;
 
+  @ApiPropertyOptional({ example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  cityId?: string;
+
   @ApiPropertyOptional({ example: 'apartment', enum: ['apartment', 'house'] })
   @IsOptional()
   @IsIn(['apartment', 'house'])

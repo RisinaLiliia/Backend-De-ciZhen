@@ -61,7 +61,7 @@ export class FavoritesService {
   async listByType(userId: string, type: FavoriteType): Promise<any[]> {
     const ids = await this.listIds(userId, type);
     if (type === 'request') {
-      return this.requests.listPublicByIds(ids);
+      return this.requests.listVisibleByIdsForUser(userId, ids);
     }
     return this.providers.listPublicByIds(ids);
   }

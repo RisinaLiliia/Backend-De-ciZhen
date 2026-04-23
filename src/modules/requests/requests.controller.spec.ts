@@ -264,7 +264,7 @@ describe('RequestsController (unit)', () => {
 
     const res = await controller.getPublicById('r1');
 
-    expect(svcMock.getPublicById).toHaveBeenCalledWith('r1');
+    expect(svcMock.getPublicById).toHaveBeenCalledWith('r1', null);
     expect(usersMock.findPublicByIds).toHaveBeenCalledWith(['c1']);
     expect(clientProfilesMock.getByUserIds).toHaveBeenCalledWith(['c1']);
     expect(presenceMock.isOnline).toHaveBeenCalledWith('c1');

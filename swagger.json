@@ -3095,6 +3095,113 @@
         ]
       }
     },
+    "/requests/my/{requestId}/unpublish": {
+      "post": {
+        "operationId": "RequestsController_unpublishMy",
+        "summary": "User: unpublish my request before any offer has arrived",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/requests/my/{requestId}/duplicate": {
       "post": {
         "operationId": "RequestsController_duplicateMy",
@@ -10310,6 +10417,39 @@
               "cancelled"
             ]
           },
+          "publishedAt": {
+            "type": "object",
+            "example": "2026-04-22T11:20:30.123Z",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "example": "2026-04-22T18:20:30.123Z",
+            "nullable": true
+          },
+          "purgeAt": {
+            "type": "object",
+            "example": "2026-04-29T18:20:30.123Z",
+            "nullable": true
+          },
+          "isInactive": {
+            "type": "object",
+            "example": true,
+            "nullable": true
+          },
+          "inactiveReason": {
+            "type": "string",
+            "enum": [
+              "cancelled_by_customer"
+            ],
+            "example": "cancelled_by_customer",
+            "nullable": true
+          },
+          "inactiveMessage": {
+            "type": "object",
+            "example": "Dieser Auftrag wurde vom Auftraggeber storniert.",
+            "nullable": true
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -10507,6 +10647,34 @@
               "cancelled"
             ]
           },
+          "publishedAt": {
+            "type": "object",
+            "example": "2026-04-22T11:20:30.123Z",
+            "nullable": true
+          },
+          "purgeAt": {
+            "type": "object",
+            "example": "2026-04-29T11:20:30.123Z",
+            "nullable": true
+          },
+          "isInactive": {
+            "type": "object",
+            "example": true,
+            "nullable": true
+          },
+          "inactiveReason": {
+            "type": "string",
+            "enum": [
+              "cancelled_by_customer"
+            ],
+            "example": "cancelled_by_customer",
+            "nullable": true
+          },
+          "inactiveMessage": {
+            "type": "object",
+            "example": "Dieser Auftrag wurde vom Auftraggeber storniert.",
+            "nullable": true
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -10578,6 +10746,10 @@
           "title": {
             "type": "string",
             "example": "Zwei IKEA Pax Schränke aufbauen"
+          },
+          "cityId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
           },
           "propertyType": {
             "type": "string",
@@ -10671,11 +10843,35 @@
           "deletedRequestId": {
             "type": "string",
             "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "deleted",
+              "cancelled"
+            ],
+            "example": "cancelled"
+          },
+          "removedFromPublicFeed": {
+            "type": "boolean",
+            "example": true
+          },
+          "retainedForParticipants": {
+            "type": "boolean",
+            "example": true
+          },
+          "purgeAt": {
+            "type": "object",
+            "example": "2026-04-29T18:20:30.123Z",
+            "nullable": true
           }
         },
         "required": [
           "ok",
-          "deletedRequestId"
+          "deletedRequestId",
+          "result",
+          "removedFromPublicFeed",
+          "retainedForParticipants"
         ]
       },
       "CreateOfferDto": {
@@ -15915,6 +16111,9 @@
               "edit_offer",
               "withdraw_offer",
               "open_chat",
+              "publish_request",
+              "unpublish_request",
+              "review_responses",
               "duplicate_request",
               "share_request",
               "archive_request",
