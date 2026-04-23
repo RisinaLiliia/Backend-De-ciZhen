@@ -89,6 +89,12 @@ export class RequestsController {
       imageUrl: doc.imageUrl ?? null,
       tags: doc.tags ?? [],
       status: doc.status,
+      publishedAt: doc.publishedAt ?? null,
+      cancelledAt: doc.cancelledAt ?? null,
+      purgeAt: doc.purgeAt ?? null,
+      isInactive: doc.status === 'cancelled',
+      inactiveReason: doc.inactiveReason ?? null,
+      inactiveMessage: doc.inactiveMessage ?? null,
       createdAt: doc.createdAt,
     };
   }
@@ -158,6 +164,11 @@ export class RequestsController {
       imageUrl: doc.imageUrl ?? null,
       tags: doc.tags ?? [],
       status: doc.status,
+      publishedAt: doc.publishedAt ?? null,
+      purgeAt: doc.purgeAt ?? null,
+      isInactive: doc.status === 'cancelled',
+      inactiveReason: doc.inactiveReason ?? null,
+      inactiveMessage: doc.inactiveMessage ?? null,
       createdAt: doc.createdAt,
     };
   }
@@ -180,6 +191,7 @@ export class RequestsController {
     return this.toDto(created);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('public/:id')
   @ApiOperation({
     summary: 'Get published request by id (public)',
@@ -189,8 +201,11 @@ export class RequestsController {
   @ApiSecurity({} as any)
   @ApiOkResponse({ type: RequestPublicDto })
   @ApiPublicErrors()
-  async getPublicById(@Param('id') id: string): Promise<RequestPublicDto> {
-    const doc = await this.requests.getPublicById(id);
+  async getPublicById(
+    @Param('id') id: string,
+    @CurrentUser() user?: CurrentUserPayload | null,
+  ): Promise<RequestPublicDto> {
+    const doc = await this.requests.getPublicById(id, user?.userId ?? null);
     const clientId = this.normalizeId((doc as any).clientId);
     if (!clientId) return this.toPublicDto(doc);
 
@@ -199,20 +214,20 @@ export class RequestsController {
       this.clientProfiles.getByUserIds([clientId]),
     ]);
 
-    const user = clients[0];
-    if (!user) return this.toPublicDto(doc);
+    const clientUser = clients[0];
+    if (!clientUser) return this.toPublicDto(doc);
     const profile = profiles[0];
     const isOnline = await this.presence.isOnline(clientId);
 
     return this.toPublicDto(doc, {
-      id: user._id.toString(),
-      name: user.name ?? null,
-      avatarUrl: user.avatar?.url ?? null,
-      city: user.city ?? null,
+      id: clientUser._id.toString(),
+      name: clientUser.name ?? null,
+      avatarUrl: clientUser.avatar?.url ?? null,
+      city: clientUser.city ?? null,
       ratingAvg: profile?.ratingAvg ?? null,
       ratingCount: profile?.ratingCount ?? null,
       isOnline,
-      lastSeenAt: user.lastSeenAt ?? null,
+      lastSeenAt: clientUser.lastSeenAt ?? null,
     });
   }
 
@@ -473,6 +488,22 @@ export class RequestsController {
     @Param('requestId') requestId: string,
   ): Promise<RequestResponseDto> {
     const updated = await this.requests.publishForClient(user.userId, requestId);
+    return this.toDto(updated);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my/:requestId/unpublish')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'User: unpublish my request before any offer has arrived' })
+  @ApiParam({ name: 'requestId', required: true, example: '65f0c1a2b3c4d5e6f7a8b9c1' })
+  @ApiOkResponse({ type: RequestResponseDto })
+  @ApiErrors()
+  @HttpCode(200)
+  async unpublishMy(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('requestId') requestId: string,
+  ): Promise<RequestResponseDto> {
+    const updated = await this.requests.unpublishMyClientRequest(user.userId, requestId);
     return this.toDto(updated);
   }
 

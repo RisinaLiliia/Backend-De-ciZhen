@@ -302,8 +302,8 @@ describe('workspace (e2e)', () => {
           needsAction: true,
           actionType: 'review_offers',
           primaryAction: expect.objectContaining({
-            key: 'open',
-            kind: 'link',
+            key: 'review-responses',
+            kind: 'review_responses',
           }),
         }),
       }),
@@ -567,5 +567,59 @@ describe('workspace (e2e)', () => {
     );
 
     expect(Array.isArray(res.body.insights)).toBe(true);
+  });
+
+  it('GET /workspace/requests exposes backend-owned owner publish action for draft requests', async () => {
+    const account = await registerAndGetToken(
+      app,
+      'client',
+      'workspace-owner-draft@test.local',
+      'Draft Owner',
+    );
+
+    const userId = String(account.userId);
+    const draftRequestId = new Types.ObjectId().toString();
+
+    await requestModel.create({
+      _id: draftRequestId,
+      title: 'Noch nicht veröffentlicht',
+      clientId: userId,
+      serviceKey: 'home_cleaning',
+      cityId: 'berlin-city',
+      cityName: 'Berlin',
+      propertyType: 'apartment',
+      area: 50,
+      preferredDate: new Date('2026-04-07T10:00:00.000Z'),
+      isRecurring: false,
+      status: 'draft',
+      categoryKey: 'cleaning',
+      categoryName: 'Reinigung',
+      subcategoryName: 'Grundreinigung',
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/workspace/requests')
+      .query({ scope: 'my', role: 'customer', state: 'all', period: '30d' })
+      .set('Authorization', `Bearer ${account.accessToken}`)
+      .set('Accept-Language', 'de-DE')
+      .expect(200);
+
+    expect(res.body.list.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          requestId: draftRequestId,
+          status: expect.objectContaining({
+            badgeLabel: 'Entwurf',
+            actions: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'publish-request',
+                kind: 'publish_request',
+                tone: 'primary',
+              }),
+            ]),
+          }),
+        }),
+      ]),
+    );
   });
 });

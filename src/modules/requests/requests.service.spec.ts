@@ -5,6 +5,9 @@ import { RequestsService } from './requests.service';
 import { Request } from './schemas/request.schema';
 import { CatalogServicesService } from '../catalog/services/services.service';
 import { CitiesService } from '../catalog/cities/cities.service';
+import { Offer } from '../offers/schemas/offer.schema';
+import { Favorite } from '../favorites/schemas/favorite.schema';
+import { ChatThread } from '../chats/schemas/chat-thread.schema';
 
 describe('RequestsService', () => {
   let service: RequestsService;
@@ -17,6 +20,18 @@ describe('RequestsService', () => {
     findOneAndUpdate: jest.fn(),
     countDocuments: jest.fn(),
     deleteOne: jest.fn(),
+  };
+
+  const offerModelMock = {
+    countDocuments: jest.fn(),
+  };
+
+  const favoriteModelMock = {
+    countDocuments: jest.fn(),
+  };
+
+  const chatThreadModelMock = {
+    countDocuments: jest.fn(),
   };
 
   const catalogMock = {
@@ -37,6 +52,9 @@ describe('RequestsService', () => {
       providers: [
         RequestsService,
         { provide: getModelToken(Request.name), useValue: modelMock },
+        { provide: getModelToken(Offer.name), useValue: offerModelMock },
+        { provide: getModelToken(Favorite.name), useValue: favoriteModelMock },
+        { provide: getModelToken(ChatThread.name), useValue: chatThreadModelMock },
         { provide: CatalogServicesService, useValue: catalogMock },
         { provide: CitiesService, useValue: citiesMock },
       ],
@@ -300,7 +318,7 @@ describe('RequestsService', () => {
 
     await service.listPublic({ sort: 'date_asc', limit: 10, offset: 5 });
 
-    expect(sort).toHaveBeenCalledWith({ createdAt: 1 });
+    expect(sort).toHaveBeenCalledWith({ publishedAt: 1, createdAt: 1 });
     expect(skip).toHaveBeenCalledWith(5);
     expect(limit).toHaveBeenCalledWith(10);
   });
@@ -449,18 +467,27 @@ describe('RequestsService', () => {
     expect(modelMock.findById).toHaveBeenCalledWith(rid);
     expect(modelMock.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: rid, clientId: 'u1' },
-      { $set: { status: 'published' } },
+      {
+        $set: {
+          status: 'published',
+          publishedAt: expect.any(Date),
+          cancelledAt: null,
+          purgeAt: null,
+          inactiveReason: null,
+          inactiveMessage: null,
+        },
+      },
       { new: true },
     );
     expect(res.status).toBe('published');
   });
 
-  it('publishForClient throws when request is not draft', async () => {
+  it('publishForClient throws when request is already published', async () => {
     const rid = '507f1f77bcf86cd799439012';
     const execFind = jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'published' });
     modelMock.findById.mockReturnValue({ exec: execFind });
 
-    await expect(service.publishForClient('u1', rid)).rejects.toThrow('Only draft requests can be published');
+    await expect(service.publishForClient('u1', rid)).rejects.toThrow('Only draft, paused or cancelled requests can be published');
     expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
@@ -485,7 +512,7 @@ describe('RequestsService', () => {
 
     const res: any = await service.getPublicById(rid);
 
-    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, status: 'published', archivedAt: null });
+    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, archivedAt: null });
     expect(res.status).toBe('published');
   });
 
@@ -495,7 +522,7 @@ describe('RequestsService', () => {
     modelMock.findOne.mockReturnValue({ exec: execFind });
 
     await expect(service.getPublicById(rid)).rejects.toThrow('Request not found');
-    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, status: 'published', archivedAt: null });
+    expect(modelMock.findOne).toHaveBeenCalledWith({ _id: rid, archivedAt: null });
   });
 
   it('getPublicById throws on invalid requestId', async () => {
@@ -551,6 +578,7 @@ describe('RequestsService', () => {
     modelMock.create.mockResolvedValue({ _id: 'dup-1', clientId: 'u1', status: 'draft' });
 
     const result: any = await service.duplicateMyClientRequest('u1', rid);
+    const createPayload = modelMock.create.mock.calls[0][0];
 
     expect(modelMock.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -566,7 +594,53 @@ describe('RequestsService', () => {
         archivedAt: null,
       }),
     );
+    expect(createPayload.preferredDate).toBeInstanceOf(Date);
+    expect(createPayload.preferredDate.getTime()).toBeGreaterThan(source.preferredDate.getTime());
     expect(result.status).toBe('draft');
+  });
+
+  it('updateMyClientRequest updates editable city metadata', async () => {
+    const rid = '507f1f77bcf86cd799439019';
+    const cityId = '507f1f77bcf86cd799439022';
+    modelMock.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: rid,
+        clientId: 'u1',
+        title: 'Original',
+        description: 'details',
+        tags: ['tag1'],
+        cityName: 'Berlin',
+        categoryName: 'Cleaning',
+        subcategoryName: 'Home cleaning',
+        status: 'draft',
+        archivedAt: null,
+      }),
+    });
+    citiesMock.getById.mockResolvedValue({
+      _id: cityId,
+      name: 'Hamburg',
+      key: 'hamburg',
+      i18n: { en: 'Hamburg' },
+      location: { type: 'Point', coordinates: [9.9937, 53.5511] },
+    });
+    modelMock.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', cityId, cityName: 'Hamburg' }),
+    });
+
+    await service.updateMyClientRequest('u1', rid, { cityId } as any);
+
+    expect(modelMock.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: rid, clientId: 'u1' },
+      {
+        $set: expect.objectContaining({
+          cityId,
+          cityName: 'Hamburg',
+          location: { type: 'Point', coordinates: [9.9937, 53.5511] },
+          searchText: expect.stringContaining('hamburg'),
+        }),
+      },
+      { new: true },
+    );
   });
 
   it('duplicateMyClientRequest omits location when source request has no coordinates', async () => {
@@ -661,5 +735,60 @@ describe('RequestsService', () => {
 
     await expect(service.publishForClient('u1', rid)).rejects.toThrow('Archived requests cannot be published');
     expect(modelMock.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('unpublishMyClientRequest pauses a published request when no offers exist', async () => {
+    const rid = '507f1f77bcf86cd799439019';
+    modelMock.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'published', archivedAt: null }),
+    });
+    offerModelMock.countDocuments.mockReturnValue({ exec: jest.fn().mockResolvedValue(0) });
+    modelMock.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'paused' }),
+    });
+
+    const result: any = await service.unpublishMyClientRequest('u1', rid);
+
+    expect(modelMock.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: rid, clientId: 'u1' },
+      {
+        $set: {
+          status: 'paused',
+          cancelledAt: null,
+          purgeAt: null,
+          inactiveReason: null,
+          inactiveMessage: null,
+        },
+      },
+      { new: true },
+    );
+    expect(result.status).toBe('paused');
+  });
+
+  it('deleteMyClientRequest retains cancelled request when participants already exist', async () => {
+    const rid = '507f1f77bcf86cd799439020';
+    modelMock.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'published', archivedAt: null }),
+    });
+    offerModelMock.countDocuments.mockReturnValue({ exec: jest.fn().mockResolvedValue(1) });
+    favoriteModelMock.countDocuments.mockReturnValue({ exec: jest.fn().mockResolvedValue(0) });
+    chatThreadModelMock.countDocuments.mockReturnValue({ exec: jest.fn().mockResolvedValue(0) });
+    modelMock.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: rid, clientId: 'u1', status: 'cancelled' }),
+    });
+
+    const result = await service.deleteMyClientRequest('u1', rid);
+
+    expect(modelMock.deleteOne).not.toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: true,
+        deletedRequestId: rid,
+        result: 'cancelled',
+        retainedForParticipants: true,
+        removedFromPublicFeed: true,
+        purgeAt: expect.any(Date),
+      }),
+    );
   });
 });

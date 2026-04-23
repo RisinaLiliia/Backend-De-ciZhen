@@ -10,6 +10,7 @@ import { Request as RequestEntity, RequestDocument } from '../src/modules/reques
 import { City, CityDocument } from '../src/modules/catalog/cities/schemas/city.schema';
 import { Service, ServiceDocument } from '../src/modules/catalog/services/schemas/service.schema';
 import { ServiceCategory, ServiceCategoryDocument } from '../src/modules/catalog/services/schemas/service-category.schema';
+import { Favorite, FavoriteDocument } from '../src/modules/favorites/schemas/favorite.schema';
 
 jest.setTimeout(30000);
 
@@ -21,6 +22,7 @@ describe('v6.2 requests /my publish flow (e2e)', () => {
   let cityModel: Model<CityDocument>;
   let serviceModel: Model<ServiceDocument>;
   let categoryModel: Model<ServiceCategoryDocument>;
+  let favoriteModel: Model<FavoriteDocument>;
 
   const categoryKey = 'cleaning';
   const serviceKey = 'home_cleaning';
@@ -34,6 +36,7 @@ describe('v6.2 requests /my publish flow (e2e)', () => {
     cityModel = app.get(getModelToken(City.name));
     serviceModel = app.get(getModelToken(Service.name));
     categoryModel = app.get(getModelToken(ServiceCategory.name));
+    favoriteModel = app.get(getModelToken(Favorite.name));
   });
 
   afterAll(async () => {
@@ -46,6 +49,7 @@ describe('v6.2 requests /my publish flow (e2e)', () => {
       cityModel.deleteMany({}),
       serviceModel.deleteMany({}),
       categoryModel.deleteMany({}),
+      favoriteModel.deleteMany({}),
     ]);
 
     const city = await cityModel.create({ key: 'frankfurt', name: 'Frankfurt am Main', isActive: true });
@@ -271,5 +275,123 @@ describe('v6.2 requests /my publish flow (e2e)', () => {
       .post('/requests/my/not-an-objectid/publish')
       .set('Authorization', `Bearer ${client.accessToken}`)
       .expect(400);
+  });
+
+  it('POST /requests/my/:id/unpublish pauses a published request before offers arrive', async () => {
+    const client = await registerAndGetToken(app, 'client', 'client-req-unpublish@test.local', 'Client Unpublish');
+
+    const created = await request(app.getHttpServer())
+      .post('/requests/my')
+      .set('Authorization', `Bearer ${client.accessToken}`)
+      .send({
+        title: 'Request to unpublish',
+        serviceKey,
+        cityId,
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+        publishNow: true,
+      })
+      .expect(201);
+
+    const requestId = created.body.id;
+
+    const unpublishRes = await request(app.getHttpServer())
+      .post(`/requests/my/${requestId}/unpublish`)
+      .set('Authorization', `Bearer ${client.accessToken}`)
+      .expect(200);
+
+    expect(unpublishRes.body).toMatchObject({
+      id: requestId,
+      status: 'paused',
+    });
+
+    const publicAfter = await request(app.getHttpServer())
+      .get('/requests/public')
+      .query({ cityId, serviceKey })
+      .expect(200);
+
+    expect(publicAfter.body.items.find((x: any) => x.id === requestId)).toBeFalsy();
+  });
+
+  it('DELETE /requests/my/:id cancels retained request and keeps it visible only for related users', async () => {
+    const client = await registerAndGetToken(app, 'client', 'client-req-delete@test.local', 'Client Delete');
+    const provider = await registerAndGetToken(app, 'provider', 'provider-req-delete@test.local', 'Provider Delete');
+
+    const created = await request(app.getHttpServer())
+      .post('/requests/my')
+      .set('Authorization', `Bearer ${client.accessToken}`)
+      .send({
+        title: 'Request to cancel',
+        serviceKey,
+        cityId,
+        propertyType: 'apartment',
+        area: 55,
+        preferredDate: '2026-02-01T10:00:00.000Z',
+        isRecurring: false,
+        publishNow: true,
+      })
+      .expect(201);
+
+    const requestId = created.body.id;
+
+    await request(app.getHttpServer())
+      .post('/favorites')
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .send({ type: 'request', targetId: requestId })
+      .expect(201);
+
+    const deleteRes = await request(app.getHttpServer())
+      .delete(`/requests/my/${requestId}`)
+      .set('Authorization', `Bearer ${client.accessToken}`)
+      .expect(200);
+
+    expect(deleteRes.body).toMatchObject({
+      ok: true,
+      deletedRequestId: requestId,
+      result: 'cancelled',
+      retainedForParticipants: true,
+      removedFromPublicFeed: true,
+    });
+    expect(deleteRes.body.purgeAt).toBeTruthy();
+
+    const publicAfter = await request(app.getHttpServer())
+      .get('/requests/public')
+      .query({ cityId, serviceKey })
+      .expect(200);
+    expect(publicAfter.body.items.find((x: any) => x.id === requestId)).toBeFalsy();
+
+    await request(app.getHttpServer())
+      .get(`/requests/public/${requestId}`)
+      .expect(404);
+
+    const retainedDetail = await request(app.getHttpServer())
+      .get(`/requests/public/${requestId}`)
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .expect(200);
+
+    expect(retainedDetail.body).toMatchObject({
+      id: requestId,
+      status: 'cancelled',
+      isInactive: true,
+      inactiveReason: 'cancelled_by_customer',
+    });
+
+    const favoritesRes = await request(app.getHttpServer())
+      .get('/favorites')
+      .query({ type: 'request' })
+      .set('Authorization', `Bearer ${provider.accessToken}`)
+      .expect(200);
+
+    expect(favoritesRes.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: requestId,
+          status: 'cancelled',
+          isInactive: true,
+        }),
+      ]),
+    );
   });
 });

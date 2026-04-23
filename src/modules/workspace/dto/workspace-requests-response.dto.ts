@@ -143,16 +143,41 @@ export class WorkspaceRequestCardStatusActionDto {
   key: string;
 
   @ApiProperty({
-    enum: ['link', 'send_offer', 'edit_offer', 'withdraw_offer', 'open_chat', 'duplicate_request', 'share_request', 'archive_request', 'delete_request'],
+    enum: [
+      'link',
+      'send_offer',
+      'edit_offer',
+      'withdraw_offer',
+      'open_chat',
+      'publish_request',
+      'unpublish_request',
+      'review_responses',
+      'duplicate_request',
+      'share_request',
+      'archive_request',
+      'delete_request',
+    ],
     example: 'link',
   })
-  kind: 'link' | 'send_offer' | 'edit_offer' | 'withdraw_offer' | 'open_chat' | 'duplicate_request' | 'share_request' | 'archive_request' | 'delete_request';
+  kind:
+    | 'link'
+    | 'send_offer'
+    | 'edit_offer'
+    | 'withdraw_offer'
+    | 'open_chat'
+    | 'publish_request'
+    | 'unpublish_request'
+    | 'review_responses'
+    | 'duplicate_request'
+    | 'share_request'
+    | 'archive_request'
+    | 'delete_request';
 
   @ApiProperty({ example: 'secondary' })
   tone: 'primary' | 'secondary' | 'danger';
 
   @ApiProperty({ example: 'briefcase' })
-  icon: 'briefcase' | 'chat' | 'edit' | 'send' | 'trash' | 'copy' | 'share' | 'archive';
+  icon: 'briefcase' | 'chat' | 'edit' | 'send' | 'trash' | 'copy' | 'share' | 'archive' | 'pause';
 
   @ApiProperty({ example: 'Öffnen' })
   label: string;
