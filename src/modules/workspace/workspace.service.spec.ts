@@ -3,6 +3,8 @@ import { getModelToken } from '@nestjs/mongoose';
 
 import { WorkspaceService } from './workspace.service';
 import { WorkspaceRequestsService } from './workspace-requests.service';
+import { WorkspacePublicOverviewService } from './workspace-public-overview.service';
+import { WorkspacePrivateOverviewService } from './workspace-private-overview.service';
 import { RequestsService } from '../requests/requests.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { CitiesService } from '../catalog/cities/cities.service';
@@ -84,6 +86,8 @@ describe('WorkspaceService (unit)', () => {
       providers: [
         WorkspaceService,
         WorkspaceRequestsService,
+        WorkspacePublicOverviewService,
+        WorkspacePrivateOverviewService,
         { provide: RequestsService, useValue: requestsMock },
         { provide: AnalyticsService, useValue: analyticsMock },
         { provide: CitiesService, useValue: citiesMock },
