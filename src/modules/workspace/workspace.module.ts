@@ -12,6 +12,7 @@ import { PresenceModule } from '../presence/presence.module';
 import { Request, RequestSchema } from '../requests/schemas/request.schema';
 import { Offer, OfferSchema } from '../offers/schemas/offer.schema';
 import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
+import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
 import { ProviderProfile, ProviderProfileSchema } from '../providers/schemas/provider-profile.schema';
 import { Favorite, FavoriteSchema } from '../favorites/schemas/favorite.schema';
 import { Review, ReviewSchema } from '../reviews/schemas/review.schema';
@@ -29,6 +30,7 @@ import { CitiesModule } from '../catalog/cities/cities.module';
       { name: Request.name, schema: RequestSchema },
       { name: Offer.name, schema: OfferSchema },
       { name: Contract.name, schema: ContractSchema },
+      { name: Booking.name, schema: BookingSchema },
       { name: ProviderProfile.name, schema: ProviderProfileSchema },
       { name: Favorite.name, schema: FavoriteSchema },
       { name: Review.name, schema: ReviewSchema },

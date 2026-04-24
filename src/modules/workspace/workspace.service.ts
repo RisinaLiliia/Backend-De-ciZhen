@@ -11,6 +11,7 @@ import { PresenceService } from '../presence/presence.service';
 import { Request, type RequestDocument } from '../requests/schemas/request.schema';
 import { Offer, type OfferDocument } from '../offers/schemas/offer.schema';
 import { Contract, type ContractDocument } from '../contracts/schemas/contract.schema';
+import { Booking, type BookingDocument } from '../bookings/schemas/booking.schema';
 import { ProviderProfile, type ProviderProfileDocument } from '../providers/schemas/provider-profile.schema';
 import { Favorite, type FavoriteDocument } from '../favorites/schemas/favorite.schema';
 import { Review, type ReviewDocument } from '../reviews/schemas/review.schema';
@@ -61,6 +62,7 @@ type WorkspaceRequestDecisionActionType =
   | 'reply_required'
   | 'confirm_contract'
   | 'confirm_completion'
+  | 'review_completion'
   | 'overdue_followup'
   | 'none';
 type WorkspaceRequestDecisionPriorityLevel = 'high' | 'medium' | 'low' | 'none';
@@ -136,6 +138,36 @@ type WorkspaceContractSnapshot = {
   updatedAt?: Date | string | null;
 };
 
+type WorkspaceBookingSnapshot = {
+  id: string;
+  requestId: string;
+  offerId: string;
+  contractId: string | null;
+  providerUserId: string;
+  clientId: string;
+  startAt?: Date | string | null;
+  durationMin?: number | null;
+  endAt?: Date | string | null;
+  status: 'confirmed' | 'cancelled' | 'completed';
+};
+
+type WorkspaceContractReviewSnapshot = {
+  clientReviewId: string | null;
+  clientReviewedProviderAt: number | null;
+  clientReviewRating: number | null;
+  clientReviewText: string | null;
+};
+
+type WorkspaceCustomerLifecycleStage =
+  | 'draft'
+  | 'published'
+  | 'offers_received'
+  | 'contract_pending'
+  | 'in_progress'
+  | 'completion_pending'
+  | 'completed'
+  | 'reviewed';
+
 type WorkspaceRequestCardModel = {
   item: WorkspaceMyRequestCardDto;
   role: WorkspaceRequestCardRole;
@@ -159,6 +191,7 @@ export class WorkspaceService {
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
     @InjectModel(Offer.name) private readonly offerModel: Model<OfferDocument>,
     @InjectModel(Contract.name) private readonly contractModel: Model<ContractDocument>,
+    @InjectModel(Booking.name) private readonly bookingModel: Model<BookingDocument>,
     @InjectModel(ProviderProfile.name) private readonly providerModel: Model<ProviderProfileDocument>,
     @InjectModel(Favorite.name) private readonly favoriteModel: Model<FavoriteDocument>,
     @InjectModel(Review.name) private readonly reviewModel: Model<ReviewDocument>,
@@ -656,6 +689,7 @@ export class WorkspaceService {
     locale: WorkspaceRequestsLocale;
     role: WorkspaceRequestCardRole;
     workflowState: WorkspaceRequestsWorkflowState;
+    customerLifecycleStage?: WorkspaceCustomerLifecycleStage | null;
     urgency: WorkspaceMyRequestCardDto['urgency'];
     requestTitle: string;
     requestCreatedAt: number;
@@ -677,25 +711,34 @@ export class WorkspaceService {
     let actionPriority = 0;
 
     if (args.role === 'customer') {
-      if (args.contractStatus === 'completed') {
+      if (args.customerLifecycleStage === 'reviewed') {
+        actionType = 'none';
+      } else if (args.customerLifecycleStage === 'completed') {
+        actionType = 'review_completion';
+        actionLabel = args.locale === 'de' ? 'Bewertung abgeben' : 'Leave review';
+        actionReason = args.locale === 'de'
+          ? 'Der Auftrag ist abgeschlossen. Dein Feedback schließt den Vorgang sauber ab.'
+          : 'The job is completed. Your feedback closes the workflow cleanly.';
+        actionPriority = 80;
+      } else if (args.customerLifecycleStage === 'completion_pending' || args.contractStatus === 'completed') {
         actionType = 'confirm_completion';
-        actionLabel = args.locale === 'de' ? 'Ausführung bestätigen' : 'Confirm completion';
+        actionLabel = args.locale === 'de' ? 'Fertigstellung bestätigen' : 'Confirm completion';
         actionReason = args.locale === 'de'
           ? 'Der Anbieter hat den Vorgang als erledigt markiert.'
           : 'The provider marked the work as completed.';
         actionPriority = 100;
-      } else if (args.contractStatus === 'pending' || (args.hasAcceptedOffer && !args.contractStatus)) {
+      } else if (args.customerLifecycleStage === 'contract_pending' || args.contractStatus === 'pending' || (args.hasAcceptedOffer && !args.contractStatus)) {
         actionType = 'confirm_contract';
-        actionLabel = args.locale === 'de' ? 'Vertrag bestätigen' : 'Confirm contract';
+        actionLabel = args.locale === 'de' ? 'Vertrag ansehen' : 'View contract';
         actionReason = args.locale === 'de'
           ? 'Die nächsten Schritte hängen von deiner Vertragsbestätigung ab.'
           : 'The next step depends on your contract confirmation.';
         actionPriority = 90;
-      } else if ((args.offersCount ?? 0) > 0 && args.workflowState !== 'completed') {
+      } else if (args.customerLifecycleStage === 'offers_received' || (args.offersCount ?? 0) > 0 && args.workflowState !== 'completed') {
         actionType = 'review_offers';
         actionLabel = args.locale === 'de'
-          ? `${args.offersCount} Angebote prüfen`
-          : `Review ${args.offersCount} offers`;
+          ? 'Angebote ansehen'
+          : 'View offers';
         actionReason = args.locale === 'de'
           ? 'Neue Angebote warten auf deine Auswahl.'
           : 'New offers are waiting for your decision.';
@@ -776,6 +819,18 @@ export class WorkspaceService {
         };
     }
 
+    if (args.decision.actionType === 'confirm_completion') {
+      return args.statusActions.find((action) => action.key === 'contract')
+        ?? args.statusActions.find((action) => action.key === 'open')
+        ?? null;
+    }
+
+    if (args.decision.actionType === 'review_completion') {
+      return args.statusActions.find((action) => action.key === 'review')
+        ?? args.statusActions.find((action) => action.key === 'open')
+        ?? null;
+    }
+
     const primaryAction = args.statusActions.find((action) => action.tone === 'primary');
     if (primaryAction) return primaryAction;
 
@@ -828,12 +883,47 @@ export class WorkspaceService {
     };
   }
 
+  private buildWorkspaceCustomerChatAction(args: {
+    locale: WorkspaceRequestsLocale;
+    requestId: string;
+    contract: WorkspaceContractSnapshot | null;
+    selectedOffer: WorkspaceOfferSnapshot | null;
+    label: string;
+  }): WorkspaceMyRequestCardDto['status']['actions'][number] | null {
+    const participantUserId = args.contract?.providerUserId ?? args.selectedOffer?.providerUserId ?? null;
+    if (!participantUserId) return null;
+
+    return {
+      key: 'chat',
+      kind: 'open_chat',
+      tone: 'secondary',
+      icon: 'chat',
+      label: args.label,
+      requestId: args.requestId,
+      offerId: args.selectedOffer?.id ?? args.contract?.offerId ?? null,
+      chatInput: {
+        relatedEntity: {
+          type: 'request',
+          id: args.requestId,
+        },
+        participantUserId,
+        participantRole: 'provider',
+        requestId: args.requestId,
+        providerUserId: participantUserId,
+        offerId: args.selectedOffer?.id ?? args.contract?.offerId ?? undefined,
+        contractId: args.contract?.id ?? undefined,
+      },
+    };
+  }
+
   private buildWorkspaceCustomerStatus(args: {
     locale: WorkspaceRequestsLocale;
     requestId: string;
     workflowState: WorkspaceRequestsWorkflowState;
     requestStatus?: string | null;
-    offersCount: number;
+    lifecycleStage: WorkspaceCustomerLifecycleStage;
+    contract: WorkspaceContractSnapshot | null;
+    selectedOffer: WorkspaceOfferSnapshot | null;
   }): WorkspaceMyRequestCardDto['status'] {
     const badge = this.resolveWorkspaceStatusBadge({
       locale: args.locale,
@@ -842,66 +932,131 @@ export class WorkspaceService {
       requestStatus: args.requestStatus,
     });
 
-    const primaryAction =
-      args.requestStatus === 'published' && args.offersCount > 0
-        ? {
-            key: 'review-responses',
-            kind: 'review_responses' as const,
-            tone: 'primary' as const,
-            icon: 'briefcase' as const,
-            label: args.locale === 'de' ? 'Antworten ansehen' : 'Review responses',
-            href: `/requests/${args.requestId}`,
-            requestId: args.requestId,
-          }
-        : args.requestStatus === 'published'
-          ? {
-              key: 'unpublish-request',
-              kind: 'unpublish_request' as const,
-              tone: 'primary' as const,
-              icon: 'pause' as const,
-              label: args.locale === 'de' ? 'Publikation aufheben' : 'Unpublish',
-              requestId: args.requestId,
-            }
-          : {
-              key: 'publish-request',
-              kind: 'publish_request' as const,
-              tone: 'primary' as const,
-              icon: 'send' as const,
-              label: args.locale === 'de' ? 'Veröffentlichen' : 'Publish',
-              requestId: args.requestId,
-            };
+    const detailsHref = `/requests/${args.requestId}`;
+    const editAction = {
+      key: 'edit-request',
+      kind: 'link' as const,
+      tone: 'secondary' as const,
+      icon: 'edit' as const,
+      label: args.locale === 'de' ? 'Bearbeiten' : 'Edit',
+      href: `${detailsHref}/edit`,
+      requestId: args.requestId,
+    };
+    const openAction = {
+      key: 'open',
+      kind: 'link' as const,
+      tone: 'secondary' as const,
+      icon: 'briefcase' as const,
+      label: args.locale === 'de' ? 'Details ansehen' : 'View details',
+      href: detailsHref,
+      requestId: args.requestId,
+    };
+    const contractAction = args.contract
+      ? {
+          key: 'contract',
+          kind: 'link' as const,
+          tone: 'primary' as const,
+          icon: 'briefcase' as const,
+          label:
+            args.lifecycleStage === 'contract_pending'
+              ? (args.locale === 'de' ? 'Vertrag ansehen' : 'View contract')
+              : args.lifecycleStage === 'completion_pending'
+                ? (args.locale === 'de' ? 'Fertigstellung bestätigen' : 'Confirm completion')
+                : (args.locale === 'de' ? 'Auftrag ansehen' : 'View job'),
+          href: detailsHref,
+          requestId: args.requestId,
+        }
+      : null;
+    const reviewAction = {
+      key: 'review',
+      kind: 'link' as const,
+      tone: 'primary' as const,
+      icon: 'briefcase' as const,
+      label:
+        args.lifecycleStage === 'reviewed'
+          ? (args.locale === 'de' ? 'Bewertung ansehen' : 'View review')
+          : (args.locale === 'de' ? 'Bewertung abgeben' : 'Leave review'),
+      href: detailsHref,
+      requestId: args.requestId,
+    };
+    const responsesAction = {
+      key: 'review-responses',
+      kind: 'review_responses' as const,
+      tone: 'primary' as const,
+      icon: 'briefcase' as const,
+      label: args.locale === 'de' ? 'Angebote ansehen' : 'View offers',
+      href: detailsHref,
+      requestId: args.requestId,
+    };
+    const publishAction = {
+      key: 'publish-request',
+      kind: 'publish_request' as const,
+      tone: 'primary' as const,
+      icon: 'send' as const,
+      label: args.locale === 'de' ? 'Jetzt veröffentlichen' : 'Publish now',
+      requestId: args.requestId,
+    };
+    const unpublishAction = {
+      key: 'unpublish-request',
+      kind: 'unpublish_request' as const,
+      tone: 'primary' as const,
+      icon: 'pause' as const,
+      label: args.locale === 'de' ? 'Veröffentlichung pausieren' : 'Pause publication',
+      requestId: args.requestId,
+    };
+    const messageAction = this.buildWorkspaceCustomerChatAction({
+      locale: args.locale,
+      requestId: args.requestId,
+      contract: args.contract,
+      selectedOffer: args.selectedOffer,
+      label: 'Chat',
+    });
+    const issueAction = this.buildWorkspaceCustomerChatAction({
+      locale: args.locale,
+      requestId: args.requestId,
+      contract: args.contract,
+      selectedOffer: args.selectedOffer,
+      label: args.locale === 'de' ? 'Problem melden' : 'Report an issue',
+    });
+    const duplicateAction = {
+      key: 'duplicate-request',
+      kind: 'duplicate_request' as const,
+      tone: 'secondary' as const,
+      icon: 'copy' as const,
+      label: args.locale === 'de' ? 'Duplizieren' : 'Duplicate',
+      requestId: args.requestId,
+    };
+    const trailingActions: WorkspaceMyRequestCardDto['status']['actions'] = args.lifecycleStage === 'reviewed'
+      ? [
+          duplicateAction,
+          openAction,
+        ]
+      : [
+          openAction,
+          duplicateAction,
+        ];
+
+    const lifecycleActions: WorkspaceMyRequestCardDto['status']['actions'] =
+      args.lifecycleStage === 'draft'
+        ? [publishAction, editAction]
+        : args.lifecycleStage === 'published'
+          ? [unpublishAction, editAction]
+          : args.lifecycleStage === 'offers_received'
+            ? [responsesAction, editAction]
+            : args.lifecycleStage === 'contract_pending'
+              ? [contractAction, messageAction].filter((action): action is NonNullable<typeof action> => Boolean(action))
+              : args.lifecycleStage === 'in_progress'
+                ? [contractAction, messageAction].filter((action): action is NonNullable<typeof action> => Boolean(action))
+                : args.lifecycleStage === 'completion_pending'
+                  ? [contractAction, issueAction].filter((action): action is NonNullable<typeof action> => Boolean(action))
+                  : [reviewAction];
 
     return {
       badgeLabel: badge.label,
       badgeTone: badge.tone,
       actions: [
-        {
-          key: 'open',
-          kind: 'link',
-          tone: 'secondary',
-          icon: 'briefcase',
-          label: args.locale === 'de' ? 'Öffnen' : 'Open',
-          href: `/requests/${args.requestId}`,
-          requestId: args.requestId,
-        },
-        {
-          key: 'edit-request',
-          kind: 'link',
-          tone: 'secondary',
-          icon: 'edit',
-          label: args.locale === 'de' ? 'Bearbeiten' : 'Edit',
-          href: `/requests/${args.requestId}/edit`,
-          requestId: args.requestId,
-        },
-        primaryAction,
-        {
-          key: 'duplicate-request',
-          kind: 'duplicate_request',
-          tone: 'secondary',
-          icon: 'copy',
-          label: args.locale === 'de' ? 'Duplizieren' : 'Duplicate',
-          requestId: args.requestId,
-        },
+        ...lifecycleActions,
+        ...trailingActions,
         {
           key: 'share-request',
           kind: 'share_request',
@@ -1050,67 +1205,78 @@ export class WorkspaceService {
     request: WorkspaceRequestSnapshot;
     offers: WorkspaceOfferSnapshot[];
     contract: WorkspaceContractSnapshot | null;
+    booking: WorkspaceBookingSnapshot | null;
+    reviewStatus: WorkspaceContractReviewSnapshot | null;
     now: number;
   }): WorkspaceRequestCardModel {
-    const { locale, request, offers, contract, now } = args;
+    const { locale, request, offers, contract, booking, reviewStatus, now } = args;
     const category = this.resolveWorkspaceCategoryLabel(request);
     const title = this.resolveWorkspaceTitle(request, category, locale);
     const city = String(request.cityName ?? '').trim() || String(request.cityId ?? '').trim() || null;
     const preferredAt = this.parseActivityAt(request.preferredDate);
     const createdAt = this.parseActivityAt(request.createdAt) ?? now;
     const contractConfirmedAt = this.parseActivityAt(contract?.confirmedAt ?? contract?.createdAt ?? null);
+    const selectedOffer = offers.find((offer) => offer.status === 'accepted')
+      ?? offers.find((offer) => Boolean(contract?.offerId) && offer.id === contract?.offerId)
+      ?? null;
 
+    let lifecycleStage: WorkspaceCustomerLifecycleStage = 'draft';
     let state: WorkspaceRequestsWorkflowState = 'open';
     let progressStep: WorkspaceRequestsProgressStep = 'request';
     let activity: WorkspaceMyRequestCardDto['activity'] = null;
 
-    if (contract) {
-      if (contract.status === 'completed' || contract.status === 'cancelled') {
-        state = 'completed';
-        progressStep = 'done';
-        activity = {
-          label: locale === 'de' ? 'Vorgang abgeschlossen' : 'Process completed',
-          tone: 'success',
-        };
-      } else {
-        state = 'active';
-        progressStep = 'contract';
-        activity = {
-          label: contractConfirmedAt
-            ? locale === 'de'
-              ? `Termin bestätigt für ${this.formatWorkspaceDate(contract.confirmedAt ?? contract.createdAt, locale)}`
-              : `Confirmed for ${this.formatWorkspaceDate(contract.confirmedAt ?? contract.createdAt, locale)}`
-            : locale === 'de'
-              ? 'Vertrag aktiv'
-              : 'Contract active',
-          tone: 'info',
-        };
-      }
-    } else if (request.status === 'cancelled') {
-      state = 'open';
-      progressStep = 'request';
-      activity = {
-        label: locale === 'de' ? 'Storniert. Du kannst die Anfrage erneut veröffentlichen.' : 'Cancelled. You can publish the request again.',
-        tone: 'neutral',
-      };
-    } else if (request.status === 'closed') {
+    if (contract?.status === 'completed' && reviewStatus?.clientReviewedProviderAt) {
+      lifecycleStage = 'reviewed';
       state = 'completed';
       progressStep = 'done';
       activity = {
-        label: locale === 'de' ? 'Anfrage geschlossen' : 'Request closed',
-        tone: 'neutral',
+        label: locale === 'de' ? 'Auftrag abgeschlossen und bewertet' : 'Job completed and reviewed',
+        tone: 'success',
       };
-    } else if (request.status === 'draft') {
+    } else if (contract?.status === 'completed' || request.status === 'closed') {
+      lifecycleStage = 'completed';
+      state = 'completed';
+      progressStep = 'done';
       activity = {
-        label: locale === 'de' ? 'Entwurf ist bereit zur Veröffentlichung' : 'Draft is ready to publish',
-        tone: 'info',
+        label: locale === 'de' ? 'Auftrag abgeschlossen. Bewertung steht noch aus.' : 'Job completed. Review is still pending.',
+        tone: 'success',
       };
-    } else if (request.status === 'paused') {
+    } else if (booking?.status === 'completed') {
+      lifecycleStage = 'completion_pending';
+      state = 'active';
+      progressStep = 'done';
       activity = {
-        label: locale === 'de' ? 'Publikation wurde aufgehoben. Du kannst die Anfrage erneut veröffentlichen.' : 'Publication was removed. You can publish the request again.',
+        label: locale === 'de'
+          ? 'Die Leistung wurde als fertig markiert und wartet auf deine Bestätigung.'
+          : 'The work was marked as done and is waiting for your confirmation.',
         tone: 'warning',
       };
+    } else if (contract?.status === 'pending' || (selectedOffer && !contract)) {
+      lifecycleStage = 'contract_pending';
+      state = 'active';
+      progressStep = 'contract';
+      activity = {
+        label: locale === 'de'
+          ? 'Ein Anbieter wurde ausgewählt. Prüfe jetzt den Vertrag.'
+          : 'A provider has been selected. Review the contract now.',
+        tone: 'info',
+      };
+    } else if (contract) {
+      lifecycleStage = 'in_progress';
+      state = 'active';
+      progressStep = 'contract';
+      activity = {
+        label: booking?.startAt
+          ? locale === 'de'
+            ? `Leistung geplant für ${this.formatWorkspaceDate(booking.startAt, locale)}`
+            : `Service scheduled for ${this.formatWorkspaceDate(booking.startAt, locale)}`
+          : locale === 'de'
+            ? 'Der Auftrag ist in Arbeit.'
+            : 'The job is in progress.',
+        tone: 'info',
+      };
     } else if (offers.length > 0) {
+      lifecycleStage = 'offers_received';
       state = 'clarifying';
       progressStep = 'selection';
       activity = {
@@ -1119,38 +1285,49 @@ export class WorkspaceService {
           : `${offers.length} new offers are waiting for your decision`,
         tone: 'warning',
       };
-    } else if (request.status === 'matched') {
-      state = 'clarifying';
-      progressStep = 'offers';
+    } else if (request.status === 'published') {
+      lifecycleStage = 'published';
       activity = {
         label: locale === 'de'
-          ? 'Anfrage ist gematcht und wartet auf Bestätigung'
-          : 'Request is matched and waiting for confirmation',
-        tone: 'warning',
+          ? 'Die Anfrage ist veröffentlicht und wartet auf Angebote.'
+          : 'The request is published and waiting for offers.',
+        tone: 'neutral',
       };
     } else {
+      lifecycleStage = 'draft';
       activity = {
-        label: locale === 'de'
-          ? 'Anfrage ist aktiv und wartet auf Rückmeldungen'
-          : 'Request is active and waiting for replies',
-        tone: 'neutral',
+        label: request.status === 'paused'
+          ? (locale === 'de'
+            ? 'Die Veröffentlichung ist pausiert. Du kannst die Anfrage erneut aktivieren.'
+            : 'The publication is paused. You can activate the request again.')
+          : request.status === 'cancelled'
+            ? (locale === 'de'
+              ? 'Diese Anfrage wurde storniert. Du kannst sie erneut veröffentlichen.'
+              : 'This request was cancelled. You can publish it again.')
+            : (locale === 'de'
+              ? 'Entwurf ist bereit zur Veröffentlichung'
+              : 'Draft is ready to publish'),
+        tone: request.status === 'paused' ? 'warning' : 'info',
       };
     }
 
     const budgetValue = contract?.priceAmount ?? request.price ?? null;
-    const deadlineAt = contractConfirmedAt ?? preferredAt;
+    const deadlineAt = this.parseActivityAt(booking?.startAt ?? null) ?? contractConfirmedAt ?? preferredAt;
     const detailsHref = `/requests/${request.id}`;
     const status = this.buildWorkspaceCustomerStatus({
       locale,
       requestId: request.id,
       workflowState: state,
       requestStatus: request.status ?? null,
-      offersCount: offers.length,
+      lifecycleStage,
+      contract,
+      selectedOffer,
     });
     const decision = this.buildWorkspaceDecision({
       locale,
       role: 'customer',
       workflowState: state,
+      customerLifecycleStage: lifecycleStage,
       urgency: this.resolveWorkspaceUrgency(deadlineAt, now),
       requestTitle: title,
       requestCreatedAt: createdAt,
@@ -1178,12 +1355,13 @@ export class WorkspaceService {
         id: `customer:${request.id}`,
         requestId: request.id,
         role: 'customer',
+        ownerLifecycleStage: lifecycleStage,
         title,
         category,
         subcategory: request.subcategoryName ?? null,
         city,
         createdAt: this.formatWorkspaceDate(request.createdAt, locale),
-        nextEventAt: this.formatWorkspaceDate(contract?.confirmedAt ?? request.preferredDate ?? null, locale),
+        nextEventAt: this.formatWorkspaceDate(booking?.startAt ?? contract?.confirmedAt ?? request.preferredDate ?? null, locale),
         budget: typeof budgetValue === 'number' ? budgetValue : null,
         agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
         state,
@@ -1201,7 +1379,7 @@ export class WorkspaceService {
             tone: 'primary',
             href: detailsHref,
           },
-          ...(offers.length > 0 && !contract
+          ...(lifecycleStage === 'offers_received'
             ? [
                 {
                   key: 'compare',
@@ -1389,8 +1567,8 @@ export class WorkspaceService {
             href: detailsHref,
           },
           {
-            key: 'message',
-            label: locale === 'de' ? 'Nachricht schreiben' : 'Write message',
+            key: 'chat',
+            label: locale === 'de' ? 'Chat' : 'Chat',
             tone: 'secondary',
             href: '/chat',
           },
@@ -2312,6 +2490,51 @@ export class WorkspaceService {
         updatedAt: contract.updatedAt ?? null,
       } satisfies WorkspaceContractSnapshot)),
     );
+    const clientContractIds = Array.from(clientContractByRequest.values()).map((contract) => contract.id);
+    const clientBookings = clientContractIds.length > 0
+      ? await this.bookingModel
+        .find({ contractId: { $in: clientContractIds } })
+        .lean()
+        .exec()
+      : [];
+    const clientBookingByContractId = new Map(
+      (clientBookings as Array<any>).map((booking) => [
+        String(booking.contractId ?? '').trim(),
+        {
+          id: String(booking._id),
+          requestId: String(booking.requestId ?? '').trim(),
+          offerId: String(booking.offerId ?? '').trim(),
+          contractId: String(booking.contractId ?? '').trim() || null,
+          providerUserId: String(booking.providerUserId ?? '').trim(),
+          clientId: String(booking.clientId ?? '').trim(),
+          startAt: booking.startAt ?? null,
+          durationMin: booking.durationMin ?? null,
+          endAt: booking.endAt ?? null,
+          status: booking.status,
+        } satisfies WorkspaceBookingSnapshot,
+      ]),
+    );
+    const completedBookingIds = Array.from(clientBookingByContractId.values())
+      .filter((booking) => booking.status === 'completed')
+      .map((booking) => booking.id);
+    const clientProviderReviews = completedBookingIds.length > 0
+      ? await this.reviewModel
+        .find({ bookingId: { $in: completedBookingIds }, targetRole: 'provider' })
+        .sort({ createdAt: -1 })
+        .lean()
+        .exec()
+      : [];
+    const clientReviewByBookingId = new Map<string, WorkspaceContractReviewSnapshot>();
+    for (const review of clientProviderReviews as Array<any>) {
+      const bookingId = String(review.bookingId ?? '').trim();
+      if (!bookingId || clientReviewByBookingId.has(bookingId)) continue;
+      clientReviewByBookingId.set(bookingId, {
+        clientReviewId: String(review._id ?? '').trim() || null,
+        clientReviewedProviderAt: this.parseActivityAt(review.createdAt),
+        clientReviewRating: typeof review.rating === 'number' ? review.rating : null,
+        clientReviewText: typeof review.text === 'string' ? review.text : null,
+      });
+    }
 
     const customerCards = (myRequests as Array<any>).map((request) =>
       this.buildWorkspaceCustomerCard({
@@ -2338,6 +2561,16 @@ export class WorkspaceService {
         },
         offers: customerOffersByRequest.get(String(request._id)) ?? [],
         contract: clientContractByRequest.get(String(request._id)) ?? null,
+        booking: (() => {
+          const contract = clientContractByRequest.get(String(request._id)) ?? null;
+          return contract ? clientBookingByContractId.get(contract.id) ?? null : null;
+        })(),
+        reviewStatus: (() => {
+          const contract = clientContractByRequest.get(String(request._id)) ?? null;
+          if (!contract) return null;
+          const booking = clientBookingByContractId.get(contract.id) ?? null;
+          return booking ? clientReviewByBookingId.get(booking.id) ?? null : null;
+        })(),
         now,
       }),
     );

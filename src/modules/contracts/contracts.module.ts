@@ -7,6 +7,7 @@ import { Contract, ContractSchema } from './schemas/contract.schema';
 import { Request, RequestSchema } from '../requests/schemas/request.schema';
 import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
 import { BookingsModule } from '../bookings/bookings.module';
+import { ReviewsModule } from '../reviews/reviews.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { BookingsModule } from '../bookings/bookings.module';
       { name: Booking.name, schema: BookingSchema },
     ]),
     forwardRef(() => BookingsModule),
+    ReviewsModule,
   ],
   controllers: [ContractsController],
   providers: [ContractsService],

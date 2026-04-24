@@ -25,6 +25,19 @@ export type ReviewOverviewResult = {
   summary: ReviewSummaryResult;
 };
 
+export type BookingReviewStatusSummary = {
+  canClientReviewProvider: boolean;
+  clientReviewId: string | null;
+  clientReviewedProviderAt: Date | null;
+  clientReviewRating: number | null;
+  clientReviewText: string | null;
+  canProviderReviewClient: boolean;
+  providerReviewId: string | null;
+  providerReviewedClientAt: Date | null;
+  providerReviewRating: number | null;
+  providerReviewText: string | null;
+};
+
 @Injectable()
 export class ReviewsService {
   constructor(
@@ -80,6 +93,87 @@ export class ReviewsService {
 
     start.setDate(now.getDate() - 30);
     return start;
+  }
+
+  async getBookingReviewStatusMap(
+    bookings: Array<{ bookingId: string; status: 'confirmed' | 'cancelled' | 'completed' }>,
+  ): Promise<Map<string, BookingReviewStatusSummary>> {
+    const bookingIds = Array.from(
+      new Set(
+        bookings
+          .map((item) => String(item.bookingId ?? '').trim())
+          .filter((item) => item.length > 0),
+      ),
+    );
+
+    if (bookingIds.length === 0) return new Map();
+
+    const reviews = await this.reviewModel
+      .find({
+        bookingId: { $in: bookingIds },
+        targetRole: { $in: ['provider', 'client'] },
+      })
+      .select({ _id: 1, bookingId: 1, targetRole: 1, rating: 1, text: 1, createdAt: 1 })
+      .exec();
+
+    const reviewMap = new Map<string, {
+      provider: {
+        id: string | null;
+        at: Date | null;
+        rating: number | null;
+        text: string | null;
+      };
+      client: {
+        id: string | null;
+        at: Date | null;
+        rating: number | null;
+        text: string | null;
+      };
+    }>();
+    for (const review of reviews as Array<{
+      _id?: Types.ObjectId | string;
+      bookingId?: string | null;
+      targetRole: 'provider' | 'client';
+      rating?: number | null;
+      text?: string | null;
+      createdAt?: Date | null;
+    }>) {
+      const bookingId = String(review.bookingId ?? '').trim();
+      if (!bookingId) continue;
+      const current = reviewMap.get(bookingId) ?? {
+        provider: { id: null, at: null, rating: null, text: null },
+        client: { id: null, at: null, rating: null, text: null },
+      };
+      const target = review.targetRole === 'provider' ? current.provider : current.client;
+      target.id = typeof review._id === 'string' ? review._id : review._id?.toString?.() ?? null;
+      target.at = review.createdAt ?? target.at;
+      target.rating = typeof review.rating === 'number' ? review.rating : target.rating;
+      target.text = typeof review.text === 'string' ? review.text : target.text;
+      reviewMap.set(bookingId, current);
+    }
+
+    return new Map(
+      bookings.map((booking) => {
+        const bookingId = String(booking.bookingId ?? '').trim();
+        const summary = reviewMap.get(bookingId) ?? {
+          provider: { id: null, at: null, rating: null, text: null },
+          client: { id: null, at: null, rating: null, text: null },
+        };
+        const isCompleted = booking.status === 'completed';
+        return [bookingId, {
+          canClientReviewProvider: isCompleted && !summary.provider.at,
+          clientReviewId: summary.provider.id,
+          clientReviewedProviderAt: summary.provider.at,
+          clientReviewRating: summary.provider.rating,
+          clientReviewText: summary.provider.text,
+          canProviderReviewClient: isCompleted && !summary.client.at,
+          providerReviewId: summary.client.id,
+          providerReviewedClientAt: summary.client.at,
+          providerReviewRating: summary.client.rating,
+          providerReviewText: summary.client.text,
+        }];
+      }),
+    );
   }
 
   async createForProvider(

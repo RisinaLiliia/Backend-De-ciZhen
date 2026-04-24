@@ -5922,102 +5922,6 @@
         ]
       }
     },
-    "/geo/autocomplete": {
-      "get": {
-        "operationId": "GeoController_autocomplete",
-        "summary": "Autocomplete PLZ/address",
-        "parameters": [
-          {
-            "name": "query",
-            "required": true,
-            "in": "query",
-            "description": "PLZ or address query",
-            "schema": {
-              "example": "60306 Frankfurt",
-              "type": "string"
-            }
-          },
-          {
-            "name": "countryCode",
-            "required": false,
-            "in": "query",
-            "description": "Optional country code (ISO-2)",
-            "schema": {
-              "example": "DE",
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Max results (1..10). Default 5",
-            "schema": {
-              "example": 5,
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GeoAutocompleteResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request / Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "geo"
-        ],
-        "security": [
-          {}
-        ]
-      }
-    },
     "/reviews/my": {
       "get": {
         "operationId": "ReviewsController_listMy",
@@ -6631,6 +6535,102 @@
         },
         "tags": [
           "reviews"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/geo/autocomplete": {
+      "get": {
+        "operationId": "GeoController_autocomplete",
+        "summary": "Autocomplete PLZ/address",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "PLZ or address query",
+            "schema": {
+              "example": "60306 Frankfurt",
+              "type": "string"
+            }
+          },
+          {
+            "name": "countryCode",
+            "required": false,
+            "in": "query",
+            "description": "Optional country code (ISO-2)",
+            "schema": {
+              "example": "DE",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Max results (1..10). Default 5",
+            "schema": {
+              "example": 5,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoAutocompleteResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "geo"
         ],
         "security": [
           {}
@@ -11142,6 +11142,102 @@
           "rejectedOfferId"
         ]
       },
+      "ContractBookingSummaryDto": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b900"
+          },
+          "startAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T10:00:00.000Z"
+          },
+          "durationMin": {
+            "type": "number",
+            "example": 120
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-02-01T12:00:00.000Z"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "cancelled",
+              "completed"
+            ],
+            "example": "confirmed"
+          }
+        },
+        "required": [
+          "bookingId",
+          "startAt",
+          "durationMin",
+          "endAt",
+          "status"
+        ]
+      },
+      "ContractReviewStatusDto": {
+        "type": "object",
+        "properties": {
+          "canClientReviewProvider": {
+            "type": "boolean",
+            "example": false
+          },
+          "clientReviewId": {
+            "type": "object",
+            "example": "66f0c1a2b3c4d5e6f7a8b901",
+            "nullable": true
+          },
+          "clientReviewedProviderAt": {
+            "type": "object",
+            "example": "2026-02-02T10:00:00.000Z",
+            "nullable": true
+          },
+          "clientReviewRating": {
+            "type": "object",
+            "example": 5,
+            "nullable": true
+          },
+          "clientReviewText": {
+            "type": "object",
+            "example": "Excellent communication and quality.",
+            "nullable": true
+          },
+          "canProviderReviewClient": {
+            "type": "boolean",
+            "example": false
+          },
+          "providerReviewId": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          },
+          "providerReviewedClientAt": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          },
+          "providerReviewRating": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          },
+          "providerReviewText": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          }
+        },
+        "required": [
+          "canClientReviewProvider",
+          "canProviderReviewClient"
+        ]
+      },
       "ContractDto": {
         "type": "object",
         "properties": {
@@ -11215,6 +11311,22 @@
             "type": "object",
             "example": "Client cancelled",
             "nullable": true
+          },
+          "booking": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContractBookingSummaryDto"
+              }
+            ]
+          },
+          "reviewStatus": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContractReviewStatusDto"
+              }
+            ]
           },
           "createdAt": {
             "format": "date-time",
@@ -11622,57 +11734,6 @@
           "endAt"
         ]
       },
-      "GeoAutocompleteItemDto": {
-        "type": "object",
-        "properties": {
-          "displayName": {
-            "type": "string",
-            "example": "Hauptbahnhof, 60329 Frankfurt am Main, Germany"
-          },
-          "lat": {
-            "type": "number",
-            "example": 50.1109
-          },
-          "lng": {
-            "type": "number",
-            "example": 8.6821
-          },
-          "city": {
-            "type": "object",
-            "example": "Frankfurt am Main",
-            "nullable": true
-          },
-          "postalCode": {
-            "type": "object",
-            "example": "60329",
-            "nullable": true
-          },
-          "countryCode": {
-            "type": "object",
-            "example": "DE",
-            "nullable": true
-          }
-        },
-        "required": [
-          "displayName",
-          "lat",
-          "lng"
-        ]
-      },
-      "GeoAutocompleteResponseDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/GeoAutocompleteItemDto"
-            }
-          }
-        },
-        "required": [
-          "items"
-        ]
-      },
       "ReviewPublicDto": {
         "type": "object",
         "properties": {
@@ -11910,6 +11971,57 @@
           "limit",
           "offset",
           "summary"
+        ]
+      },
+      "GeoAutocompleteItemDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "example": "Hauptbahnhof, 60329 Frankfurt am Main, Germany"
+          },
+          "lat": {
+            "type": "number",
+            "example": 50.1109
+          },
+          "lng": {
+            "type": "number",
+            "example": 8.6821
+          },
+          "city": {
+            "type": "object",
+            "example": "Frankfurt am Main",
+            "nullable": true
+          },
+          "postalCode": {
+            "type": "object",
+            "example": "60329",
+            "nullable": true
+          },
+          "countryCode": {
+            "type": "object",
+            "example": "DE",
+            "nullable": true
+          }
+        },
+        "required": [
+          "displayName",
+          "lat",
+          "lng"
+        ]
+      },
+      "GeoAutocompleteResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoAutocompleteItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
         ]
       },
       "FavoriteActionDto": {
@@ -16216,6 +16328,7 @@
               "reply_required",
               "confirm_contract",
               "confirm_completion",
+              "review_completion",
               "overdue_followup",
               "none"
             ],
@@ -16284,6 +16397,21 @@
               "provider"
             ],
             "example": "customer"
+          },
+          "ownerLifecycleStage": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "offers_received",
+              "contract_pending",
+              "in_progress",
+              "completion_pending",
+              "completed",
+              "reviewed"
+            ],
+            "nullable": true,
+            "example": "offers_received"
           },
           "title": {
             "type": "string",
@@ -16506,6 +16634,7 @@
               "reply_required",
               "confirm_contract",
               "confirm_completion",
+              "review_completion",
               "overdue_followup"
             ],
             "example": "review_offers"

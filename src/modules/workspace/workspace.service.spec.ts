@@ -11,6 +11,7 @@ import { PresenceService } from '../presence/presence.service';
 import { Request } from '../requests/schemas/request.schema';
 import { Offer } from '../offers/schemas/offer.schema';
 import { Contract } from '../contracts/schemas/contract.schema';
+import { Booking } from '../bookings/schemas/booking.schema';
 import { ProviderProfile } from '../providers/schemas/provider-profile.schema';
 import { Favorite } from '../favorites/schemas/favorite.schema';
 import { Review } from '../reviews/schemas/review.schema';
@@ -90,6 +91,7 @@ describe('WorkspaceService (unit)', () => {
         { provide: getModelToken(Request.name), useValue: modelMock },
         { provide: getModelToken(Offer.name), useValue: modelMock },
         { provide: getModelToken(Contract.name), useValue: modelMock },
+        { provide: getModelToken(Booking.name), useValue: modelMock },
         { provide: getModelToken(ProviderProfile.name), useValue: modelMock },
         { provide: getModelToken(Favorite.name), useValue: modelMock },
         { provide: getModelToken(Review.name), useValue: modelMock },
@@ -572,6 +574,7 @@ describe('WorkspaceService (unit)', () => {
       expect.objectContaining({
         requestId: 'request-customer-1',
         role: 'customer',
+        ownerLifecycleStage: 'offers_received',
         state: 'clarifying',
         stateLabel: 'In Klärung',
         progress: expect.objectContaining({ currentStep: 'selection' }),
@@ -614,7 +617,7 @@ describe('WorkspaceService (unit)', () => {
           needsAction: true,
           actionType: 'review_offers',
           actionPriorityLevel: 'medium',
-          actionLabel: '1 Angebote prüfen',
+          actionLabel: 'Angebote ansehen',
           primaryAction: expect.objectContaining({
             key: 'review-responses',
             kind: 'review_responses',
@@ -672,7 +675,7 @@ describe('WorkspaceService (unit)', () => {
           expect.objectContaining({
             requestId: 'request-customer-1',
             actionType: 'review_offers',
-            actionLabel: '1 Angebote prüfen',
+            actionLabel: 'Angebote ansehen',
           }),
         ],
         overview: expect.objectContaining({
