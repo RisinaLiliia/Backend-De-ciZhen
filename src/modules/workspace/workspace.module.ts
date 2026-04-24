@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { WorkspaceController } from './workspace.controller';
 import { WorkspaceService } from './workspace.service';
 import { WorkspaceStatisticsService } from './workspace-statistics.service';
+import { WorkspaceRequestsService } from './workspace-requests.service';
 import { InsightsService } from './insights.service';
 import { RequestsModule } from '../requests/requests.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
@@ -38,6 +39,6 @@ import { CitiesModule } from '../catalog/cities/cities.module';
     ]),
   ],
   controllers: [WorkspaceController],
-  providers: [WorkspaceService, WorkspaceStatisticsService, InsightsService],
+  providers: [WorkspaceService, WorkspaceRequestsService, WorkspaceStatisticsService, InsightsService],
 })
 export class WorkspaceModule {}

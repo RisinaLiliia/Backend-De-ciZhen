@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 
 import { WorkspaceService } from './workspace.service';
+import { WorkspaceRequestsService } from './workspace-requests.service';
 import { RequestsService } from '../requests/requests.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { CitiesService } from '../catalog/cities/cities.service';
@@ -82,6 +83,7 @@ describe('WorkspaceService (unit)', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         WorkspaceService,
+        WorkspaceRequestsService,
         { provide: RequestsService, useValue: requestsMock },
         { provide: AnalyticsService, useValue: analyticsMock },
         { provide: CitiesService, useValue: citiesMock },
