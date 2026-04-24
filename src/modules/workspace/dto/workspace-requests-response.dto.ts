@@ -233,10 +233,10 @@ export class WorkspaceRequestDecisionDto {
   needsAction: boolean;
 
   @ApiProperty({
-    enum: ['review_offers', 'reply_required', 'confirm_contract', 'confirm_completion', 'overdue_followup', 'none'],
+    enum: ['review_offers', 'reply_required', 'confirm_contract', 'confirm_completion', 'review_completion', 'overdue_followup', 'none'],
     example: 'review_offers',
   })
-  actionType: 'review_offers' | 'reply_required' | 'confirm_contract' | 'confirm_completion' | 'overdue_followup' | 'none';
+  actionType: 'review_offers' | 'reply_required' | 'confirm_contract' | 'confirm_completion' | 'review_completion' | 'overdue_followup' | 'none';
 
   @ApiProperty({ example: 75 })
   actionPriority: number;
@@ -266,6 +266,22 @@ export class WorkspaceMyRequestCardDto {
 
   @ApiProperty({ enum: ['customer', 'provider'], example: 'customer' })
   role: 'customer' | 'provider';
+
+  @ApiPropertyOptional({
+    enum: ['draft', 'published', 'offers_received', 'contract_pending', 'in_progress', 'completion_pending', 'completed', 'reviewed'],
+    nullable: true,
+    example: 'offers_received',
+  })
+  ownerLifecycleStage?:
+    | 'draft'
+    | 'published'
+    | 'offers_received'
+    | 'contract_pending'
+    | 'in_progress'
+    | 'completion_pending'
+    | 'completed'
+    | 'reviewed'
+    | null;
 
   @ApiProperty({ example: 'Wohnung reinigen' })
   title: string;
@@ -438,10 +454,10 @@ export class WorkspaceRequestsDecisionPanelQueueItemDto {
   title: string;
 
   @ApiProperty({
-    enum: ['review_offers', 'reply_required', 'confirm_contract', 'confirm_completion', 'overdue_followup'],
+    enum: ['review_offers', 'reply_required', 'confirm_contract', 'confirm_completion', 'review_completion', 'overdue_followup'],
     example: 'review_offers',
   })
-  actionType: 'review_offers' | 'reply_required' | 'confirm_contract' | 'confirm_completion' | 'overdue_followup';
+  actionType: 'review_offers' | 'reply_required' | 'confirm_contract' | 'confirm_completion' | 'review_completion' | 'overdue_followup';
 
   @ApiProperty({ example: '2 Angebote prüfen' })
   actionLabel: string;

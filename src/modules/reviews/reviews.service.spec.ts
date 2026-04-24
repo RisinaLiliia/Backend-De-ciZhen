@@ -175,6 +175,51 @@ describe('ReviewsService', () => {
     });
   });
 
+  it('getBookingReviewStatusMap exposes reviewability and saved review payload', async () => {
+    reviewModelMock.find.mockReturnValue({
+      select: jest.fn().mockReturnValue(execWrap([
+        {
+          _id: 'review-provider-1',
+          bookingId: 'booking-1',
+          targetRole: 'provider',
+          rating: 5,
+          text: 'Excellent work',
+          createdAt: new Date('2026-03-18T10:00:00.000Z'),
+        },
+      ])),
+    });
+
+    const result = await service.getBookingReviewStatusMap([
+      { bookingId: 'booking-1', status: 'completed' },
+      { bookingId: 'booking-2', status: 'confirmed' },
+    ]);
+
+    expect(result.get('booking-1')).toEqual({
+      canClientReviewProvider: false,
+      clientReviewId: 'review-provider-1',
+      clientReviewedProviderAt: new Date('2026-03-18T10:00:00.000Z'),
+      clientReviewRating: 5,
+      clientReviewText: 'Excellent work',
+      canProviderReviewClient: true,
+      providerReviewId: null,
+      providerReviewedClientAt: null,
+      providerReviewRating: null,
+      providerReviewText: null,
+    });
+    expect(result.get('booking-2')).toEqual({
+      canClientReviewProvider: false,
+      clientReviewId: null,
+      clientReviewedProviderAt: null,
+      clientReviewRating: null,
+      clientReviewText: null,
+      canProviderReviewClient: false,
+      providerReviewId: null,
+      providerReviewedClientAt: null,
+      providerReviewRating: null,
+      providerReviewText: null,
+    });
+  });
+
   it('getOverviewByTarget returns defaults when facets are empty', async () => {
     reviewModelMock.aggregate.mockReturnValue(execWrap([]));
 

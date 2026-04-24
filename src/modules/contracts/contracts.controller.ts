@@ -19,26 +19,6 @@ type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 export class ContractsController {
   constructor(private readonly contracts: ContractsService) {}
 
-  private toDto(c: any): ContractDto {
-    return {
-      id: c._id.toString(),
-      requestId: c.requestId,
-      offerId: c.offerId,
-      clientId: c.clientId,
-      providerUserId: c.providerUserId,
-      status: c.status,
-      priceAmount: c.priceAmount ?? null,
-      priceType: c.priceType ?? null,
-      priceDetails: c.priceDetails ?? null,
-      confirmedAt: c.confirmedAt ?? null,
-      completedAt: c.completedAt ?? null,
-      cancelledAt: c.cancelledAt ?? null,
-      cancelReason: c.cancelReason ?? null,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
-    };
-  }
-
   @UseGuards(JwtAuthGuard)
   @Get('my')
   @ApiBearerAuth('access-token')
@@ -52,7 +32,7 @@ export class ContractsController {
       limit: q.limit,
       offset: q.offset,
     });
-    return items.map((c) => this.toDto(c));
+    return this.contracts.toContractDtos(items);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -64,7 +44,7 @@ export class ContractsController {
   @ApiErrors({ conflict: false })
   async getById(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string): Promise<ContractDto> {
     const contract = await this.contracts.getByIdForUser(id, user.userId);
-    return this.toDto(contract);
+    return this.contracts.toContractDtoSingle(contract);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -80,7 +60,7 @@ export class ContractsController {
     @Body() dto: ConfirmContractDto,
   ): Promise<ContractDto> {
     const updated = await this.contracts.confirmByClient(id, user.userId, dto);
-    return this.toDto(updated);
+    return this.contracts.toContractDtoSingle(updated);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -96,7 +76,7 @@ export class ContractsController {
     @Body() dto: CancelContractDto,
   ): Promise<ContractDto> {
     const updated = await this.contracts.cancel(id, user.userId, dto);
-    return this.toDto(updated);
+    return this.contracts.toContractDtoSingle(updated);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -108,6 +88,6 @@ export class ContractsController {
   @ApiErrors({ conflict: false })
   async complete(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string): Promise<ContractDto> {
     const updated = await this.contracts.complete(id, user.userId);
-    return this.toDto(updated);
+    return this.contracts.toContractDtoSingle(updated);
   }
 }

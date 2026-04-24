@@ -14,6 +14,21 @@ import { Request, RequestDocument } from '../requests/schemas/request.schema';
 import { OfferDocument } from '../offers/schemas/offer.schema';
 import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
 import { BookingsService } from '../bookings/bookings.service';
+import { ReviewsService, type BookingReviewStatusSummary } from '../reviews/reviews.service';
+import { ContractDto } from './dto/contract.dto';
+
+export type ContractBookingSummary = {
+  bookingId: string;
+  startAt: Date;
+  durationMin: number;
+  endAt: Date;
+  status: 'confirmed' | 'cancelled' | 'completed';
+};
+
+type ContractRecord = ContractDocument & {
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 @Injectable()
 export class ContractsService {
@@ -22,6 +37,7 @@ export class ContractsService {
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
     @InjectModel(Booking.name) private readonly bookingModel: Model<BookingDocument>,
     private readonly bookings: BookingsService,
+    private readonly reviews: ReviewsService,
   ) {}
 
   private normalizeId(v?: string): string {
@@ -32,6 +48,122 @@ export class ContractsService {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(`${fieldName} must be a valid ObjectId`);
     }
+  }
+
+  private toContractDto(args: {
+    contract: ContractRecord;
+    booking: ContractBookingSummary | null;
+    reviewStatus: BookingReviewStatusSummary | null;
+  }): ContractDto {
+    const { booking, contract, reviewStatus } = args;
+
+    return {
+      id: String(contract._id),
+      requestId: contract.requestId,
+      offerId: contract.offerId,
+      clientId: contract.clientId,
+      providerUserId: contract.providerUserId,
+      status: contract.status,
+      priceAmount: contract.priceAmount ?? null,
+      priceType: contract.priceType ?? null,
+      priceDetails: contract.priceDetails ?? null,
+      confirmedAt: contract.confirmedAt ?? null,
+      completedAt: contract.completedAt ?? null,
+      cancelledAt: contract.cancelledAt ?? null,
+      cancelReason: contract.cancelReason ?? null,
+      booking: booking
+        ? {
+            bookingId: booking.bookingId,
+            startAt: booking.startAt,
+            durationMin: booking.durationMin,
+            endAt: booking.endAt,
+            status: booking.status,
+          }
+        : null,
+      reviewStatus: reviewStatus
+        ? {
+            canClientReviewProvider: reviewStatus.canClientReviewProvider,
+            clientReviewId: reviewStatus.clientReviewId,
+            clientReviewedProviderAt: reviewStatus.clientReviewedProviderAt,
+            clientReviewRating: reviewStatus.clientReviewRating,
+            clientReviewText: reviewStatus.clientReviewText,
+            canProviderReviewClient: reviewStatus.canProviderReviewClient,
+            providerReviewId: reviewStatus.providerReviewId,
+            providerReviewedClientAt: reviewStatus.providerReviewedClientAt,
+            providerReviewRating: reviewStatus.providerReviewRating,
+            providerReviewText: reviewStatus.providerReviewText,
+          }
+        : null,
+      createdAt: contract.createdAt,
+      updatedAt: contract.updatedAt,
+    };
+  }
+
+  async getBookingSummaryMap(contractIds: string[]): Promise<Map<string, ContractBookingSummary>> {
+    const normalizedIds = Array.from(
+      new Set(
+        contractIds
+          .map((item) => String(item ?? '').trim())
+          .filter((item) => item.length > 0),
+      ),
+    );
+
+    if (normalizedIds.length === 0) return new Map();
+
+    const bookings = await this.bookingModel
+      .find({ contractId: { $in: normalizedIds } })
+      .select({ _id: 1, contractId: 1, startAt: 1, durationMin: 1, endAt: 1, status: 1 })
+      .exec();
+
+    return new Map(
+      (bookings as Array<{
+        _id: Types.ObjectId | string;
+        contractId?: string | null;
+        startAt: Date;
+        durationMin?: number | null;
+        endAt: Date;
+        status: 'confirmed' | 'cancelled' | 'completed';
+      }>)
+        .map((booking) => {
+          const contractId = String(booking.contractId ?? '').trim();
+          if (!contractId) return null;
+          return [contractId, {
+            bookingId: typeof booking._id === 'string' ? booking._id : booking._id.toString(),
+            startAt: booking.startAt,
+            durationMin: Number(booking.durationMin ?? 60),
+            endAt: booking.endAt,
+            status: booking.status,
+          }] as const;
+        })
+        .filter((item): item is readonly [string, ContractBookingSummary] => Boolean(item)),
+    );
+  }
+
+  async toContractDtos(contracts: ContractDocument[]): Promise<ContractDto[]> {
+    const contractRecords = contracts as ContractRecord[];
+    const bookingByContractId = await this.getBookingSummaryMap(
+      contractRecords.map((contract) => String(contract._id)),
+    );
+    const reviewStatusByBookingId = await this.reviews.getBookingReviewStatusMap(
+      Array.from(bookingByContractId.values()).map((booking) => ({
+        bookingId: booking.bookingId,
+        status: booking.status,
+      })),
+    );
+
+    return contractRecords.map((contract) => {
+      const booking = bookingByContractId.get(String(contract._id)) ?? null;
+      return this.toContractDto({
+        contract,
+        booking,
+        reviewStatus: booking ? reviewStatusByBookingId.get(booking.bookingId) ?? null : null,
+      });
+    });
+  }
+
+  async toContractDtoSingle(contract: ContractDocument): Promise<ContractDto> {
+    const [dto] = await this.toContractDtos([contract]);
+    return dto;
   }
 
   async createPendingFromOffer(offer: OfferDocument, request: RequestDocument): Promise<ContractDocument> {
