@@ -4,13 +4,13 @@ import type { AppRole } from '../users/schemas/user.schema';
 import type { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
 import type { WorkspaceRequestsResponseDto } from './dto/workspace-requests-response.dto';
 import {
-  WORKSPACE_REQUESTS_PERIOD_MS,
   WorkspaceRequestsRole,
   WorkspaceRequestsState,
   WorkspaceRequestsSupport,
 } from './workspace-requests.support';
 import { WorkspaceRequestCardsBuilder } from './workspace-request-cards.builder';
 import { WorkspaceRequestSnapshotsService } from './workspace-request-snapshots.service';
+import { WorkspaceRequestsListPolicy } from './workspace-requests-list-policy';
 import { WorkspaceRequestsPresenter } from './workspace-requests.presenter';
 
 @Injectable()
@@ -20,6 +20,7 @@ export class WorkspaceRequestsService {
 
   constructor(
     private readonly snapshots: WorkspaceRequestSnapshotsService,
+    private readonly listPolicy: WorkspaceRequestsListPolicy,
     private readonly presenter: WorkspaceRequestsPresenter,
   ) {}
 
@@ -36,7 +37,6 @@ export class WorkspaceRequestsService {
     const period = query.period ?? '30d';
     const sort = query.sort ?? 'activity';
     const now = Date.now();
-    const page = Math.max(query.page ?? 1, 1);
 
     const {
       requests,
@@ -73,34 +73,13 @@ export class WorkspaceRequestsService {
     );
 
     const allCards = [...customerCards, ...providerCards];
-    const periodCutoff = now - WORKSPACE_REQUESTS_PERIOD_MS[period];
-    const cardsInPeriod = allCards.filter((card) => card.sortActivityAt >= periodCutoff);
-    const cardsByRole = role === 'all' ? cardsInPeriod : cardsInPeriod.filter((card) => card.role === role);
-    const cardsByState =
-      state === 'all'
-        ? cardsByRole
-        : cardsByRole.filter((card) => {
-            if (state === 'attention') return card.workflowState === 'open' || card.workflowState === 'clarifying';
-            if (state === 'execution') return card.workflowState === 'active';
-            return card.workflowState === 'completed';
-          });
-
-    const sortedCards = [...cardsByState].sort((left, right) => {
-      if (sort === 'deadline') {
-        if (left.sortDeadlineAt == null) return 1;
-        if (right.sortDeadlineAt == null) return -1;
-        return left.sortDeadlineAt - right.sortDeadlineAt || right.sortActivityAt - left.sortActivityAt;
-      }
-      if (sort === 'newest') return right.sortCreatedAt - left.sortCreatedAt;
-      if (sort === 'budget' || sort === 'price_desc') return right.sortBudget - left.sortBudget;
-      if (sort === 'oldest' || sort === 'date_asc') return left.sortCreatedAt - right.sortCreatedAt;
-      return right.sortActivityAt - left.sortActivityAt;
+    const { cardsByRole, pagedCards, total, limit, page: resolvedPage } = this.listPolicy.resolve({
+      cards: allCards,
+      query,
+      role,
+      state,
+      now,
     });
-
-    const total = sortedCards.length;
-    const limit = Math.min(Math.max(query.limit ?? Math.max(total, 1), 1), 100);
-    const offset = (page - 1) * limit;
-    const pagedCards = sortedCards.slice(offset, offset + limit);
     const decisionPanel = this.presenter.buildWorkspaceDecisionPanel({
       locale,
       cards: cardsByRole,
@@ -130,9 +109,9 @@ export class WorkspaceRequestsService {
       },
       list: {
         total,
-        page,
+        page: resolvedPage,
         limit,
-        hasMore: offset + limit < total,
+        hasMore: resolvedPage * limit < total,
         items: pagedCards.map((card) => card.item),
       },
       decisionPanel,

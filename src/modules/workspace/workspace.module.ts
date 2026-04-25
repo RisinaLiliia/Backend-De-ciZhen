@@ -6,6 +6,7 @@ import { WorkspaceService } from './workspace.service';
 import { WorkspaceStatisticsService } from './workspace-statistics.service';
 import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspaceRequestSnapshotsService } from './workspace-request-snapshots.service';
+import { WorkspaceRequestsListPolicy } from './workspace-requests-list-policy';
 import { WorkspaceRequestsPresenter } from './workspace-requests.presenter';
 import { WorkspacePublicOverviewService } from './workspace-public-overview.service';
 import { WorkspacePrivateOverviewService } from './workspace-private-overview.service';
@@ -43,6 +44,6 @@ import { CitiesModule } from '../catalog/cities/cities.module';
     ]),
   ],
   controllers: [WorkspaceController],
-  providers: [WorkspaceService, WorkspaceRequestSnapshotsService, WorkspaceRequestsPresenter, WorkspaceRequestsService, WorkspacePublicOverviewService, WorkspacePrivateOverviewService, WorkspaceStatisticsService, InsightsService],
+  providers: [WorkspaceService, WorkspaceRequestSnapshotsService, WorkspaceRequestsListPolicy, WorkspaceRequestsPresenter, WorkspaceRequestsService, WorkspacePublicOverviewService, WorkspacePrivateOverviewService, WorkspaceStatisticsService, InsightsService],
 })
 export class WorkspaceModule {}

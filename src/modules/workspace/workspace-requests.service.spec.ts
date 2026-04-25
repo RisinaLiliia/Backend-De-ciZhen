@@ -3,12 +3,17 @@ import { Test } from '@nestjs/testing';
 import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspaceRequestSnapshotsService } from './workspace-request-snapshots.service';
 import { WorkspaceRequestsPresenter } from './workspace-requests.presenter';
+import { WorkspaceRequestsListPolicy } from './workspace-requests-list-policy';
 
 describe('WorkspaceRequestsService (unit)', () => {
   let service: WorkspaceRequestsService;
 
   const snapshotsMock = {
     loadWorkspaceRequestSnapshots: jest.fn(),
+  };
+
+  const listPolicyMock = {
+    resolve: jest.fn(),
   };
 
   const presenterMock = {
@@ -24,6 +29,7 @@ describe('WorkspaceRequestsService (unit)', () => {
       providers: [
         WorkspaceRequestsService,
         { provide: WorkspaceRequestSnapshotsService, useValue: snapshotsMock },
+        { provide: WorkspaceRequestsListPolicy, useValue: listPolicyMock },
         { provide: WorkspaceRequestsPresenter, useValue: presenterMock },
       ],
     }).compile();
@@ -51,7 +57,7 @@ describe('WorkspaceRequestsService (unit)', () => {
     });
   });
 
-  it('getRequestsOverview assembles cards and delegates summary, decision, and side-panel rendering', async () => {
+  it('getRequestsOverview assembles cards and delegates list policy plus presenter rendering', async () => {
     const now = new Date('2026-04-07T10:00:00.000Z');
     jest.useFakeTimers().setSystemTime(now);
 
@@ -149,6 +155,15 @@ describe('WorkspaceRequestsService (unit)', () => {
       clientReviewByBookingId: new Map(),
     });
 
+    listPolicyMock.resolve.mockImplementation(({ cards }) => ({
+      cardsByRole: cards,
+      sortedCards: cards,
+      pagedCards: cards,
+      total: cards.length,
+      limit: cards.length,
+      page: 1,
+    }));
+
     const result = await service.getRequestsOverview(
       'user-1',
       'provider',
@@ -163,6 +178,18 @@ describe('WorkspaceRequestsService (unit)', () => {
     );
 
     expect(snapshotsMock.loadWorkspaceRequestSnapshots).toHaveBeenCalledWith('user-1');
+    expect(listPolicyMock.resolve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({ role: 'all', state: 'all', period: '30d', sort: 'activity' }),
+        role: 'all',
+        state: 'all',
+        now: now.getTime(),
+        cards: expect.arrayContaining([
+          expect.objectContaining({ role: 'customer' }),
+          expect.objectContaining({ role: 'provider' }),
+        ]),
+      }),
+    );
     expect(presenterMock.buildWorkspaceDecisionPanel).toHaveBeenCalledWith(
       expect.objectContaining({
         locale: 'de',
@@ -211,7 +238,7 @@ describe('WorkspaceRequestsService (unit)', () => {
     jest.useRealTimers();
   });
 
-  it('keeps provider items in period when the next work event is upcoming', async () => {
+  it('uses list policy output for paging while keeping provider items with upcoming work', async () => {
     const now = new Date('2026-04-07T10:00:00.000Z');
     jest.useFakeTimers().setSystemTime(now);
 
@@ -255,6 +282,15 @@ describe('WorkspaceRequestsService (unit)', () => {
       clientReviewByBookingId: new Map(),
     });
 
+    listPolicyMock.resolve.mockImplementation(({ cards }) => ({
+      cardsByRole: cards,
+      sortedCards: cards,
+      pagedCards: cards,
+      total: 1,
+      limit: 1,
+      page: 1,
+    }));
+
     const result = await service.getRequestsOverview(
       'user-1',
       'provider',
@@ -279,7 +315,7 @@ describe('WorkspaceRequestsService (unit)', () => {
         }),
       }),
     );
-    expect(presenterMock.buildWorkspaceDecisionPanel).toHaveBeenCalledWith(
+    expect(listPolicyMock.resolve).toHaveBeenCalledWith(
       expect.objectContaining({
         cards: [expect.objectContaining({ item: expect.objectContaining({ requestId: 'request-provider-upcoming' }) })],
       }),
