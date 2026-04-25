@@ -13,7 +13,6 @@ import { ClientProfile, type ClientProfileDocument } from '../users/schemas/clie
 import type { AppRole } from '../users/schemas/user.schema';
 import type {
   WorkspacePrivateOverviewResponseDto,
-  WorkspacePrivatePreferredRole,
 } from './dto/workspace-private-response.dto';
 
 import { WorkspacePrivateOverviewSupport, CONTRACT_STATUSES, OFFER_STATUSES, PRIVATE_OVERVIEW_PERIOD_MS, REQUEST_STATUSES } from './workspace-private-overview.support';

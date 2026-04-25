@@ -1,9 +1,6 @@
 import type {
   WorkspaceMyRequestCardDto,
   WorkspaceRequestDecisionDto,
-  WorkspaceRequestsDecisionPanelDto,
-  WorkspaceRequestsSidePanelDto,
-  WorkspaceRequestsSummaryItemDto,
 } from './dto/workspace-requests-response.dto';
 
 export const WORKSPACE_REQUESTS_PERIOD_MS = {
