@@ -1,37 +1,14 @@
 import { Test } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/mongoose';
 
 import { WorkspaceRequestsService } from './workspace-requests.service';
-import { Request } from '../requests/schemas/request.schema';
-import { Offer } from '../offers/schemas/offer.schema';
-import { Contract } from '../contracts/schemas/contract.schema';
-import { Booking } from '../bookings/schemas/booking.schema';
-import { Review } from '../reviews/schemas/review.schema';
+import { WorkspaceRequestSnapshotsService } from './workspace-request-snapshots.service';
 
 describe('WorkspaceRequestsService (unit)', () => {
   let service: WorkspaceRequestsService;
 
-  const modelMock = {
-    countDocuments: jest.fn(),
-    aggregate: jest.fn(),
-    find: jest.fn(),
+  const snapshotsMock = {
+    loadWorkspaceRequestSnapshots: jest.fn(),
   };
-
-  function execResult<T>(value: T) {
-    return { exec: jest.fn().mockResolvedValue(value) };
-  }
-
-  function leanResult<T>(value: T) {
-    return {
-      lean: jest.fn().mockReturnValue(execResult(value)),
-    };
-  }
-
-  function sortLeanResult<T>(value: T) {
-    return {
-      sort: jest.fn().mockReturnValue(leanResult(value)),
-    };
-  }
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -39,11 +16,7 @@ describe('WorkspaceRequestsService (unit)', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         WorkspaceRequestsService,
-        { provide: getModelToken(Request.name), useValue: modelMock },
-        { provide: getModelToken(Offer.name), useValue: modelMock },
-        { provide: getModelToken(Contract.name), useValue: modelMock },
-        { provide: getModelToken(Booking.name), useValue: modelMock },
-        { provide: getModelToken(Review.name), useValue: modelMock },
+        { provide: WorkspaceRequestSnapshotsService, useValue: snapshotsMock },
       ],
     }).compile();
 
@@ -54,63 +27,47 @@ describe('WorkspaceRequestsService (unit)', () => {
     const now = new Date('2026-04-07T10:00:00.000Z');
     jest.useFakeTimers().setSystemTime(now);
 
-    modelMock.find
-      .mockReturnValueOnce(
-        sortLeanResult([
+    snapshotsMock.loadWorkspaceRequestSnapshots.mockResolvedValue({
+      requests: [
+        {
+          id: 'request-customer-1',
+          title: 'Logo design for boutique',
+          description: 'Need a new logo package',
+          serviceKey: 'logo_design',
+          cityId: 'berlin',
+          cityName: 'Berlin',
+          categoryKey: 'design',
+          categoryName: 'Design',
+          subcategoryName: 'Logo',
+          price: 400,
+          preferredDate: new Date('2026-04-12T09:00:00.000Z'),
+          status: 'published',
+          createdAt: new Date('2026-04-05T08:00:00.000Z'),
+          isRecurring: false,
+          imageUrl: null,
+          tags: [],
+        },
+      ],
+      customerOffersByRequest: new Map([
+        ['request-customer-1', [
           {
-            _id: 'request-customer-1',
-            title: 'Logo design for boutique',
-            description: 'Need a new logo package',
-            serviceKey: 'logo_design',
-            cityId: 'berlin',
-            cityName: 'Berlin',
-            categoryKey: 'design',
-            categoryName: 'Design',
-            subcategoryName: 'Logo',
-            price: 400,
-            preferredDate: new Date('2026-04-12T09:00:00.000Z'),
-            status: 'published',
-            createdAt: new Date('2026-04-05T08:00:00.000Z'),
-          },
-        ]),
-      )
-      .mockReturnValueOnce(
-        sortLeanResult([
-          {
-            _id: 'offer-client-1',
+            id: 'offer-client-1',
             requestId: 'request-customer-1',
             providerUserId: 'provider-2',
             clientUserId: 'user-1',
             status: 'sent',
             message: 'I can help',
-            pricing: { amount: 450, type: 'fixed' },
-            availability: { date: new Date('2026-04-13T10:00:00.000Z'), note: 'Next week' },
+            amount: 450,
+            priceType: 'fixed',
+            availableAt: new Date('2026-04-13T10:00:00.000Z'),
+            availabilityNote: 'Next week',
             createdAt: new Date('2026-04-06T08:30:00.000Z'),
             updatedAt: new Date('2026-04-06T09:00:00.000Z'),
           },
-        ]),
-      )
-      .mockReturnValueOnce(
-        sortLeanResult([
-          {
-            _id: 'contract-provider-1',
-            requestId: 'request-provider-1',
-            offerId: 'offer-provider-1',
-            clientId: 'client-9',
-            providerUserId: 'user-1',
-            status: 'confirmed',
-            priceAmount: 900,
-            confirmedAt: new Date('2026-04-08T09:00:00.000Z'),
-            createdAt: new Date('2026-04-06T12:00:00.000Z'),
-            updatedAt: new Date('2026-04-06T13:00:00.000Z'),
-          },
-        ]),
-      )
-      .mockReturnValueOnce(sortLeanResult([]));
-
-    modelMock.aggregate.mockReturnValueOnce(
-      execResult([
-        {
+        ]],
+      ]),
+      providerOfferByRequest: new Map([
+        ['request-provider-1', {
           id: 'offer-provider-1',
           requestId: 'request-provider-1',
           providerUserId: 'user-1',
@@ -135,9 +92,34 @@ describe('WorkspaceRequestsService (unit)', () => {
           requestStatus: 'matched',
           requestPrice: 850,
           requestCreatedAt: new Date('2026-04-04T09:00:00.000Z'),
-        },
+          requestIsRecurring: false,
+          requestImageUrl: null,
+          requestTags: [],
+        }],
       ]),
-    );
+      providerContractByRequest: new Map([
+        ['request-provider-1', {
+          id: 'contract-provider-1',
+          requestId: 'request-provider-1',
+          offerId: 'offer-provider-1',
+          clientId: 'client-9',
+          providerUserId: 'user-1',
+          status: 'confirmed',
+          priceAmount: 900,
+          priceType: null,
+          priceDetails: null,
+          confirmedAt: new Date('2026-04-08T09:00:00.000Z'),
+          completedAt: null,
+          cancelledAt: null,
+          cancelReason: null,
+          createdAt: new Date('2026-04-06T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-06T13:00:00.000Z'),
+        }],
+      ]),
+      clientContractByRequest: new Map(),
+      clientBookingByContractId: new Map(),
+      clientReviewByBookingId: new Map(),
+    });
 
     const result = await service.getRequestsOverview(
       'user-1',
@@ -161,7 +143,7 @@ describe('WorkspaceRequestsService (unit)', () => {
       expect.objectContaining({ key: 'execution', value: 1 }),
       expect.objectContaining({ key: 'completed', value: 0 }),
     ]);
-    expect(modelMock.find).toHaveBeenNthCalledWith(1, { clientId: 'user-1', archivedAt: null });
+    expect(snapshotsMock.loadWorkspaceRequestSnapshots).toHaveBeenCalledWith('user-1');
     expect(result.list.items).toHaveLength(2);
     expect(result.list.items[0]).toEqual(
       expect.objectContaining({
@@ -290,15 +272,11 @@ describe('WorkspaceRequestsService (unit)', () => {
     const now = new Date('2026-04-07T10:00:00.000Z');
     jest.useFakeTimers().setSystemTime(now);
 
-    modelMock.find
-      .mockReturnValueOnce(sortLeanResult([]))
-      .mockReturnValueOnce(sortLeanResult([]))
-      .mockReturnValueOnce(sortLeanResult([]))
-      .mockReturnValueOnce(sortLeanResult([]));
-
-    modelMock.aggregate.mockReturnValueOnce(
-      execResult([
-        {
+    snapshotsMock.loadWorkspaceRequestSnapshots.mockResolvedValue({
+      requests: [],
+      customerOffersByRequest: new Map(),
+      providerOfferByRequest: new Map([
+        ['request-provider-upcoming', {
           id: 'offer-provider-upcoming',
           requestId: 'request-provider-upcoming',
           providerUserId: 'user-1',
@@ -323,9 +301,16 @@ describe('WorkspaceRequestsService (unit)', () => {
           requestStatus: 'matched',
           requestPrice: 300,
           requestCreatedAt: new Date('2026-01-20T08:00:00.000Z'),
-        },
+          requestIsRecurring: false,
+          requestImageUrl: null,
+          requestTags: [],
+        }],
       ]),
-    );
+      providerContractByRequest: new Map(),
+      clientContractByRequest: new Map(),
+      clientBookingByContractId: new Map(),
+      clientReviewByBookingId: new Map(),
+    });
 
     const result = await service.getRequestsOverview(
       'user-1',
