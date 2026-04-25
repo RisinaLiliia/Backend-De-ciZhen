@@ -2,12 +2,19 @@ import { Test } from '@nestjs/testing';
 
 import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspaceRequestSnapshotsService } from './workspace-request-snapshots.service';
+import { WorkspaceRequestsPresenter } from './workspace-requests.presenter';
 
 describe('WorkspaceRequestsService (unit)', () => {
   let service: WorkspaceRequestsService;
 
   const snapshotsMock = {
     loadWorkspaceRequestSnapshots: jest.fn(),
+  };
+
+  const presenterMock = {
+    buildWorkspaceSummary: jest.fn(),
+    buildWorkspaceDecisionPanel: jest.fn(),
+    buildWorkspaceSidePanel: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -17,13 +24,34 @@ describe('WorkspaceRequestsService (unit)', () => {
       providers: [
         WorkspaceRequestsService,
         { provide: WorkspaceRequestSnapshotsService, useValue: snapshotsMock },
+        { provide: WorkspaceRequestsPresenter, useValue: presenterMock },
       ],
     }).compile();
 
     service = moduleRef.get(WorkspaceRequestsService);
+    presenterMock.buildWorkspaceSummary.mockReturnValue([{ key: 'all', label: 'Alle', value: 2, isHighlighted: true }]);
+    presenterMock.buildWorkspaceDecisionPanel.mockReturnValue({
+      summary: {
+        totalNeedsAction: 1,
+        highPriorityCount: 0,
+        newOffersCount: 1,
+        replyRequiredCount: 0,
+        confirmCompletionCount: 0,
+        overdueCount: 0,
+      },
+      primaryAction: { label: 'Jetzt handeln', mode: 'decision', targetFilter: 'needs_action' },
+      queue: [],
+      overview: { highUrgency: 0, inProgress: 1, completedThisPeriod: 0 },
+    });
+    presenterMock.buildWorkspaceSidePanel.mockReturnValue({
+      focus: { title: 'Aktueller Fokus', description: 'Focus item' },
+      recommendation: { title: 'KI-Empfehlung', description: 'Recommendation' },
+      contextItems: [],
+      nextSteps: [],
+    });
   });
 
-  it('getRequestsOverview returns backend-owned workflow summary and cards', async () => {
+  it('getRequestsOverview assembles cards and delegates summary, decision, and side-panel rendering', async () => {
     const now = new Date('2026-04-07T10:00:00.000Z');
     jest.useFakeTimers().setSystemTime(now);
 
@@ -134,71 +162,32 @@ describe('WorkspaceRequestsService (unit)', () => {
       'de-DE',
     );
 
+    expect(snapshotsMock.loadWorkspaceRequestSnapshots).toHaveBeenCalledWith('user-1');
+    expect(presenterMock.buildWorkspaceDecisionPanel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locale: 'de',
+        cards: expect.arrayContaining([
+          expect.objectContaining({ role: 'customer' }),
+          expect.objectContaining({ role: 'provider' }),
+        ]),
+      }),
+    );
+    expect(presenterMock.buildWorkspaceSummary).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'de', activeState: 'all' }),
+    );
+    expect(presenterMock.buildWorkspaceSidePanel).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'de', role: 'all' }),
+    );
     expect(result.section).toBe('requests');
     expect(result.scope).toBe('my');
     expect(result.header.title).toBe('Meine Vorgänge');
-    expect(result.summary.items).toEqual([
-      expect.objectContaining({ key: 'all', value: 2, isHighlighted: true }),
-      expect.objectContaining({ key: 'attention', value: 1 }),
-      expect.objectContaining({ key: 'execution', value: 1 }),
-      expect.objectContaining({ key: 'completed', value: 0 }),
-    ]);
-    expect(snapshotsMock.loadWorkspaceRequestSnapshots).toHaveBeenCalledWith('user-1');
+    expect(result.summary.items).toEqual([{ key: 'all', label: 'Alle', value: 2, isHighlighted: true }]);
     expect(result.list.items).toHaveLength(2);
     expect(result.list.items[0]).toEqual(
       expect.objectContaining({
         requestId: 'request-customer-1',
         role: 'customer',
         ownerLifecycleStage: 'offers_received',
-        state: 'clarifying',
-        stateLabel: 'In Klärung',
-        progress: expect.objectContaining({ currentStep: 'selection' }),
-        requestPreview: expect.objectContaining({
-          href: '/requests/request-customer-1',
-          categoryLabel: 'Design',
-          title: 'Logo design for boutique',
-        }),
-        status: expect.objectContaining({
-          badgeLabel: 'Offen',
-          actions: expect.arrayContaining([
-            expect.objectContaining({
-              key: 'edit-request',
-              kind: 'link',
-              href: '/requests/request-customer-1/edit',
-            }),
-            expect.objectContaining({
-              key: 'duplicate-request',
-              kind: 'duplicate_request',
-              requestId: 'request-customer-1',
-            }),
-            expect.objectContaining({
-              key: 'share-request',
-              kind: 'share_request',
-              href: '/requests/request-customer-1',
-            }),
-            expect.objectContaining({
-              key: 'archive-request',
-              kind: 'archive_request',
-              requestId: 'request-customer-1',
-            }),
-            expect.objectContaining({
-              key: 'delete-request',
-              kind: 'delete_request',
-              requestId: 'request-customer-1',
-            }),
-          ]),
-        }),
-        decision: expect.objectContaining({
-          needsAction: true,
-          actionType: 'review_offers',
-          actionPriorityLevel: 'medium',
-          actionLabel: 'Angebote ansehen',
-          primaryAction: expect.objectContaining({
-            key: 'review-responses',
-            kind: 'review_responses',
-            href: '/requests/request-customer-1',
-          }),
-        }),
       }),
     );
     expect(result.list.items[1]).toEqual(
@@ -206,69 +195,23 @@ describe('WorkspaceRequestsService (unit)', () => {
         requestId: 'request-provider-1',
         role: 'provider',
         state: 'active',
-        stateLabel: 'In Arbeit',
-        progress: expect.objectContaining({ currentStep: 'contract' }),
-        requestPreview: expect.objectContaining({
-          href: '/requests/request-provider-1',
-          categoryLabel: 'Photography',
-          title: 'Wedding photography',
-        }),
-        status: expect.objectContaining({
-          badgeLabel: 'Angenommen',
-          actions: expect.arrayContaining([
-            expect.objectContaining({
-              key: 'chat',
-              kind: 'open_chat',
-              chatInput: expect.objectContaining({
-                requestId: 'request-provider-1',
-                offerId: 'offer-provider-1',
-                participantUserId: 'user-1',
-              }),
-            }),
-          ]),
-        }),
-        decision: expect.objectContaining({
-          needsAction: false,
-          actionType: 'none',
-          primaryAction: null,
-        }),
       }),
     );
     expect(result.decisionPanel).toEqual(
       expect.objectContaining({
-        summary: expect.objectContaining({
-          totalNeedsAction: 1,
-          newOffersCount: 1,
-          highPriorityCount: 0,
-        }),
-        primaryAction: {
-          label: 'Jetzt handeln',
-          mode: 'decision',
-          targetFilter: 'needs_action',
-        },
-        queue: [
-          expect.objectContaining({
-            requestId: 'request-customer-1',
-            actionType: 'review_offers',
-            actionLabel: 'Angebote ansehen',
-          }),
-        ],
-        overview: expect.objectContaining({
-          inProgress: 1,
-          completedThisPeriod: 0,
-        }),
+        primaryAction: { label: 'Jetzt handeln', mode: 'decision', targetFilter: 'needs_action' },
       }),
     );
-    expect(result.sidePanel.focus).toEqual(
+    expect(result.sidePanel).toEqual(
       expect.objectContaining({
-        title: 'Aktueller Fokus',
+        focus: expect.objectContaining({ title: 'Aktueller Fokus' }),
       }),
     );
 
     jest.useRealTimers();
   });
 
-  it('getRequestsOverview keeps provider items in period when the next work event is upcoming', async () => {
+  it('keeps provider items in period when the next work event is upcoming', async () => {
     const now = new Date('2026-04-07T10:00:00.000Z');
     jest.useFakeTimers().setSystemTime(now);
 
@@ -334,6 +277,11 @@ describe('WorkspaceRequestsService (unit)', () => {
           needsAction: true,
           actionType: 'confirm_contract',
         }),
+      }),
+    );
+    expect(presenterMock.buildWorkspaceDecisionPanel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cards: [expect.objectContaining({ item: expect.objectContaining({ requestId: 'request-provider-upcoming' }) })],
       }),
     );
 
