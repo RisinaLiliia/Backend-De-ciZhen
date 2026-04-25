@@ -16,18 +16,11 @@ import type {
   WorkspacePrivatePreferredRole,
 } from './dto/workspace-private-response.dto';
 
-const REQUEST_STATUSES = ['draft', 'published', 'paused', 'matched', 'closed', 'cancelled'] as const;
-const OFFER_STATUSES = ['sent', 'accepted', 'declined', 'withdrawn'] as const;
-const CONTRACT_STATUSES = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] as const;
-const PRIVATE_OVERVIEW_PERIOD_MS = {
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
-  '90d': 90 * 24 * 60 * 60 * 1000,
-} as const;
-
+import { WorkspacePrivateOverviewSupport, CONTRACT_STATUSES, OFFER_STATUSES, PRIVATE_OVERVIEW_PERIOD_MS, REQUEST_STATUSES } from './workspace-private-overview.support';
 @Injectable()
 export class WorkspacePrivateOverviewService {
+  private readonly support = new WorkspacePrivateOverviewSupport();
+
   constructor(
     private readonly users: UsersService,
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
@@ -39,116 +32,6 @@ export class WorkspacePrivateOverviewService {
     @InjectModel(ClientProfile.name) private readonly clientProfileModel: Model<ClientProfileDocument>,
   ) {}
 
-  private toStatusCounts<T extends string>(
-    rows: Array<{ _id: string; count: number }>,
-    statuses: readonly T[],
-  ): Record<T | 'total', number> {
-    const initial = Object.fromEntries(statuses.map((status) => [status, 0])) as Record<T, number>;
-    let total = 0;
-
-    for (const row of rows) {
-      const key = row?._id;
-      const count = Number(row?.count ?? 0);
-      if (!key || !Number.isFinite(count)) continue;
-      if ((statuses as readonly string[]).includes(key)) {
-        initial[key as T] = Math.max(0, Math.round(count));
-        total += Math.max(0, Math.round(count));
-      }
-    }
-
-    return {
-      ...initial,
-      total,
-    };
-  }
-
-  private monthBoundsUTC(offsetFromCurrent: number): { start: Date; end: Date } {
-    const now = new Date();
-    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offsetFromCurrent, 1, 0, 0, 0, 0));
-    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offsetFromCurrent + 1, 1, 0, 0, 0, 0));
-    return { start, end };
-  }
-
-  private buildDelta(current: number, previous: number): { kind: 'percent' | 'new' | 'none'; percent: number | null } {
-    if (previous <= 0) {
-      if (current <= 0) return { kind: 'none', percent: null };
-      return { kind: 'new', percent: null };
-    }
-    const raw = ((current - previous) / previous) * 100;
-    const rounded = Math.round(raw);
-    const safe = Object.is(rounded, -0) ? 0 : rounded;
-    return { kind: 'percent', percent: safe };
-  }
-
-  private resolvePrivateOverviewPeriodStart(period: keyof typeof PRIVATE_OVERVIEW_PERIOD_MS): Date {
-    return new Date(Date.now() - PRIVATE_OVERVIEW_PERIOD_MS[period]);
-  }
-
-  private parseActivityAt(value: Date | string | null | undefined): number | null {
-    if (!value) return null;
-    const timestamp = new Date(value).getTime();
-    return Number.isFinite(timestamp) ? timestamp : null;
-  }
-
-  private countItemsWithinPeriod<T extends { updatedAt?: Date | string | null; createdAt?: Date | string | null }>(
-    items: T[],
-    cutoffMs: number,
-  ) {
-    return items.reduce((count, item) => {
-      const activityAt = this.parseActivityAt(item.updatedAt) ?? this.parseActivityAt(item.createdAt);
-      return activityAt !== null && activityAt >= cutoffMs ? count + 1 : count;
-    }, 0);
-  }
-
-  private resolvePrivateOverviewPreferredRole(params: {
-    period: keyof typeof PRIVATE_OVERVIEW_PERIOD_MS;
-    requests: Array<{ createdAt?: Date | string | null }>;
-    providerOffers: Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>;
-    clientOffers: Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>;
-    providerContracts: Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>;
-    clientContracts: Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>;
-    userRole: AppRole;
-  }): WorkspacePrivatePreferredRole {
-    const cutoffMs = this.resolvePrivateOverviewPeriodStart(params.period).getTime();
-    const customerLoad =
-      this.countItemsWithinPeriod(params.requests, cutoffMs) +
-      this.countItemsWithinPeriod(params.clientOffers, cutoffMs) +
-      this.countItemsWithinPeriod(params.clientContracts, cutoffMs);
-    const providerLoad =
-      this.countItemsWithinPeriod(params.providerOffers, cutoffMs) +
-      this.countItemsWithinPeriod(params.providerContracts, cutoffMs);
-
-    if (customerLoad > providerLoad) return 'customer';
-    if (providerLoad > customerLoad) return 'provider';
-
-    return params.userRole === 'provider' ? 'provider' : 'customer';
-  }
-
-  private computeProviderCompleteness(profile: any | null): number {
-    if (!profile) return 0;
-    let score = 0;
-    if (profile.displayName?.trim()) score += 15;
-    if (profile.bio?.trim()) score += 15;
-    if (profile.cityId?.trim()) score += 15;
-    if ((profile.serviceKeys?.length ?? 0) > 0) score += 25;
-    if (typeof profile.basePrice === 'number' && profile.basePrice > 0) score += 10;
-    if (profile.companyName?.trim() || profile.vatId?.trim()) score += 10;
-    if (profile.status === 'active' && !profile.isBlocked) score += 10;
-    return Math.max(0, Math.min(100, score));
-  }
-
-  private computeClientCompleteness(user: any | null, hasClientProfile: boolean): number {
-    if (!user) return 0;
-    let score = 0;
-    if (user.name?.trim()) score += 20;
-    if (user.email?.trim()) score += 20;
-    if (user.city?.trim()) score += 20;
-    if (user.phone?.trim()) score += 15;
-    if (user.avatar?.url?.trim()) score += 15;
-    if (user.acceptedPrivacyPolicy) score += 5;
-    if (hasClientProfile) score += 5;
-    return Math.max(0, Math.min(100, score));
-  }
 
   async getPrivateOverview(
     userId: string,
@@ -159,11 +42,11 @@ export class WorkspacePrivateOverviewService {
 
     const now = Date.now();
     const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-    const thisMonth = this.monthBoundsUTC(0);
-    const lastMonth = this.monthBoundsUTC(-1);
+    const thisMonth = this.support.monthBoundsUTC(0);
+    const lastMonth = this.support.monthBoundsUTC(-1);
 
-    const sixMonthStart = this.monthBoundsUTC(-5).start;
-    const roleWindowStart = this.resolvePrivateOverviewPeriodStart(period);
+    const sixMonthStart = this.support.monthBoundsUTC(-5).start;
+    const roleWindowStart = this.support.resolvePrivateOverviewPeriodStart(period);
 
     const [
       requestStatusRows,
@@ -328,12 +211,12 @@ export class WorkspacePrivateOverviewService {
         .exec(),
     ]);
 
-    const requestsByStatus = this.toStatusCounts(requestStatusRows, REQUEST_STATUSES);
-    const providerOffersByStatus = this.toStatusCounts(providerOfferStatusRows, OFFER_STATUSES);
-    const clientOffersByStatus = this.toStatusCounts(clientOfferStatusRows, OFFER_STATUSES);
-    const providerContractsByStatus = this.toStatusCounts(providerContractStatusRows, CONTRACT_STATUSES);
-    const clientContractsByStatus = this.toStatusCounts(clientContractStatusRows, CONTRACT_STATUSES);
-    const preferredRole = this.resolvePrivateOverviewPreferredRole({
+    const requestsByStatus = this.support.toStatusCounts(requestStatusRows, REQUEST_STATUSES);
+    const providerOffersByStatus = this.support.toStatusCounts(providerOfferStatusRows, OFFER_STATUSES);
+    const clientOffersByStatus = this.support.toStatusCounts(clientOfferStatusRows, OFFER_STATUSES);
+    const providerContractsByStatus = this.support.toStatusCounts(providerContractStatusRows, CONTRACT_STATUSES);
+    const clientContractsByStatus = this.support.toStatusCounts(clientContractStatusRows, CONTRACT_STATUSES);
+    const preferredRole = this.support.resolvePrivateOverviewPreferredRole({
       period,
       requests: myRequests as Array<{ createdAt?: Date | string | null }>,
       providerOffers: providerOfferActivityRows as Array<{ updatedAt?: Date | string | null; createdAt?: Date | string | null }>,
@@ -357,8 +240,8 @@ export class WorkspacePrivateOverviewService {
       count: Number(providerProfile?.ratingCount ?? reviews.asProvider ?? 0),
     };
 
-    const providerCompleteness = this.computeProviderCompleteness(providerProfile);
-    const clientCompleteness = this.computeClientCompleteness(user, Boolean(clientProfile));
+    const providerCompleteness = this.support.computeProviderCompleteness(providerProfile);
+    const clientCompleteness = this.support.computeClientCompleteness(user, Boolean(clientProfile));
 
     const myOpenRequests =
       requestsByStatus.draft +
@@ -389,7 +272,7 @@ export class WorkspacePrivateOverviewService {
     const avgMs = Number(avgResponseRows[0]?.avgMs ?? Number.NaN);
     const avgResponseMinutes = Number.isFinite(avgMs) ? Math.max(1, Math.round(avgMs / (1000 * 60))) : null;
 
-    const delta = this.buildDelta(providerCompletedThisMonth, providerCompletedLastMonth);
+    const delta = this.support.buildDelta(providerCompletedThisMonth, providerCompletedLastMonth);
 
     const providerCompletedSeriesSource = providerCompletedContracts as Array<{ completedAt?: Date | string | null; priceAmount?: number | null }>;
     const clientRequestsSeriesSource = myRequests as Array<{ createdAt?: Date | string | null }>;
@@ -397,7 +280,7 @@ export class WorkspacePrivateOverviewService {
 
     const providerMonthlySeries = Array.from({ length: 6 }, (_, index) => {
       const monthOffset = index - 5;
-      const { start, end } = this.monthBoundsUTC(monthOffset);
+      const { start, end } = this.support.monthBoundsUTC(monthOffset);
       const bars = providerCompletedSeriesSource.filter((item) => {
         if (!item.completedAt) return false;
         const ts = new Date(item.completedAt).getTime();
@@ -420,7 +303,7 @@ export class WorkspacePrivateOverviewService {
 
     const clientMonthlySeries = Array.from({ length: 6 }, (_, index) => {
       const monthOffset = index - 5;
-      const { start, end } = this.monthBoundsUTC(monthOffset);
+      const { start, end } = this.support.monthBoundsUTC(monthOffset);
       const bars = clientRequestsSeriesSource.filter((item) => {
         if (!item.createdAt) return false;
         const ts = new Date(item.createdAt).getTime();
