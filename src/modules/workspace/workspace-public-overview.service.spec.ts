@@ -2,12 +2,10 @@ import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 
 import { WorkspacePublicOverviewService } from './workspace-public-overview.service';
+import { WorkspacePublicRequestEnricherService } from './workspace-public-request-enricher.service';
 import { RequestsService } from '../requests/requests.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { CitiesService } from '../catalog/cities/cities.service';
-import { UsersService } from '../users/users.service';
-import { ClientProfilesService } from '../users/client-profiles.service';
-import { PresenceService } from '../presence/presence.service';
 import { Request } from '../requests/schemas/request.schema';
 import { ProviderProfile } from '../providers/schemas/provider-profile.schema';
 
@@ -28,16 +26,8 @@ describe('WorkspacePublicOverviewService (unit)', () => {
     resolveActivityCoords: jest.fn(),
   };
 
-  const usersMock = {
-    findPublicByIds: jest.fn(),
-  };
-
-  const clientProfilesMock = {
-    getByUserIds: jest.fn(),
-  };
-
-  const presenceMock = {
-    getOnlineMap: jest.fn(),
+  const enricherMock = {
+    enrichPublicRequests: jest.fn(),
   };
 
   const modelMock = {
@@ -58,9 +48,7 @@ describe('WorkspacePublicOverviewService (unit)', () => {
         { provide: RequestsService, useValue: requestsMock },
         { provide: AnalyticsService, useValue: analyticsMock },
         { provide: CitiesService, useValue: citiesMock },
-        { provide: UsersService, useValue: usersMock },
-        { provide: ClientProfilesService, useValue: clientProfilesMock },
-        { provide: PresenceService, useValue: presenceMock },
+        { provide: WorkspacePublicRequestEnricherService, useValue: enricherMock },
         { provide: getModelToken(Request.name), useValue: modelMock },
         { provide: getModelToken(ProviderProfile.name), useValue: modelMock },
       ],
@@ -68,52 +56,15 @@ describe('WorkspacePublicOverviewService (unit)', () => {
 
     service = moduleRef.get(WorkspacePublicOverviewService);
     citiesMock.resolveActivityCoords.mockResolvedValue(new Map());
+    enricherMock.enrichPublicRequests.mockResolvedValue([]);
   });
 
   it('getPublicRequestsBatch returns ordered items and missing ids', async () => {
-    const clientId = '65f0c1a2b3c4d5e6f7a8b9c1';
-    requestsMock.listPublicByIds.mockResolvedValue([
-      {
-        _id: { toString: () => '65f0c1a2b3c4d5e6f7a8b9a1' },
-        title: 'First',
-        serviceKey: 'home_cleaning',
-        cityId: 'c1',
-        cityName: 'Berlin',
-        propertyType: 'apartment',
-        area: 55,
-        preferredDate: new Date('2026-03-01T10:00:00.000Z'),
-        isRecurring: false,
-        status: 'published',
-        createdAt: new Date('2026-03-01T09:00:00.000Z'),
-        clientId,
-      },
-      {
-        _id: { toString: () => '65f0c1a2b3c4d5e6f7a8b9a3' },
-        title: 'Third',
-        serviceKey: 'window_cleaning',
-        cityId: 'c2',
-        cityName: 'Hamburg',
-        propertyType: 'house',
-        area: 80,
-        preferredDate: new Date('2026-03-02T10:00:00.000Z'),
-        isRecurring: false,
-        status: 'published',
-        createdAt: new Date('2026-03-02T09:00:00.000Z'),
-        clientId,
-      },
+    requestsMock.listPublicByIds.mockResolvedValue([{ _id: { toString: () => '65f0c1a2b3c4d5e6f7a8b9a1' } }, { _id: { toString: () => '65f0c1a2b3c4d5e6f7a8b9a3' } }]);
+    enricherMock.enrichPublicRequests.mockResolvedValue([
+      { id: '65f0c1a2b3c4d5e6f7a8b9a1', clientName: 'Anna', clientRatingAvg: 4.8, clientIsOnline: true },
+      { id: '65f0c1a2b3c4d5e6f7a8b9a3', clientName: 'Anna', clientRatingAvg: 4.8, clientIsOnline: true },
     ]);
-
-    usersMock.findPublicByIds.mockResolvedValue([
-      {
-        _id: { toString: () => clientId },
-        name: 'Anna',
-        avatar: { url: '/avatars/a.png' },
-        city: 'Berlin',
-        lastSeenAt: new Date('2026-03-03T09:00:00.000Z'),
-      },
-    ]);
-    clientProfilesMock.getByUserIds.mockResolvedValue([{ userId: clientId, ratingAvg: 4.8, ratingCount: 12 }]);
-    presenceMock.getOnlineMap.mockResolvedValue(new Map([[clientId, true]]));
 
     const result = await service.getPublicRequestsBatch([
       '65f0c1a2b3c4d5e6f7a8b9a3',
@@ -128,6 +79,7 @@ describe('WorkspacePublicOverviewService (unit)', () => {
       '65f0c1a2b3c4d5e6f7a8b9a1',
       'bad-id',
     ]);
+    expect(enricherMock.enrichPublicRequests).toHaveBeenCalledTimes(1);
     expect(result.items.map((item) => item.id)).toEqual([
       '65f0c1a2b3c4d5e6f7a8b9a3',
       '65f0c1a2b3c4d5e6f7a8b9a1',
@@ -147,8 +99,8 @@ describe('WorkspacePublicOverviewService (unit)', () => {
     requestsMock.countPublic.mockResolvedValue(0);
 
     modelMock.countDocuments
-      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(5) })
-      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(44) });
+      .mockReturnValueOnce(execResult(5))
+      .mockReturnValueOnce(execResult(44));
 
     analyticsMock.getPlatformActivity.mockResolvedValue({
       range: '30d',
@@ -158,14 +110,12 @@ describe('WorkspacePublicOverviewService (unit)', () => {
       updatedAt: new Date('2030-03-01T00:00:00.000Z').toISOString(),
     });
 
-    modelMock.aggregate.mockReturnValueOnce({
-      exec: jest.fn().mockResolvedValue([
-        {
-          _id: { cityName: 'Mannheim', cityId: 'city-mannheim' },
-          count: 5,
-        },
-      ]),
-    });
+    modelMock.aggregate.mockReturnValueOnce(execResult([
+      {
+        _id: { cityName: 'Mannheim', cityId: 'city-mannheim' },
+        count: 5,
+      },
+    ]));
     citiesMock.resolveActivityCoords.mockResolvedValue(
       new Map([['mannheim', { cityId: 'city-mannheim', lat: 49.4875, lng: 8.466 }]]),
     );
@@ -177,6 +127,7 @@ describe('WorkspacePublicOverviewService (unit)', () => {
       activityRange: '30d',
     });
 
+    expect(enricherMock.enrichPublicRequests).toHaveBeenCalledWith([]);
     expect(result.cityActivity.totalActiveCities).toBe(1);
     expect(result.cityActivity.totalActiveRequests).toBe(5);
     expect(result.cityActivity.items[0]).toMatchObject({
@@ -192,8 +143,8 @@ describe('WorkspacePublicOverviewService (unit)', () => {
     requestsMock.countPublic.mockResolvedValue(0);
 
     modelMock.countDocuments
-      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(6) })
-      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(44) });
+      .mockReturnValueOnce(execResult(6))
+      .mockReturnValueOnce(execResult(44));
 
     analyticsMock.getPlatformActivity.mockResolvedValue({
       range: '30d',
@@ -203,22 +154,11 @@ describe('WorkspacePublicOverviewService (unit)', () => {
       updatedAt: new Date('2030-03-01T00:00:00.000Z').toISOString(),
     });
 
-    modelMock.aggregate.mockReturnValueOnce({
-      exec: jest.fn().mockResolvedValue([
-        {
-          _id: { cityName: 'Berlin', cityId: 'city-berlin-a' },
-          count: 2,
-        },
-        {
-          _id: { cityName: 'Berlin', cityId: 'city-berlin-b' },
-          count: 1,
-        },
-        {
-          _id: { cityName: 'Mannheim', cityId: 'city-mannheim' },
-          count: 3,
-        },
-      ]),
-    });
+    modelMock.aggregate.mockReturnValueOnce(execResult([
+      { _id: { cityName: 'Berlin', cityId: 'city-berlin-a' }, count: 2 },
+      { _id: { cityName: 'Berlin', cityId: 'city-berlin-b' }, count: 1 },
+      { _id: { cityName: 'Mannheim', cityId: 'city-mannheim' }, count: 3 },
+    ]));
     citiesMock.resolveActivityCoords.mockResolvedValue(
       new Map([
         ['berlin', { cityId: 'city-berlin-a', lat: 52.52, lng: 13.405 }],
@@ -236,7 +176,6 @@ describe('WorkspacePublicOverviewService (unit)', () => {
     expect(result.cityActivity.totalActiveCities).toBe(2);
     expect(result.cityActivity.totalActiveRequests).toBe(6);
     expect(result.cityActivity.items.map((x) => x.citySlug)).toEqual(['berlin', 'mannheim']);
-
     expect(result.cityActivity.items[0]).toMatchObject({
       citySlug: 'berlin',
       cityName: 'Berlin',
@@ -245,7 +184,6 @@ describe('WorkspacePublicOverviewService (unit)', () => {
       lat: 52.52,
       lng: 13.405,
     });
-
     expect(result.cityActivity.items[1]).toMatchObject({
       citySlug: 'mannheim',
       cityName: 'Mannheim',
@@ -261,8 +199,8 @@ describe('WorkspacePublicOverviewService (unit)', () => {
     requestsMock.countPublic.mockResolvedValue(0);
 
     modelMock.countDocuments
-      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(0) })
-      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(0) });
+      .mockReturnValueOnce(execResult(0))
+      .mockReturnValueOnce(execResult(0));
 
     analyticsMock.getPlatformActivity.mockResolvedValue({
       range: '30d',
@@ -272,9 +210,7 @@ describe('WorkspacePublicOverviewService (unit)', () => {
       updatedAt: new Date('2030-03-01T00:00:00.000Z').toISOString(),
     });
 
-    modelMock.aggregate.mockReturnValueOnce({
-      exec: jest.fn().mockResolvedValue([]),
-    });
+    modelMock.aggregate.mockReturnValueOnce(execResult([]));
 
     await service.getPublicOverview({
       page: 1,
