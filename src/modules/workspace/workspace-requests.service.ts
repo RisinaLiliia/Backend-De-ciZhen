@@ -18,143 +18,28 @@ import type {
   WorkspaceRequestsSummaryItemDto,
 } from './dto/workspace-requests-response.dto';
 
-const WORKSPACE_REQUESTS_PERIOD_MS = {
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
-  '90d': 90 * 24 * 60 * 60 * 1000,
-} as const;
-
-type WorkspaceRequestsLocale = 'de' | 'en';
-type WorkspaceRequestsRole = 'all' | 'customer' | 'provider';
-type WorkspaceRequestsState = 'all' | 'attention' | 'execution' | 'completed';
-type WorkspaceRequestsWorkflowState = 'open' | 'clarifying' | 'active' | 'completed';
-type WorkspaceRequestsProgressStep = 'request' | 'offers' | 'selection' | 'contract' | 'done';
-type WorkspaceRequestCardRole = 'customer' | 'provider';
-type WorkspaceRequestDecisionActionType =
-  | 'review_offers'
-  | 'reply_required'
-  | 'confirm_contract'
-  | 'confirm_completion'
-  | 'review_completion'
-  | 'overdue_followup'
-  | 'none';
-type WorkspaceRequestDecisionPriorityLevel = 'high' | 'medium' | 'low' | 'none';
-
-type WorkspaceRequestSnapshot = {
-  id: string;
-  title?: string | null;
-  description?: string | null;
-  serviceKey?: string | null;
-  cityId?: string | null;
-  cityName?: string | null;
-  categoryKey?: string | null;
-  categoryName?: string | null;
-  subcategoryName?: string | null;
-  price?: number | null;
-  previousPrice?: number | null;
-  priceTrend?: 'up' | 'down' | null;
-  preferredDate?: Date | string | null;
-  status?: string | null;
-  createdAt?: Date | string | null;
-  isRecurring?: boolean | null;
-  imageUrl?: string | null;
-  tags?: string[] | null;
-};
-
-type WorkspaceOfferSnapshot = {
-  id: string;
-  requestId: string;
-  providerUserId: string | null;
-  clientUserId: string | null;
-  status: 'sent' | 'accepted' | 'declined' | 'withdrawn';
-  message?: string | null;
-  amount?: number | null;
-  priceType?: 'fixed' | 'estimate' | 'hourly' | null;
-  availableAt?: Date | string | null;
-  availabilityNote?: string | null;
-  createdAt?: Date | string | null;
-  updatedAt?: Date | string | null;
-  requestTitle?: string | null;
-  requestDescription?: string | null;
-  requestServiceKey?: string | null;
-  requestCityId?: string | null;
-  requestCityName?: string | null;
-  requestCategoryKey?: string | null;
-  requestCategoryName?: string | null;
-  requestSubcategoryName?: string | null;
-  requestPreferredDate?: Date | string | null;
-  requestStatus?: string | null;
-  requestPrice?: number | null;
-  requestPreviousPrice?: number | null;
-  requestPriceTrend?: 'up' | 'down' | null;
-  requestCreatedAt?: Date | string | null;
-  requestIsRecurring?: boolean | null;
-  requestImageUrl?: string | null;
-  requestTags?: string[] | null;
-};
-
-type WorkspaceContractSnapshot = {
-  id: string;
-  requestId: string;
-  offerId: string;
-  clientId: string;
-  providerUserId: string;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
-  priceAmount?: number | null;
-  priceType?: 'fixed' | 'estimate' | 'hourly' | null;
-  priceDetails?: string | null;
-  confirmedAt?: Date | string | null;
-  completedAt?: Date | string | null;
-  cancelledAt?: Date | string | null;
-  cancelReason?: string | null;
-  createdAt?: Date | string | null;
-  updatedAt?: Date | string | null;
-};
-
-type WorkspaceBookingSnapshot = {
-  id: string;
-  requestId: string;
-  offerId: string;
-  contractId: string | null;
-  providerUserId: string;
-  clientId: string;
-  startAt?: Date | string | null;
-  durationMin?: number | null;
-  endAt?: Date | string | null;
-  status: 'confirmed' | 'cancelled' | 'completed';
-};
-
-type WorkspaceContractReviewSnapshot = {
-  clientReviewId: string | null;
-  clientReviewedProviderAt: number | null;
-  clientReviewRating: number | null;
-  clientReviewText: string | null;
-};
-
-type WorkspaceCustomerLifecycleStage =
-  | 'draft'
-  | 'published'
-  | 'offers_received'
-  | 'contract_pending'
-  | 'in_progress'
-  | 'completion_pending'
-  | 'completed'
-  | 'reviewed';
-
-type WorkspaceRequestCardModel = {
-  item: WorkspaceMyRequestCardDto;
-  role: WorkspaceRequestCardRole;
-  workflowState: WorkspaceRequestsWorkflowState;
-  decision: WorkspaceRequestDecisionDto;
-  sortActivityAt: number;
-  sortCreatedAt: number;
-  sortBudget: number;
-  sortDeadlineAt: number | null;
-};
+import {
+  WORKSPACE_REQUESTS_PERIOD_MS,
+  WorkspaceCustomerLifecycleStage,
+  WorkspaceContractReviewSnapshot,
+  WorkspaceContractSnapshot,
+  WorkspaceBookingSnapshot,
+  WorkspaceOfferSnapshot,
+  WorkspaceRequestCardModel,
+  WorkspaceRequestDecisionActionType,
+  WorkspaceRequestSnapshot,
+  WorkspaceRequestsLocale,
+  WorkspaceRequestsRole,
+  WorkspaceRequestsState,
+  WorkspaceRequestsWorkflowState,
+  WorkspaceRequestsProgressStep,
+  WorkspaceRequestsSupport,
+} from './workspace-requests.support';
 
 @Injectable()
 export class WorkspaceRequestsService {
+  private readonly support = new WorkspaceRequestsSupport();
+
   constructor(
     @InjectModel(Request.name) private readonly requestModel: Model<RequestDocument>,
     @InjectModel(Offer.name) private readonly offerModel: Model<OfferDocument>,
@@ -163,737 +48,6 @@ export class WorkspaceRequestsService {
     @InjectModel(Review.name) private readonly reviewModel: Model<ReviewDocument>,
   ) {}
 
-  private normalizeId(value: unknown): string | null {
-    if (!value) return null;
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      return trimmed.length > 0 ? trimmed : null;
-    }
-    const str = (value as any)?.toString?.();
-    if (typeof str !== 'string') return null;
-    const trimmed = str.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-  private parseActivityAt(value: Date | string | null | undefined): number | null {
-    if (!value) return null;
-    const timestamp = new Date(value).getTime();
-    return Number.isFinite(timestamp) ? timestamp : null;
-  }
-  private resolveWorkspaceLocale(acceptLanguage?: string | null): WorkspaceRequestsLocale {
-    const raw = String(acceptLanguage ?? '').toLowerCase();
-    return raw.includes('de') ? 'de' : 'en';
-  }
-  private formatWorkspaceDate(value: Date | string | null | undefined, locale: WorkspaceRequestsLocale): string | null {
-    if (!value) return null;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-
-    return new Intl.DateTimeFormat(locale === 'de' ? 'de-DE' : 'en-US', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(date);
-  }
-  private formatWorkspacePrice(value: number | null | undefined, locale: WorkspaceRequestsLocale): string {
-    const amount = typeof value === 'number' && Number.isFinite(value) ? value : 0;
-
-    return new Intl.NumberFormat(locale === 'de' ? 'de-DE' : 'en-US', {
-      style: 'currency',
-      currency: 'EUR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  }
-  private resolveWorkspaceRecurringLabel(
-    locale: WorkspaceRequestsLocale,
-    isRecurring: boolean | null | undefined,
-  ): string {
-    if (isRecurring) {
-      return locale === 'de' ? 'Wiederkehrend' : 'Recurring';
-    }
-
-    return locale === 'de' ? 'Einmalig' : 'One-time';
-  }
-  private resolveWorkspacePriceTrendLabel(
-    locale: WorkspaceRequestsLocale,
-    trend: 'up' | 'down' | null | undefined,
-  ): string | null {
-    if (trend === 'down') {
-      return locale === 'de' ? 'Preis gesunken' : 'Price decreased';
-    }
-
-    if (trend === 'up') {
-      return locale === 'de' ? 'Preis gestiegen' : 'Price increased';
-    }
-
-    return null;
-  }
-  private resolveWorkspaceStatusBadge(args: {
-    locale: WorkspaceRequestsLocale;
-    role: WorkspaceRequestCardRole;
-    workflowState: WorkspaceRequestsWorkflowState;
-    requestStatus?: string | null;
-    offerStatus?: WorkspaceOfferSnapshot['status'];
-  }): {
-    label: string | null;
-    tone: 'info' | 'warning' | 'success' | 'danger' | null;
-  } {
-    if (args.role === 'customer') {
-      if (args.requestStatus === 'draft') {
-        return {
-          label: args.locale === 'de' ? 'Entwurf' : 'Draft',
-          tone: 'info',
-        };
-      }
-
-      if (args.requestStatus === 'paused') {
-        return {
-          label: args.locale === 'de' ? 'Nicht veröffentlicht' : 'Unpublished',
-          tone: 'warning',
-        };
-      }
-
-      if (args.requestStatus === 'cancelled') {
-        return {
-          label: args.locale === 'de' ? 'Storniert' : 'Cancelled',
-          tone: 'danger',
-        };
-      }
-
-      if (args.workflowState === 'completed') {
-        return {
-          label: args.locale === 'de' ? 'Abgeschlossen' : 'Completed',
-          tone: 'success',
-        };
-      }
-
-      if (args.workflowState === 'active') {
-        return {
-          label: args.locale === 'de' ? 'In Arbeit' : 'In progress',
-          tone: 'warning',
-        };
-      }
-
-      return {
-        label: args.locale === 'de' ? 'Offen' : 'Open',
-        tone: 'info',
-      };
-    }
-
-    if (args.offerStatus === 'accepted') {
-      return {
-        label: args.locale === 'de' ? 'Angenommen' : 'Accepted',
-        tone: 'success',
-      };
-    }
-
-    if (args.offerStatus === 'declined' || args.offerStatus === 'withdrawn') {
-      return {
-        label: args.locale === 'de' ? 'Abgelehnt' : 'Declined',
-        tone: 'danger',
-      };
-    }
-
-    if (args.offerStatus === 'sent') {
-      return {
-        label: args.locale === 'de' ? 'In Prüfung' : 'In review',
-        tone: 'warning',
-      };
-    }
-
-    return {
-      label: null,
-      tone: null,
-    };
-  }
-  private resolveWorkspaceCategoryLabel(request: WorkspaceRequestSnapshot): string {
-    const category = String(request.categoryName ?? '').trim();
-    if (category) return category;
-    const subcategory = String(request.subcategoryName ?? '').trim();
-    if (subcategory) return subcategory;
-    const serviceKey = String(request.serviceKey ?? '').trim();
-    if (serviceKey) return serviceKey;
-    return 'Service';
-  }
-  private resolveWorkspaceServiceLabel(request: WorkspaceRequestSnapshot): string {
-    const subcategory = String(request.subcategoryName ?? '').trim();
-    if (subcategory) return subcategory;
-    const serviceKey = String(request.serviceKey ?? '').trim();
-    if (serviceKey) return serviceKey;
-    return this.resolveWorkspaceCategoryLabel(request);
-  }
-  private resolveWorkspaceTitle(request: WorkspaceRequestSnapshot, category: string, locale: WorkspaceRequestsLocale): string {
-    const title = String(request.title ?? '').trim();
-    if (title) return title;
-    const description = String(request.description ?? '').trim();
-    if (description) return description.slice(0, 88);
-    return locale === 'de' ? `${category} anfragen` : `${category} request`;
-  }
-  private resolveWorkspaceStateLabel(
-    locale: WorkspaceRequestsLocale,
-    state: WorkspaceRequestsWorkflowState,
-  ): string {
-    if (locale === 'de') {
-      if (state === 'open') return 'Offen';
-      if (state === 'clarifying') return 'In Klärung';
-      if (state === 'active') return 'In Arbeit';
-      return 'Abgeschlossen';
-    }
-
-    if (state === 'open') return 'Open';
-    if (state === 'clarifying') return 'Clarifying';
-    if (state === 'active') return 'Active';
-    return 'Completed';
-  }
-  private resolveWorkspaceUrgency(deadlineAt: number | null, now: number): 'low' | 'medium' | 'high' | null {
-    if (!deadlineAt) return null;
-    const delta = deadlineAt - now;
-    if (delta <= 2 * 24 * 60 * 60 * 1000) return 'high';
-    if (delta <= 7 * 24 * 60 * 60 * 1000) return 'medium';
-    return 'low';
-  }
-  private resolveWorkspaceProgressSteps(
-    locale: WorkspaceRequestsLocale,
-    currentStep: WorkspaceRequestsProgressStep,
-  ): WorkspaceMyRequestCardDto['progress']['steps'] {
-    const steps = locale === 'de'
-      ? [
-          { key: 'request' as const, label: 'Anfrage' },
-          { key: 'offers' as const, label: 'Angebote' },
-          { key: 'selection' as const, label: 'Auswahl' },
-          { key: 'contract' as const, label: 'Vertrag' },
-          { key: 'done' as const, label: 'Abschluss' },
-        ]
-      : [
-          { key: 'request' as const, label: 'Request' },
-          { key: 'offers' as const, label: 'Offers' },
-          { key: 'selection' as const, label: 'Selection' },
-          { key: 'contract' as const, label: 'Contract' },
-          { key: 'done' as const, label: 'Done' },
-        ];
-
-    const activeIndex = steps.findIndex((step) => step.key === currentStep);
-
-    return steps.map((step, index) => ({
-      ...step,
-      status: index < activeIndex ? 'done' : index === activeIndex ? 'current' : 'upcoming',
-    }));
-  }
-  private resolveWorkspaceDecisionPriorityLevel(
-    priority: number,
-  ): WorkspaceRequestDecisionPriorityLevel {
-    if (priority >= 90) return 'high';
-    if (priority >= 70) return 'medium';
-    if (priority > 0) return 'low';
-    return 'none';
-  }
-  private buildWorkspaceDecision(args: {
-    locale: WorkspaceRequestsLocale;
-    role: WorkspaceRequestCardRole;
-    workflowState: WorkspaceRequestsWorkflowState;
-    customerLifecycleStage?: WorkspaceCustomerLifecycleStage | null;
-    urgency: WorkspaceMyRequestCardDto['urgency'];
-    requestTitle: string;
-    requestCreatedAt: number;
-    requestStatus?: string | null;
-    offersCount?: number;
-    hasAcceptedOffer?: boolean;
-    contractStatus?: WorkspaceContractSnapshot['status'] | null;
-    activityAt?: number | null;
-    now: number;
-  }): WorkspaceRequestDecisionDto {
-    const staleMs = args.now - (args.activityAt ?? args.requestCreatedAt);
-    const isStale = staleMs >= 24 * 60 * 60 * 1000;
-    const urgencyBonus = args.urgency === 'high' ? 10 : args.urgency === 'medium' ? 5 : 0;
-    const staleBonus = isStale ? 5 : 0;
-
-    let actionType: WorkspaceRequestDecisionActionType = 'none';
-    let actionLabel: string | null = null;
-    let actionReason: string | null = null;
-    let actionPriority = 0;
-
-    if (args.role === 'customer') {
-      if (args.customerLifecycleStage === 'reviewed') {
-        actionType = 'none';
-      } else if (args.customerLifecycleStage === 'completed') {
-        actionType = 'review_completion';
-        actionLabel = args.locale === 'de' ? 'Bewertung abgeben' : 'Leave review';
-        actionReason = args.locale === 'de'
-          ? 'Der Auftrag ist abgeschlossen. Dein Feedback schließt den Vorgang sauber ab.'
-          : 'The job is completed. Your feedback closes the workflow cleanly.';
-        actionPriority = 80;
-      } else if (args.customerLifecycleStage === 'completion_pending' || args.contractStatus === 'completed') {
-        actionType = 'confirm_completion';
-        actionLabel = args.locale === 'de' ? 'Fertigstellung bestätigen' : 'Confirm completion';
-        actionReason = args.locale === 'de'
-          ? 'Der Anbieter hat den Vorgang als erledigt markiert.'
-          : 'The provider marked the work as completed.';
-        actionPriority = 100;
-      } else if (args.customerLifecycleStage === 'contract_pending' || args.contractStatus === 'pending' || (args.hasAcceptedOffer && !args.contractStatus)) {
-        actionType = 'confirm_contract';
-        actionLabel = args.locale === 'de' ? 'Vertrag ansehen' : 'View contract';
-        actionReason = args.locale === 'de'
-          ? 'Die nächsten Schritte hängen von deiner Vertragsbestätigung ab.'
-          : 'The next step depends on your contract confirmation.';
-        actionPriority = 90;
-      } else if (args.customerLifecycleStage === 'offers_received' || (args.offersCount ?? 0) > 0 && args.workflowState !== 'completed') {
-        actionType = 'review_offers';
-        actionLabel = args.locale === 'de'
-          ? 'Angebote ansehen'
-          : 'View offers';
-        actionReason = args.locale === 'de'
-          ? 'Neue Angebote warten auf deine Auswahl.'
-          : 'New offers are waiting for your decision.';
-        actionPriority = 70;
-      } else if (
-        args.workflowState !== 'completed' &&
-        (args.requestStatus === 'published' || args.requestStatus === 'matched') &&
-        isStale
-      ) {
-        actionType = 'overdue_followup';
-        actionLabel = args.locale === 'de' ? 'Seit 24h ohne Aktion' : 'No action in the last 24h';
-        actionReason = args.locale === 'de'
-          ? 'Dieser Vorgang wartet zu lange auf deine Entscheidung.'
-          : 'This workflow has been waiting too long for your decision.';
-        actionPriority = 60;
-      }
-    } else if (args.role === 'provider') {
-      if (args.contractStatus === 'pending' || args.workflowState === 'active' && !args.contractStatus) {
-        actionType = 'confirm_contract';
-        actionLabel = args.locale === 'de' ? 'Vertrag bestätigen' : 'Confirm contract';
-        actionReason = args.locale === 'de'
-          ? 'Der Auftrag ist bereit für die nächste Bestätigung.'
-          : 'The job is ready for the next confirmation.';
-        actionPriority = 90;
-      } else if (args.workflowState === 'clarifying' && isStale) {
-        actionType = 'overdue_followup';
-        actionLabel = args.locale === 'de' ? 'Seit 24h ohne Aktion' : 'No action in the last 24h';
-        actionReason = args.locale === 'de'
-          ? 'Diese Anfrage braucht ein Follow-up, damit sie nicht blockiert.'
-          : 'This request needs a follow-up so it does not stay blocked.';
-        actionPriority = 60;
-      }
-    }
-
-    const boostedPriority = actionPriority > 0 ? actionPriority + urgencyBonus + staleBonus : 0;
-
-    return {
-      needsAction: actionType !== 'none',
-      actionType,
-      actionPriority: boostedPriority,
-      actionPriorityLevel: this.resolveWorkspaceDecisionPriorityLevel(boostedPriority),
-      actionLabel,
-      actionReason,
-      lastRelevantActivityAt:
-        actionType === 'none'
-          ? null
-          : new Date(args.activityAt ?? args.requestCreatedAt).toISOString(),
-      primaryAction: null,
-    };
-  }
-  private resolveWorkspaceDecisionPrimaryAction(args: {
-    locale: WorkspaceRequestsLocale;
-    requestId: string;
-    detailsHref: string;
-    decision: WorkspaceRequestDecisionDto;
-    statusActions: WorkspaceMyRequestCardDto['status']['actions'];
-  }): WorkspaceMyRequestCardDto['status']['actions'][number] | null {
-    if (!args.decision.needsAction) return null;
-
-    if (args.decision.actionType === 'reply_required') {
-      return args.statusActions.find((action) => action.kind === 'open_chat')
-        ?? args.statusActions.find((action) => action.key === 'open')
-        ?? null;
-    }
-
-    if (args.decision.actionType === 'confirm_contract') {
-      return args.statusActions.find((action) => action.key === 'contract')
-        ?? args.statusActions.find((action) => action.key === 'open')
-        ?? {
-          key: 'open',
-          kind: 'link',
-          tone: 'primary',
-          icon: 'briefcase',
-          label: args.locale === 'de' ? 'Öffnen' : 'Open',
-          href: args.detailsHref,
-          requestId: args.requestId,
-        };
-    }
-
-    if (args.decision.actionType === 'confirm_completion') {
-      return args.statusActions.find((action) => action.key === 'contract')
-        ?? args.statusActions.find((action) => action.key === 'open')
-        ?? null;
-    }
-
-    if (args.decision.actionType === 'review_completion') {
-      return args.statusActions.find((action) => action.key === 'review')
-        ?? args.statusActions.find((action) => action.key === 'open')
-        ?? null;
-    }
-
-    const primaryAction = args.statusActions.find((action) => action.tone === 'primary');
-    if (primaryAction) return primaryAction;
-
-    return args.statusActions.find((action) => action.key === 'open')
-      ?? {
-        key: 'open',
-        kind: 'link',
-        tone: 'primary',
-        icon: 'briefcase',
-        label: args.locale === 'de' ? 'Öffnen' : 'Open',
-        href: args.detailsHref,
-        requestId: args.requestId,
-      };
-  }
-  private buildWorkspaceRequestPreview(args: {
-    locale: WorkspaceRequestsLocale;
-    request: WorkspaceRequestSnapshot;
-    title: string;
-    categoryLabel: string;
-    budgetValue: number | null;
-    detailsHref: string;
-  }): WorkspaceMyRequestCardDto['requestPreview'] {
-    const excerpt = String(args.request.description ?? '').trim() || null;
-    const cityLabel = String(args.request.cityName ?? '').trim() || String(args.request.cityId ?? '').trim() || null;
-    const imageUrl = String(args.request.imageUrl ?? '').trim() || null;
-    const priceTrend =
-      args.request.priceTrend === 'up' || args.request.priceTrend === 'down'
-        ? args.request.priceTrend
-        : null;
-
-    return {
-      href: args.detailsHref,
-      imageUrl,
-      imageCategoryKey: args.request.categoryKey ?? args.request.serviceKey ?? null,
-      badgeLabel: this.resolveWorkspaceRecurringLabel(args.locale, args.request.isRecurring ?? false),
-      categoryLabel: args.categoryLabel,
-      title: args.title,
-      excerpt: excerpt && excerpt !== args.title ? excerpt : null,
-      cityLabel,
-      dateLabel: this.formatWorkspaceDate(args.request.preferredDate ?? args.request.createdAt ?? null, args.locale),
-      priceLabel: this.formatWorkspacePrice(args.budgetValue ?? args.request.price ?? null, args.locale),
-      priceTrend,
-      priceTrendLabel: this.resolveWorkspacePriceTrendLabel(args.locale, priceTrend),
-      tags: [
-        args.categoryLabel,
-        this.resolveWorkspaceServiceLabel(args.request),
-        ...((args.request.tags ?? []).slice(0, 2)),
-      ].filter((value, index, list) => Boolean(value) && list.indexOf(value) === index),
-    };
-  }
-  private buildWorkspaceCustomerChatAction(args: {
-    locale: WorkspaceRequestsLocale;
-    requestId: string;
-    contract: WorkspaceContractSnapshot | null;
-    selectedOffer: WorkspaceOfferSnapshot | null;
-    label: string;
-  }): WorkspaceMyRequestCardDto['status']['actions'][number] | null {
-    const participantUserId = args.contract?.providerUserId ?? args.selectedOffer?.providerUserId ?? null;
-    if (!participantUserId) return null;
-
-    return {
-      key: 'chat',
-      kind: 'open_chat',
-      tone: 'secondary',
-      icon: 'chat',
-      label: args.label,
-      requestId: args.requestId,
-      offerId: args.selectedOffer?.id ?? args.contract?.offerId ?? null,
-      chatInput: {
-        relatedEntity: {
-          type: 'request',
-          id: args.requestId,
-        },
-        participantUserId,
-        participantRole: 'provider',
-        requestId: args.requestId,
-        providerUserId: participantUserId,
-        offerId: args.selectedOffer?.id ?? args.contract?.offerId ?? undefined,
-        contractId: args.contract?.id ?? undefined,
-      },
-    };
-  }
-  private buildWorkspaceCustomerStatus(args: {
-    locale: WorkspaceRequestsLocale;
-    requestId: string;
-    workflowState: WorkspaceRequestsWorkflowState;
-    requestStatus?: string | null;
-    lifecycleStage: WorkspaceCustomerLifecycleStage;
-    contract: WorkspaceContractSnapshot | null;
-    selectedOffer: WorkspaceOfferSnapshot | null;
-  }): WorkspaceMyRequestCardDto['status'] {
-    const badge = this.resolveWorkspaceStatusBadge({
-      locale: args.locale,
-      role: 'customer',
-      workflowState: args.workflowState,
-      requestStatus: args.requestStatus,
-    });
-
-    const detailsHref = `/requests/${args.requestId}`;
-    const editAction = {
-      key: 'edit-request',
-      kind: 'link' as const,
-      tone: 'secondary' as const,
-      icon: 'edit' as const,
-      label: args.locale === 'de' ? 'Bearbeiten' : 'Edit',
-      href: `${detailsHref}/edit`,
-      requestId: args.requestId,
-    };
-    const openAction = {
-      key: 'open',
-      kind: 'link' as const,
-      tone: 'secondary' as const,
-      icon: 'briefcase' as const,
-      label: args.locale === 'de' ? 'Details ansehen' : 'View details',
-      href: detailsHref,
-      requestId: args.requestId,
-    };
-    const contractAction = args.contract
-      ? {
-          key: 'contract',
-          kind: 'link' as const,
-          tone: 'primary' as const,
-          icon: 'briefcase' as const,
-          label:
-            args.lifecycleStage === 'contract_pending'
-              ? (args.locale === 'de' ? 'Vertrag ansehen' : 'View contract')
-              : args.lifecycleStage === 'completion_pending'
-                ? (args.locale === 'de' ? 'Fertigstellung bestätigen' : 'Confirm completion')
-                : (args.locale === 'de' ? 'Auftrag ansehen' : 'View job'),
-          href: detailsHref,
-          requestId: args.requestId,
-        }
-      : null;
-    const reviewAction = {
-      key: 'review',
-      kind: 'link' as const,
-      tone: 'primary' as const,
-      icon: 'briefcase' as const,
-      label:
-        args.lifecycleStage === 'reviewed'
-          ? (args.locale === 'de' ? 'Bewertung ansehen' : 'View review')
-          : (args.locale === 'de' ? 'Bewertung abgeben' : 'Leave review'),
-      href: detailsHref,
-      requestId: args.requestId,
-    };
-    const responsesAction = {
-      key: 'review-responses',
-      kind: 'review_responses' as const,
-      tone: 'primary' as const,
-      icon: 'briefcase' as const,
-      label: args.locale === 'de' ? 'Angebote ansehen' : 'View offers',
-      href: detailsHref,
-      requestId: args.requestId,
-    };
-    const publishAction = {
-      key: 'publish-request',
-      kind: 'publish_request' as const,
-      tone: 'primary' as const,
-      icon: 'send' as const,
-      label: args.locale === 'de' ? 'Jetzt veröffentlichen' : 'Publish now',
-      requestId: args.requestId,
-    };
-    const unpublishAction = {
-      key: 'unpublish-request',
-      kind: 'unpublish_request' as const,
-      tone: 'primary' as const,
-      icon: 'pause' as const,
-      label: args.locale === 'de' ? 'Veröffentlichung pausieren' : 'Pause publication',
-      requestId: args.requestId,
-    };
-    const messageAction = this.buildWorkspaceCustomerChatAction({
-      locale: args.locale,
-      requestId: args.requestId,
-      contract: args.contract,
-      selectedOffer: args.selectedOffer,
-      label: 'Chat',
-    });
-    const issueAction = this.buildWorkspaceCustomerChatAction({
-      locale: args.locale,
-      requestId: args.requestId,
-      contract: args.contract,
-      selectedOffer: args.selectedOffer,
-      label: args.locale === 'de' ? 'Problem melden' : 'Report an issue',
-    });
-    const duplicateAction = {
-      key: 'duplicate-request',
-      kind: 'duplicate_request' as const,
-      tone: 'secondary' as const,
-      icon: 'copy' as const,
-      label: args.locale === 'de' ? 'Duplizieren' : 'Duplicate',
-      requestId: args.requestId,
-    };
-    const trailingActions: WorkspaceMyRequestCardDto['status']['actions'] = args.lifecycleStage === 'reviewed'
-      ? [
-          duplicateAction,
-          openAction,
-        ]
-      : [
-          openAction,
-          duplicateAction,
-        ];
-
-    const lifecycleActions: WorkspaceMyRequestCardDto['status']['actions'] =
-      args.lifecycleStage === 'draft'
-        ? [publishAction, editAction]
-        : args.lifecycleStage === 'published'
-          ? [unpublishAction, editAction]
-          : args.lifecycleStage === 'offers_received'
-            ? [responsesAction, editAction]
-            : args.lifecycleStage === 'contract_pending'
-              ? [contractAction, messageAction].filter((action): action is NonNullable<typeof action> => Boolean(action))
-              : args.lifecycleStage === 'in_progress'
-                ? [contractAction, messageAction].filter((action): action is NonNullable<typeof action> => Boolean(action))
-                : args.lifecycleStage === 'completion_pending'
-                  ? [contractAction, issueAction].filter((action): action is NonNullable<typeof action> => Boolean(action))
-                  : [reviewAction];
-
-    return {
-      badgeLabel: badge.label,
-      badgeTone: badge.tone,
-      actions: [
-        ...lifecycleActions,
-        ...trailingActions,
-        {
-          key: 'share-request',
-          kind: 'share_request',
-          tone: 'secondary',
-          icon: 'share',
-          label: args.locale === 'de' ? 'Teilen' : 'Share',
-          href: `/requests/${args.requestId}`,
-          requestId: args.requestId,
-        },
-        {
-          key: 'archive-request',
-          kind: 'archive_request',
-          tone: 'secondary',
-          icon: 'archive',
-          label: args.locale === 'de' ? 'Archivieren' : 'Archive',
-          requestId: args.requestId,
-        },
-        {
-          key: 'delete-request',
-          kind: 'delete_request',
-          tone: 'danger',
-          icon: 'trash',
-          label: args.locale === 'de' ? 'Löschen' : 'Delete',
-          requestId: args.requestId,
-        },
-      ],
-    };
-  }
-  private buildWorkspaceProviderStatus(args: {
-    locale: WorkspaceRequestsLocale;
-    offer: WorkspaceOfferSnapshot;
-    workflowState: WorkspaceRequestsWorkflowState;
-  }): WorkspaceMyRequestCardDto['status'] {
-    const badge = this.resolveWorkspaceStatusBadge({
-      locale: args.locale,
-      role: 'provider',
-      workflowState: args.workflowState,
-      requestStatus: args.offer.requestStatus ?? null,
-      offerStatus: args.offer.status,
-    });
-
-    const actions: WorkspaceMyRequestCardDto['status']['actions'] = [];
-    const chatInput = args.offer.providerUserId
-      ? {
-          relatedEntity: {
-            type: 'offer' as const,
-            id: args.offer.id,
-          },
-          participantUserId: args.offer.providerUserId,
-          participantRole: 'provider' as const,
-          requestId: args.offer.requestId,
-          providerUserId: args.offer.providerUserId,
-          offerId: args.offer.id,
-        }
-      : null;
-
-    if (args.offer.status === 'sent') {
-      actions.push(
-        {
-          key: 'edit-offer',
-          kind: 'edit_offer',
-          tone: 'secondary',
-          icon: 'edit',
-          label: args.locale === 'de' ? 'Bearbeiten' : 'Edit',
-          requestId: args.offer.requestId,
-          offerId: args.offer.id,
-        },
-        {
-          key: 'withdraw-offer',
-          kind: 'withdraw_offer',
-          tone: 'danger',
-          icon: 'trash',
-          label: args.locale === 'de' ? 'Zurückziehen' : 'Withdraw',
-          requestId: args.offer.requestId,
-          offerId: args.offer.id,
-        },
-      );
-    } else if (args.offer.status === 'accepted') {
-      actions.push(
-        {
-          key: 'contract',
-          kind: 'link',
-          tone: 'primary',
-          icon: 'briefcase',
-          label: args.locale === 'de' ? 'Vertrag' : 'Contract',
-          href: '/workspace?section=requests&scope=my&period=90d&range=90d',
-          requestId: args.offer.requestId,
-          offerId: args.offer.id,
-        },
-        {
-          key: 'chat',
-          kind: 'open_chat',
-          tone: 'secondary',
-          icon: 'chat',
-          label: args.locale === 'de' ? 'Chat' : 'Chat',
-          requestId: args.offer.requestId,
-          offerId: args.offer.id,
-          chatInput,
-        },
-      );
-    } else if (args.offer.status === 'declined' || args.offer.status === 'withdrawn') {
-      actions.push({
-        key: 'send-offer',
-        kind: 'send_offer',
-        tone: 'primary',
-        icon: 'send',
-        label: args.locale === 'de' ? 'Neu anbieten' : 'Send again',
-        requestId: args.offer.requestId,
-      });
-    } else {
-      actions.push({
-        key: 'open',
-        kind: 'link',
-        tone: 'secondary',
-        icon: 'briefcase',
-        label: args.locale === 'de' ? 'Öffnen' : 'Open',
-        href: `/requests/${args.offer.requestId}`,
-        requestId: args.offer.requestId,
-      });
-    }
-
-    return {
-      badgeLabel: badge.label,
-      badgeTone: badge.tone,
-      actions,
-    };
-  }
-  private pickLatestByRequest<T extends { requestId: string; updatedAt?: Date | string | null; createdAt?: Date | string | null }>(
-    items: T[],
-  ) {
-    return items.reduce((map, item) => {
-      const current = map.get(item.requestId);
-      const currentTs = this.parseActivityAt(current?.updatedAt) ?? this.parseActivityAt(current?.createdAt) ?? 0;
-      const nextTs = this.parseActivityAt(item.updatedAt) ?? this.parseActivityAt(item.createdAt) ?? 0;
-      if (!current || nextTs >= currentTs) {
-        map.set(item.requestId, item);
-      }
-      return map;
-    }, new Map<string, T>());
-  }
   private buildWorkspaceCustomerCard(args: {
     locale: WorkspaceRequestsLocale;
     request: WorkspaceRequestSnapshot;
@@ -904,12 +58,12 @@ export class WorkspaceRequestsService {
     now: number;
   }): WorkspaceRequestCardModel {
     const { locale, request, offers, contract, booking, reviewStatus, now } = args;
-    const category = this.resolveWorkspaceCategoryLabel(request);
-    const title = this.resolveWorkspaceTitle(request, category, locale);
+    const category = this.support.resolveWorkspaceCategoryLabel(request);
+    const title = this.support.resolveWorkspaceTitle(request, category, locale);
     const city = String(request.cityName ?? '').trim() || String(request.cityId ?? '').trim() || null;
-    const preferredAt = this.parseActivityAt(request.preferredDate);
-    const createdAt = this.parseActivityAt(request.createdAt) ?? now;
-    const contractConfirmedAt = this.parseActivityAt(contract?.confirmedAt ?? contract?.createdAt ?? null);
+    const preferredAt = this.support.parseActivityAt(request.preferredDate);
+    const createdAt = this.support.parseActivityAt(request.createdAt) ?? now;
+    const contractConfirmedAt = this.support.parseActivityAt(contract?.confirmedAt ?? contract?.createdAt ?? null);
     const selectedOffer = offers.find((offer) => offer.status === 'accepted')
       ?? offers.find((offer) => Boolean(contract?.offerId) && offer.id === contract?.offerId)
       ?? null;
@@ -962,8 +116,8 @@ export class WorkspaceRequestsService {
       activity = {
         label: booking?.startAt
           ? locale === 'de'
-            ? `Leistung geplant für ${this.formatWorkspaceDate(booking.startAt, locale)}`
-            : `Service scheduled for ${this.formatWorkspaceDate(booking.startAt, locale)}`
+            ? `Leistung geplant für ${this.support.formatWorkspaceDate(booking.startAt, locale)}`
+            : `Service scheduled for ${this.support.formatWorkspaceDate(booking.startAt, locale)}`
           : locale === 'de'
             ? 'Der Auftrag ist in Arbeit.'
             : 'The job is in progress.',
@@ -1006,9 +160,9 @@ export class WorkspaceRequestsService {
     }
 
     const budgetValue = contract?.priceAmount ?? request.price ?? null;
-    const deadlineAt = this.parseActivityAt(booking?.startAt ?? null) ?? contractConfirmedAt ?? preferredAt;
+    const deadlineAt = this.support.parseActivityAt(booking?.startAt ?? null) ?? contractConfirmedAt ?? preferredAt;
     const detailsHref = `/requests/${request.id}`;
-    const status = this.buildWorkspaceCustomerStatus({
+    const status = this.support.buildWorkspaceCustomerStatus({
       locale,
       requestId: request.id,
       workflowState: state,
@@ -1017,32 +171,32 @@ export class WorkspaceRequestsService {
       contract,
       selectedOffer,
     });
-    const decision = this.buildWorkspaceDecision({
+    const decision = this.support.buildWorkspaceDecision({
       locale,
       role: 'customer',
       workflowState: state,
       customerLifecycleStage: lifecycleStage,
-      urgency: this.resolveWorkspaceUrgency(deadlineAt, now),
+      urgency: this.support.resolveWorkspaceUrgency(deadlineAt, now),
       requestTitle: title,
       requestCreatedAt: createdAt,
       requestStatus: request.status ?? null,
       offersCount: offers.length,
       hasAcceptedOffer: offers.some((offer) => offer.status === 'accepted'),
       contractStatus: contract?.status ?? null,
-      activityAt: this.parseActivityAt(contract?.updatedAt ?? contract?.createdAt ?? null)
-        ?? this.parseActivityAt(offers[0]?.updatedAt ?? offers[0]?.createdAt ?? null)
+      activityAt: this.support.parseActivityAt(contract?.updatedAt ?? contract?.createdAt ?? null)
+        ?? this.support.parseActivityAt(offers[0]?.updatedAt ?? offers[0]?.createdAt ?? null)
         ?? preferredAt
         ?? createdAt,
       now,
     });
-    decision.primaryAction = this.resolveWorkspaceDecisionPrimaryAction({
+    decision.primaryAction = this.support.resolveWorkspaceDecisionPrimaryAction({
       locale,
       requestId: request.id,
       detailsHref,
       decision,
       statusActions: status.actions,
     });
-    const urgency = this.resolveWorkspaceUrgency(deadlineAt, now);
+    const urgency = this.support.resolveWorkspaceUrgency(deadlineAt, now);
 
     return {
       item: {
@@ -1054,17 +208,17 @@ export class WorkspaceRequestsService {
         category,
         subcategory: request.subcategoryName ?? null,
         city,
-        createdAt: this.formatWorkspaceDate(request.createdAt, locale),
-        nextEventAt: this.formatWorkspaceDate(booking?.startAt ?? contract?.confirmedAt ?? request.preferredDate ?? null, locale),
+        createdAt: this.support.formatWorkspaceDate(request.createdAt, locale),
+        nextEventAt: this.support.formatWorkspaceDate(booking?.startAt ?? contract?.confirmedAt ?? request.preferredDate ?? null, locale),
         budget: typeof budgetValue === 'number' ? budgetValue : null,
         agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
         state,
-        stateLabel: this.resolveWorkspaceStateLabel(locale, state),
+        stateLabel: this.support.resolveWorkspaceStateLabel(locale, state),
         urgency,
         activity,
         progress: {
           currentStep: progressStep,
-          steps: this.resolveWorkspaceProgressSteps(locale, progressStep),
+          steps: this.support.resolveWorkspaceProgressSteps(locale, progressStep),
         },
         quickActions: [
           {
@@ -1094,7 +248,7 @@ export class WorkspaceRequestsService {
               ]
             : []),
         ],
-        requestPreview: this.buildWorkspaceRequestPreview({
+        requestPreview: this.support.buildWorkspaceRequestPreview({
           locale,
           request,
           title,
@@ -1141,11 +295,11 @@ export class WorkspaceRequestsService {
       imageUrl: offer.requestImageUrl ?? null,
       tags: offer.requestTags ?? [],
     };
-    const category = this.resolveWorkspaceCategoryLabel(request);
-    const title = this.resolveWorkspaceTitle(request, category, locale);
+    const category = this.support.resolveWorkspaceCategoryLabel(request);
+    const title = this.support.resolveWorkspaceTitle(request, category, locale);
     const city = String(request.cityName ?? '').trim() || String(request.cityId ?? '').trim() || null;
-    const offerCreatedAt = this.parseActivityAt(offer.createdAt) ?? now;
-    const nextEventAt = this.parseActivityAt(contract?.confirmedAt ?? request.preferredDate ?? offer.availableAt ?? null);
+    const offerCreatedAt = this.support.parseActivityAt(offer.createdAt) ?? now;
+    const nextEventAt = this.support.parseActivityAt(contract?.confirmedAt ?? request.preferredDate ?? offer.availableAt ?? null);
     const contractCompleted = Boolean(contract && (contract.status === 'completed' || contract.status === 'cancelled'));
 
     let state: WorkspaceRequestsWorkflowState;
@@ -1165,8 +319,8 @@ export class WorkspaceRequestsService {
       activity = {
         label: nextEventAt
           ? locale === 'de'
-            ? `Auftrag beginnt ${this.formatWorkspaceDate(contract.confirmedAt ?? request.preferredDate ?? offer.availableAt, locale)}`
-            : `Job starts ${this.formatWorkspaceDate(contract.confirmedAt ?? request.preferredDate ?? offer.availableAt, locale)}`
+            ? `Auftrag beginnt ${this.support.formatWorkspaceDate(contract.confirmedAt ?? request.preferredDate ?? offer.availableAt, locale)}`
+            : `Job starts ${this.support.formatWorkspaceDate(contract.confirmedAt ?? request.preferredDate ?? offer.availableAt, locale)}`
           : locale === 'de'
             ? 'Vertrag aktiv'
             : 'Contract active',
@@ -1201,13 +355,13 @@ export class WorkspaceRequestsService {
 
     const budgetValue = contract?.priceAmount ?? offer.amount ?? request.price ?? null;
     const detailsHref = `/requests/${offer.requestId}`;
-    const status = this.buildWorkspaceProviderStatus({
+    const status = this.support.buildWorkspaceProviderStatus({
       locale,
       offer,
       workflowState: state,
     });
-    const urgency = this.resolveWorkspaceUrgency(nextEventAt, now);
-    const decision = this.buildWorkspaceDecision({
+    const urgency = this.support.resolveWorkspaceUrgency(nextEventAt, now);
+    const decision = this.support.buildWorkspaceDecision({
       locale,
       role: 'provider',
       workflowState: state,
@@ -1217,13 +371,13 @@ export class WorkspaceRequestsService {
       requestStatus: request.status ?? null,
       contractStatus: contract?.status ?? null,
       activityAt:
-        this.parseActivityAt(contract?.updatedAt ?? contract?.confirmedAt ?? null)
-        ?? this.parseActivityAt(offer.updatedAt ?? offer.createdAt)
+        this.support.parseActivityAt(contract?.updatedAt ?? contract?.confirmedAt ?? null)
+        ?? this.support.parseActivityAt(offer.updatedAt ?? offer.createdAt)
         ?? nextEventAt
         ?? offerCreatedAt,
       now,
     });
-    decision.primaryAction = this.resolveWorkspaceDecisionPrimaryAction({
+    decision.primaryAction = this.support.resolveWorkspaceDecisionPrimaryAction({
       locale,
       requestId: offer.requestId,
       detailsHref,
@@ -1240,17 +394,17 @@ export class WorkspaceRequestsService {
         category,
         subcategory: request.subcategoryName ?? null,
         city,
-        createdAt: this.formatWorkspaceDate(offer.createdAt, locale),
-        nextEventAt: this.formatWorkspaceDate(contract?.confirmedAt ?? request.preferredDate ?? offer.availableAt ?? null, locale),
+        createdAt: this.support.formatWorkspaceDate(offer.createdAt, locale),
+        nextEventAt: this.support.formatWorkspaceDate(contract?.confirmedAt ?? request.preferredDate ?? offer.availableAt ?? null, locale),
         budget: typeof budgetValue === 'number' ? budgetValue : null,
         agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
         state,
-        stateLabel: this.resolveWorkspaceStateLabel(locale, state),
+        stateLabel: this.support.resolveWorkspaceStateLabel(locale, state),
         urgency,
         activity,
         progress: {
           currentStep: progressStep,
-          steps: this.resolveWorkspaceProgressSteps(locale, progressStep),
+          steps: this.support.resolveWorkspaceProgressSteps(locale, progressStep),
         },
         quickActions: [
           {
@@ -1276,7 +430,7 @@ export class WorkspaceRequestsService {
               ]
             : []),
         ],
-        requestPreview: this.buildWorkspaceRequestPreview({
+        requestPreview: this.support.buildWorkspaceRequestPreview({
           locale,
           request,
           title,
@@ -1292,7 +446,7 @@ export class WorkspaceRequestsService {
       decision,
       sortActivityAt:
         nextEventAt
-        ?? this.parseActivityAt(contract?.updatedAt ?? offer.updatedAt ?? offer.createdAt)
+        ?? this.support.parseActivityAt(contract?.updatedAt ?? offer.updatedAt ?? offer.createdAt)
         ?? offerCreatedAt,
       sortCreatedAt: offerCreatedAt,
       sortBudget: budgetValue ?? 0,
@@ -1345,8 +499,8 @@ export class WorkspaceRequestsService {
     const queue = [...args.cards]
       .filter((card) => card.decision.needsAction)
       .sort((left, right) => {
-        const leftRelevant = this.parseActivityAt(left.decision.lastRelevantActivityAt) ?? 0;
-        const rightRelevant = this.parseActivityAt(right.decision.lastRelevantActivityAt) ?? 0;
+        const leftRelevant = this.support.parseActivityAt(left.decision.lastRelevantActivityAt) ?? 0;
+        const rightRelevant = this.support.parseActivityAt(right.decision.lastRelevantActivityAt) ?? 0;
 
         return (
           right.decision.actionPriority - left.decision.actionPriority ||
@@ -1545,7 +699,7 @@ export class WorkspaceRequestsService {
     acceptLanguage?: string | null,
   ): Promise<WorkspaceRequestsResponseDto> {
     const uid = String(userId ?? '').trim();
-    const locale = this.resolveWorkspaceLocale(acceptLanguage);
+    const locale = this.support.resolveWorkspaceLocale(acceptLanguage);
     const role: WorkspaceRequestsRole = query.role ?? 'all';
     const state: WorkspaceRequestsState = query.state ?? 'all';
     const period = query.period ?? '30d';
@@ -1626,8 +780,8 @@ export class WorkspaceRequestsService {
       current.push({
         id: String(offer._id),
         requestId,
-        providerUserId: this.normalizeId(offer.providerUserId),
-        clientUserId: this.normalizeId(offer.clientUserId),
+        providerUserId: this.support.normalizeId(offer.providerUserId),
+        clientUserId: this.support.normalizeId(offer.clientUserId),
         status: offer.status,
         message: offer.message ?? null,
         amount: typeof offer.pricing?.amount === 'number' ? offer.pricing.amount : null,
@@ -1641,13 +795,13 @@ export class WorkspaceRequestsService {
       return map;
     }, new Map<string, WorkspaceOfferSnapshot[]>());
 
-    const providerOfferByRequest = this.pickLatestByRequest(
+    const providerOfferByRequest = this.support.pickLatestByRequest(
       (myProviderOffers ?? []).map((offer) => ({
         ...offer,
         requestId: String(offer.requestId ?? '').trim(),
       })),
     );
-    const providerContractByRequest = this.pickLatestByRequest(
+    const providerContractByRequest = this.support.pickLatestByRequest(
       (myProviderContracts as Array<any>).map((contract) => ({
         id: String(contract._id),
         requestId: String(contract.requestId ?? '').trim(),
@@ -1666,7 +820,7 @@ export class WorkspaceRequestsService {
         updatedAt: contract.updatedAt ?? null,
       } satisfies WorkspaceContractSnapshot)),
     );
-    const clientContractByRequest = this.pickLatestByRequest(
+    const clientContractByRequest = this.support.pickLatestByRequest(
       (myClientContracts as Array<any>).map((contract) => ({
         id: String(contract._id),
         requestId: String(contract.requestId ?? '').trim(),
@@ -1725,7 +879,7 @@ export class WorkspaceRequestsService {
       if (!bookingId || clientReviewByBookingId.has(bookingId)) continue;
       clientReviewByBookingId.set(bookingId, {
         clientReviewId: String(review._id ?? '').trim() || null,
-        clientReviewedProviderAt: this.parseActivityAt(review.createdAt),
+        clientReviewedProviderAt: this.support.parseActivityAt(review.createdAt),
         clientReviewRating: typeof review.rating === 'number' ? review.rating : null,
         clientReviewText: typeof review.text === 'string' ? review.text : null,
       });
