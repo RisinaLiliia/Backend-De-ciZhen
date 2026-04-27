@@ -45,6 +45,9 @@ export type WorkspaceRequestSnapshot = {
   isRecurring?: boolean | null;
   imageUrl?: string | null;
   tags?: string[] | null;
+  inactiveReason?: 'cancelled_by_customer' | null;
+  inactiveMessage?: string | null;
+  purgeAt?: Date | string | null;
 };
 
 export type WorkspaceOfferSnapshot = {
@@ -126,6 +129,18 @@ export type WorkspaceCustomerLifecycleStage =
   | 'completion_pending'
   | 'completed'
   | 'reviewed';
+
+export type WorkspaceRequestLifecycleState =
+  | 'draft'
+  | 'published'
+  | 'published_with_responses'
+  | 'contract_pending'
+  | 'in_progress'
+  | 'completion_pending'
+  | 'completed'
+  | 'reviewed'
+  | 'cancelled'
+  | 'inactive_retained';
 
 export type WorkspaceRequestCardModel = {
   item: WorkspaceMyRequestCardDto;
@@ -521,6 +536,102 @@ export class WorkspaceRequestsSupport {
         href: args.detailsHref,
         requestId: args.requestId,
       };
+  }
+  resolveWorkspaceDecisionSecondaryAction(args: {
+    primaryAction: WorkspaceMyRequestCardDto['status']['actions'][number] | null;
+    statusActions: WorkspaceMyRequestCardDto['status']['actions'];
+  }): WorkspaceMyRequestCardDto['status']['actions'][number] | null {
+    return args.statusActions.find((action) => {
+      if (action.tone === 'danger') return false;
+      if (args.primaryAction && action.key === args.primaryAction.key && action.kind === args.primaryAction.kind) {
+        return false;
+      }
+      return action.kind === 'open_chat'
+        || action.key === 'open'
+        || action.key === 'contract'
+        || action.key === 'review'
+        || action.key === 'edit-request'
+        || action.key === 'edit-offer'
+        || action.key === 'duplicate-request';
+    }) ?? null;
+  }
+  resolveWorkspaceLifecycleState(args: {
+    role: WorkspaceRequestCardRole;
+    ownerLifecycleStage?: WorkspaceCustomerLifecycleStage | null;
+    requestStatus?: string | null;
+    request: WorkspaceRequestSnapshot;
+  }): WorkspaceRequestLifecycleState | null {
+    if (args.role === 'provider') return null;
+    if (args.requestStatus === 'cancelled') {
+      return args.request.purgeAt || args.request.inactiveReason || args.request.inactiveMessage
+        ? 'inactive_retained'
+        : 'cancelled';
+    }
+    switch (args.ownerLifecycleStage) {
+      case 'draft':
+        return 'draft';
+      case 'published':
+        return 'published';
+      case 'offers_received':
+        return 'published_with_responses';
+      case 'contract_pending':
+        return 'contract_pending';
+      case 'in_progress':
+        return 'in_progress';
+      case 'completion_pending':
+        return 'completion_pending';
+      case 'completed':
+        return 'completed';
+      case 'reviewed':
+        return 'reviewed';
+      default:
+        return null;
+    }
+  }
+  resolveWorkspaceVisibilityState(args: {
+    request: WorkspaceRequestSnapshot;
+    lifecycleState: WorkspaceRequestLifecycleState | null;
+  }): WorkspaceMyRequestCardDto['visibility'] {
+    const retainedForParticipants =
+      args.request.status === 'cancelled'
+      && Boolean(args.request.purgeAt || args.request.inactiveReason || args.request.inactiveMessage);
+    const isInactive = args.lifecycleState === 'inactive_retained' || retainedForParticipants;
+
+    return {
+      inPublicFeed: args.request.status === 'published',
+      retainedForParticipants,
+      isInactive,
+      inactiveReason: args.request.inactiveReason ?? null,
+      inactiveMessage: args.request.inactiveMessage ?? null,
+      purgeAt: args.request.purgeAt ? new Date(args.request.purgeAt).toISOString() : null,
+      canRestore: (args.request.status === 'paused' || args.request.status === 'cancelled') && !args.request.purgeAt ? true : undefined,
+    };
+  }
+  resolveWorkspaceActionPermissions(args: {
+    role: WorkspaceRequestCardRole;
+    statusActions: WorkspaceMyRequestCardDto['status']['actions'];
+    request: WorkspaceRequestSnapshot;
+  }): Pick<WorkspaceMyRequestCardDto, 'canEdit' | 'canDelete' | 'canDuplicate' | 'canRestore'> {
+    if (args.role === 'provider') {
+      return {
+        canEdit: false,
+        canDelete: false,
+        canDuplicate: false,
+        canRestore: false,
+      };
+    }
+
+    const hasKind = (kind: WorkspaceMyRequestCardDto['status']['actions'][number]['kind']) =>
+      args.statusActions.some((action) => action.kind === kind);
+    const hasKey = (key: string) => args.statusActions.some((action) => action.key === key);
+
+    return {
+      canEdit: hasKey('edit-request'),
+      canDelete: hasKind('delete_request'),
+      canDuplicate: hasKind('duplicate_request'),
+      canRestore:
+        hasKind('publish_request') && (args.request.status === 'paused' || args.request.status === 'cancelled'),
+    };
   }
   buildWorkspaceRequestPreview(args: {
     locale: WorkspaceRequestsLocale;

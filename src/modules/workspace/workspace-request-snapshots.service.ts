@@ -126,6 +126,9 @@ export class WorkspaceRequestSnapshotsService {
       isRecurring: request.isRecurring ?? false,
       imageUrl: request.imageUrl ?? null,
       tags: request.tags ?? [],
+      inactiveReason: request.inactiveReason ?? null,
+      inactiveMessage: request.inactiveMessage ?? null,
+      purgeAt: request.purgeAt ?? null,
     } satisfies WorkspaceRequestSnapshot));
 
     const customerOffersByRequest = (myClientOffers as Array<any>).reduce((map, offer) => {

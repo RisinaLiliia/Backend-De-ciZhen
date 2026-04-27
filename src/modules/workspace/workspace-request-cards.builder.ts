@@ -166,6 +166,26 @@ export class WorkspaceRequestCardsBuilder {
       decision,
       statusActions: status.actions,
     });
+    const primaryAction = decision.primaryAction ?? null;
+    const secondaryAction = this.support.resolveWorkspaceDecisionSecondaryAction({
+      primaryAction,
+      statusActions: status.actions,
+    });
+    const lifecycleState = this.support.resolveWorkspaceLifecycleState({
+      role: 'customer',
+      ownerLifecycleStage: lifecycleStage,
+      requestStatus: request.status ?? null,
+      request,
+    });
+    const visibility = this.support.resolveWorkspaceVisibilityState({
+      request,
+      lifecycleState,
+    });
+    const permissions = this.support.resolveWorkspaceActionPermissions({
+      role: 'customer',
+      statusActions: status.actions,
+      request,
+    });
     const urgency = this.support.resolveWorkspaceUrgency(deadlineAt, now);
 
     return {
@@ -174,6 +194,7 @@ export class WorkspaceRequestCardsBuilder {
         requestId: request.id,
         role: 'customer',
         ownerLifecycleStage: lifecycleStage,
+        lifecycleState,
         title,
         category,
         subcategory: request.subcategoryName ?? null,
@@ -186,6 +207,9 @@ export class WorkspaceRequestCardsBuilder {
         stateLabel: this.support.resolveWorkspaceStateLabel(locale, state),
         urgency,
         activity,
+        visibility,
+        responseCount: offers.length,
+        ...permissions,
         progress: {
           currentStep: progressStep,
           steps: this.support.resolveWorkspaceProgressSteps(locale, progressStep),
@@ -227,6 +251,8 @@ export class WorkspaceRequestCardsBuilder {
           detailsHref,
         }),
         status,
+        primaryAction,
+        secondaryAction,
         decision,
       },
       role: 'customer',
@@ -355,12 +381,18 @@ export class WorkspaceRequestCardsBuilder {
       decision,
       statusActions: status.actions,
     });
+    const primaryAction = decision.primaryAction ?? null;
+    const secondaryAction = this.support.resolveWorkspaceDecisionSecondaryAction({
+      primaryAction,
+      statusActions: status.actions,
+    });
 
     return {
       item: {
         id: `provider:${offer.requestId}`,
         requestId: offer.requestId,
         role: 'provider',
+        lifecycleState: null,
         title,
         category,
         subcategory: request.subcategoryName ?? null,
@@ -373,6 +405,20 @@ export class WorkspaceRequestCardsBuilder {
         stateLabel: this.support.resolveWorkspaceStateLabel(locale, state),
         urgency,
         activity,
+        visibility: {
+          inPublicFeed: request.status === 'published',
+          retainedForParticipants: false,
+          isInactive: request.status === 'cancelled',
+          inactiveReason: null,
+          inactiveMessage: null,
+          purgeAt: null,
+          canRestore: false,
+        },
+        responseCount: null,
+        canEdit: false,
+        canDelete: false,
+        canDuplicate: false,
+        canRestore: false,
         progress: {
           currentStep: progressStep,
           steps: this.support.resolveWorkspaceProgressSteps(locale, progressStep),
@@ -410,6 +456,8 @@ export class WorkspaceRequestCardsBuilder {
           detailsHref,
         }),
         status,
+        primaryAction,
+        secondaryAction,
         decision,
       },
       role: 'provider',

@@ -228,6 +228,29 @@ export class WorkspaceRequestCardStatusDto {
   actions: WorkspaceRequestCardStatusActionDto[];
 }
 
+export class WorkspaceRequestVisibilityDto {
+  @ApiProperty({ example: true })
+  inPublicFeed: boolean;
+
+  @ApiProperty({ example: false })
+  retainedForParticipants: boolean;
+
+  @ApiProperty({ example: false })
+  isInactive: boolean;
+
+  @ApiPropertyOptional({ enum: ['cancelled_by_customer'], nullable: true, example: 'cancelled_by_customer' })
+  inactiveReason?: 'cancelled_by_customer' | null;
+
+  @ApiPropertyOptional({ example: 'Dieser Auftrag wurde vom Auftraggeber storniert.', nullable: true })
+  inactiveMessage?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-05-03T10:00:00.000Z', nullable: true })
+  purgeAt?: string | null;
+
+  @ApiPropertyOptional({ example: false })
+  canRestore?: boolean;
+}
+
 export class WorkspaceRequestDecisionDto {
   @ApiProperty({ example: true })
   needsAction: boolean;
@@ -283,6 +306,35 @@ export class WorkspaceMyRequestCardDto {
     | 'reviewed'
     | null;
 
+  @ApiPropertyOptional({
+    enum: [
+      'draft',
+      'published',
+      'published_with_responses',
+      'contract_pending',
+      'in_progress',
+      'completion_pending',
+      'completed',
+      'reviewed',
+      'cancelled',
+      'inactive_retained',
+    ],
+    nullable: true,
+    example: 'published_with_responses',
+  })
+  lifecycleState?:
+    | 'draft'
+    | 'published'
+    | 'published_with_responses'
+    | 'contract_pending'
+    | 'in_progress'
+    | 'completion_pending'
+    | 'completed'
+    | 'reviewed'
+    | 'cancelled'
+    | 'inactive_retained'
+    | null;
+
   @ApiProperty({ example: 'Wohnung reinigen' })
   title: string;
 
@@ -319,6 +371,24 @@ export class WorkspaceMyRequestCardDto {
   @ApiPropertyOptional({ type: WorkspaceMyRequestCardActivityDto, nullable: true })
   activity?: WorkspaceMyRequestCardActivityDto | null;
 
+  @ApiProperty({ type: WorkspaceRequestVisibilityDto })
+  visibility: WorkspaceRequestVisibilityDto;
+
+  @ApiPropertyOptional({ example: 2, nullable: true })
+  responseCount?: number | null;
+
+  @ApiPropertyOptional({ example: true })
+  canEdit?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  canDelete?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  canDuplicate?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  canRestore?: boolean;
+
   @ApiProperty({ type: WorkspaceMyRequestCardProgressDto })
   progress: WorkspaceMyRequestCardProgressDto;
 
@@ -330,6 +400,12 @@ export class WorkspaceMyRequestCardDto {
 
   @ApiProperty({ type: WorkspaceRequestCardStatusDto })
   status: WorkspaceRequestCardStatusDto;
+
+  @ApiPropertyOptional({ type: WorkspaceRequestCardStatusActionDto, nullable: true })
+  primaryAction?: WorkspaceRequestCardStatusActionDto | null;
+
+  @ApiPropertyOptional({ type: WorkspaceRequestCardStatusActionDto, nullable: true })
+  secondaryAction?: WorkspaceRequestCardStatusActionDto | null;
 
   @ApiProperty({ type: WorkspaceRequestDecisionDto })
   decision: WorkspaceRequestDecisionDto;
