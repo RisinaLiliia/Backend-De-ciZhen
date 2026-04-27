@@ -10,6 +10,8 @@ import { Contract } from '../contracts/schemas/contract.schema';
 import { Offer } from '../offers/schemas/offer.schema';
 import { Review } from '../reviews/schemas/review.schema';
 import { InsightsService } from './insights.service';
+import { WorkspaceStatisticsMarketSnapshotsService } from './workspace-statistics-market-snapshots.service';
+import { WorkspaceStatisticsViewerSnapshotsService } from './workspace-statistics-viewer-snapshots.service';
 
 describe('WorkspaceStatisticsService (unit)', () => {
   let service: WorkspaceStatisticsService;
@@ -90,6 +92,8 @@ describe('WorkspaceStatisticsService (unit)', () => {
         { provide: WorkspaceService, useValue: workspaceMock },
         { provide: AnalyticsService, useValue: analyticsMock },
         { provide: InsightsService, useValue: insightsMock },
+        WorkspaceStatisticsMarketSnapshotsService,
+        WorkspaceStatisticsViewerSnapshotsService,
         { provide: getModelToken(Request.name), useValue: requestModelMock },
         { provide: getModelToken(Offer.name), useValue: offerModelMock },
         { provide: getModelToken(Contract.name), useValue: contractModelMock },
