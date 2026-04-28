@@ -633,6 +633,52 @@ export class WorkspaceRequestsSupport {
         hasKind('publish_request') && (args.request.status === 'paused' || args.request.status === 'cancelled'),
     };
   }
+  resolveWorkspaceActionCapabilities(args: {
+    role: WorkspaceRequestCardRole;
+    statusActions: WorkspaceMyRequestCardDto['status']['actions'];
+    request: WorkspaceRequestSnapshot;
+  }): WorkspaceMyRequestCardDto['capabilities'] {
+    if (args.role === 'provider') {
+      return {
+        canManage: false,
+        canEdit: false,
+        canDelete: false,
+        canDuplicate: false,
+        canRestore: false,
+        canReviewOffers: false,
+        canPublish: false,
+        canUnpublish: false,
+      };
+    }
+
+    const permissions = this.resolveWorkspaceActionPermissions(args);
+    const hasKind = (kind: WorkspaceMyRequestCardDto['status']['actions'][number]['kind']) =>
+      args.statusActions.some((action) => action.kind === kind);
+
+    return {
+      canManage: Boolean(permissions.canEdit || permissions.canDelete || permissions.canDuplicate || permissions.canRestore),
+      canEdit: Boolean(permissions.canEdit),
+      canDelete: Boolean(permissions.canDelete),
+      canDuplicate: Boolean(permissions.canDuplicate),
+      canRestore: Boolean(permissions.canRestore),
+      canReviewOffers: hasKind('review_responses'),
+      canPublish: hasKind('publish_request'),
+      canUnpublish: hasKind('unpublish_request'),
+    };
+  }
+  resolveWorkspaceMenuActions(args: {
+    role: WorkspaceRequestCardRole;
+    statusActions: WorkspaceMyRequestCardDto['status']['actions'];
+  }): WorkspaceMyRequestCardDto['menuActions'] {
+    if (args.role !== 'customer') return [];
+
+    return args.statusActions.filter((action) =>
+      (action.kind === 'link' && action.key === 'edit-request' && Boolean(action.href))
+      || action.kind === 'duplicate_request'
+      || action.kind === 'share_request'
+      || action.kind === 'archive_request'
+      || action.kind === 'delete_request');
+  }
   buildWorkspaceRequestPreview(args: {
     locale: WorkspaceRequestsLocale;
     request: WorkspaceRequestSnapshot;

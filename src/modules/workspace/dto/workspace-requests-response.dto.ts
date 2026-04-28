@@ -251,6 +251,32 @@ export class WorkspaceRequestVisibilityDto {
   canRestore?: boolean;
 }
 
+export class WorkspaceRequestCapabilitiesDto {
+  @ApiProperty({ example: true })
+  canManage: boolean;
+
+  @ApiProperty({ example: true })
+  canEdit: boolean;
+
+  @ApiProperty({ example: true })
+  canDelete: boolean;
+
+  @ApiProperty({ example: true })
+  canDuplicate: boolean;
+
+  @ApiProperty({ example: false })
+  canRestore: boolean;
+
+  @ApiProperty({ example: true })
+  canReviewOffers: boolean;
+
+  @ApiProperty({ example: false })
+  canPublish: boolean;
+
+  @ApiProperty({ example: false })
+  canUnpublish: boolean;
+}
+
 export class WorkspaceRequestDecisionDto {
   @ApiProperty({ example: true })
   needsAction: boolean;
@@ -389,6 +415,9 @@ export class WorkspaceMyRequestCardDto {
   @ApiPropertyOptional({ example: false })
   canRestore?: boolean;
 
+  @ApiProperty({ type: WorkspaceRequestCapabilitiesDto })
+  capabilities: WorkspaceRequestCapabilitiesDto;
+
   @ApiProperty({ type: WorkspaceMyRequestCardProgressDto })
   progress: WorkspaceMyRequestCardProgressDto;
 
@@ -400,6 +429,9 @@ export class WorkspaceMyRequestCardDto {
 
   @ApiProperty({ type: WorkspaceRequestCardStatusDto })
   status: WorkspaceRequestCardStatusDto;
+
+  @ApiProperty({ type: WorkspaceRequestCardStatusActionDto, isArray: true })
+  menuActions: WorkspaceRequestCardStatusActionDto[];
 
   @ApiPropertyOptional({ type: WorkspaceRequestCardStatusActionDto, nullable: true })
   primaryAction?: WorkspaceRequestCardStatusActionDto | null;
