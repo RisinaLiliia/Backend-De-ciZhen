@@ -186,6 +186,15 @@ export class WorkspaceRequestCardsBuilder {
       statusActions: status.actions,
       request,
     });
+    const capabilities = this.support.resolveWorkspaceActionCapabilities({
+      role: 'customer',
+      statusActions: status.actions,
+      request,
+    });
+    const menuActions = this.support.resolveWorkspaceMenuActions({
+      role: 'customer',
+      statusActions: status.actions,
+    });
     const urgency = this.support.resolveWorkspaceUrgency(deadlineAt, now);
 
     return {
@@ -210,6 +219,7 @@ export class WorkspaceRequestCardsBuilder {
         visibility,
         responseCount: offers.length,
         ...permissions,
+        capabilities,
         progress: {
           currentStep: progressStep,
           steps: this.support.resolveWorkspaceProgressSteps(locale, progressStep),
@@ -251,6 +261,7 @@ export class WorkspaceRequestCardsBuilder {
           detailsHref,
         }),
         status,
+        menuActions,
         primaryAction,
         secondaryAction,
         decision,
@@ -386,6 +397,11 @@ export class WorkspaceRequestCardsBuilder {
       primaryAction,
       statusActions: status.actions,
     });
+    const capabilities = this.support.resolveWorkspaceActionCapabilities({
+      role: 'provider',
+      statusActions: status.actions,
+      request,
+    });
 
     return {
       item: {
@@ -419,6 +435,7 @@ export class WorkspaceRequestCardsBuilder {
         canDelete: false,
         canDuplicate: false,
         canRestore: false,
+        capabilities,
         progress: {
           currentStep: progressStep,
           steps: this.support.resolveWorkspaceProgressSteps(locale, progressStep),
@@ -456,6 +473,7 @@ export class WorkspaceRequestCardsBuilder {
           detailsHref,
         }),
         status,
+        menuActions: [],
         primaryAction,
         secondaryAction,
         decision,

@@ -215,6 +215,17 @@ describe('WorkspaceRequestsService (unit)', () => {
         requestId: 'request-customer-1',
         role: 'customer',
         ownerLifecycleStage: 'offers_received',
+        capabilities: expect.objectContaining({
+          canManage: true,
+          canEdit: true,
+          canDelete: true,
+          canDuplicate: true,
+          canReviewOffers: true,
+        }),
+        menuActions: expect.arrayContaining([
+          expect.objectContaining({ key: 'edit-request' }),
+          expect.objectContaining({ key: 'duplicate-request' }),
+        ]),
       }),
     );
     expect(result.list.items[1]).toEqual(
@@ -222,6 +233,11 @@ describe('WorkspaceRequestsService (unit)', () => {
         requestId: 'request-provider-1',
         role: 'provider',
         state: 'active',
+        capabilities: expect.objectContaining({
+          canManage: false,
+          canEdit: false,
+        }),
+        menuActions: [],
       }),
     );
     expect(result.decisionPanel).toEqual(
