@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Query, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 
 import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
@@ -94,21 +94,26 @@ export class WorkspaceController {
     return this.workspace.getPrivateOverview(user.userId, user.role, query.period);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('requests')
+  @ApiSecurity({} as any)
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Personalized workspace requests board',
+    summary: 'Unified workspace requests board',
     description:
-      'Returns the authenticated user request workflow board with backend-owned summary cards, progress states, list items, and side panel recommendations.',
+      'Returns either the authenticated user workflow board (`scope=my`) or the public market board (`scope=market`) with backend-owned summary cards, progress states, list items, and right-rail decision data.',
   })
   @ApiOkResponse({ type: WorkspaceRequestsResponseDto })
-  @ApiErrors({ conflict: false, notFound: false })
+  @ApiPublicErrors()
   async getRequestsOverview(
-    @CurrentUser() user: CurrentUserPayload,
+    @CurrentUser() user: CurrentUserPayload | null,
     @Query() query: WorkspaceRequestsQueryDto,
     @Headers('accept-language') acceptLanguage?: string,
   ): Promise<WorkspaceRequestsResponseDto> {
-    return this.workspace.getRequestsOverview(user.userId, user.role, query, acceptLanguage);
+    if ((query.scope ?? 'my') === 'my' && !user?.userId) {
+      throw new UnauthorizedException();
+    }
+
+    return this.workspace.getRequestsOverview(user?.userId, user?.role, query, acceptLanguage);
   }
 }

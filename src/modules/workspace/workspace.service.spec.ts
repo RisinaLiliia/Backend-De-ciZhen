@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 
 import { WorkspaceService } from './workspace.service';
+import { WorkspaceMarketRequestsService } from './workspace-market-requests.service';
 import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspacePublicOverviewService } from './workspace-public-overview.service';
 import { WorkspacePrivateOverviewService } from './workspace-private-overview.service';
@@ -10,6 +11,10 @@ describe('WorkspaceService (unit)', () => {
 
   const requestsMock = {
     getRequestsOverview: jest.fn(),
+  };
+
+  const marketRequestsMock = {
+    getMarketOverview: jest.fn(),
   };
 
   const publicOverviewMock = {
@@ -27,6 +32,7 @@ describe('WorkspaceService (unit)', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         WorkspaceService,
+        { provide: WorkspaceMarketRequestsService, useValue: marketRequestsMock },
         { provide: WorkspaceRequestsService, useValue: requestsMock },
         { provide: WorkspacePublicOverviewService, useValue: publicOverviewMock },
         { provide: WorkspacePrivateOverviewService, useValue: privateOverviewMock },
@@ -76,6 +82,17 @@ describe('WorkspaceService (unit)', () => {
     const result = await service.getRequestsOverview('user-1', 'provider', query as any, 'de-DE');
 
     expect(requestsMock.getRequestsOverview).toHaveBeenCalledWith('user-1', 'provider', query, 'de-DE');
+    expect(result).toBe(expected);
+  });
+
+  it('delegates market requests overview to WorkspaceMarketRequestsService', async () => {
+    const expected = { section: 'requests', scope: 'market' };
+    marketRequestsMock.getMarketOverview.mockResolvedValue(expected);
+
+    const query = { scope: 'market', state: 'all', period: '30d', sort: 'date_desc' };
+    const result = await service.getRequestsOverview(null, null, query as any, 'de-DE');
+
+    expect(marketRequestsMock.getMarketOverview).toHaveBeenCalledWith(query, 'de-DE');
     expect(result).toBe(expected);
   });
 });

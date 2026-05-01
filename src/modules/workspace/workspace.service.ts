@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 
 import type { AppRole } from '../users/schemas/user.schema';
 import type {
@@ -13,6 +13,7 @@ import type {
 } from './dto/workspace-private-response.dto';
 import type { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
 import type { WorkspaceRequestsResponseDto } from './dto/workspace-requests-response.dto';
+import { WorkspaceMarketRequestsService } from './workspace-market-requests.service';
 import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspacePublicOverviewService } from './workspace-public-overview.service';
 import { WorkspacePrivateOverviewService } from './workspace-private-overview.service';
@@ -21,6 +22,7 @@ import { WorkspacePrivateOverviewService } from './workspace-private-overview.se
 export class WorkspaceService {
   constructor(
     private readonly workspaceRequests: WorkspaceRequestsService,
+    private readonly workspaceMarketRequests: WorkspaceMarketRequestsService,
     private readonly workspacePublicOverview: WorkspacePublicOverviewService,
     private readonly workspacePrivateOverview: WorkspacePrivateOverviewService,
   ) {}
@@ -42,11 +44,19 @@ export class WorkspaceService {
   }
 
   async getRequestsOverview(
-    userId: string,
-    role: AppRole,
+    userId: string | null | undefined,
+    role: AppRole | null | undefined,
     query: WorkspaceRequestsQueryDto,
     acceptLanguage?: string | null,
   ): Promise<WorkspaceRequestsResponseDto> {
+    if (query.scope === 'market') {
+      return this.workspaceMarketRequests.getMarketOverview(query, acceptLanguage);
+    }
+
+    if (!userId || !role) {
+      throw new UnauthorizedException();
+    }
+
     return this.workspaceRequests.getRequestsOverview(userId, role, query, acceptLanguage);
   }
 }

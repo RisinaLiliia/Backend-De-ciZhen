@@ -5,6 +5,7 @@ import { WorkspaceController } from './workspace.controller';
 import { WorkspaceService } from './workspace.service';
 import { WorkspaceStatisticsService } from './workspace-statistics.service';
 import { WorkspaceRequestsService } from './workspace-requests.service';
+import { WorkspaceMarketRequestsService } from './workspace-market-requests.service';
 import { WorkspaceRequestSnapshotsService } from './workspace-request-snapshots.service';
 import { WorkspaceRequestsListPolicy } from './workspace-requests-list-policy';
 import { WorkspaceRequestsPresenter } from './workspace-requests.presenter';
@@ -28,6 +29,7 @@ import { Favorite, FavoriteSchema } from '../favorites/schemas/favorite.schema';
 import { Review, ReviewSchema } from '../reviews/schemas/review.schema';
 import { ClientProfile, ClientProfileSchema } from '../users/schemas/client-profile.schema';
 import { CitiesModule } from '../catalog/cities/cities.module';
+import { CatalogServicesModule } from '../catalog/services/services.module';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { CitiesModule } from '../catalog/cities/cities.module';
     UsersModule,
     PresenceModule,
     CitiesModule,
+    CatalogServicesModule,
     MongooseModule.forFeature([
       { name: Request.name, schema: RequestSchema },
       { name: Offer.name, schema: OfferSchema },
@@ -48,6 +51,6 @@ import { CitiesModule } from '../catalog/cities/cities.module';
     ]),
   ],
   controllers: [WorkspaceController],
-  providers: [WorkspaceService, WorkspaceRequestSnapshotsService, WorkspaceRequestsListPolicy, WorkspaceRequestsPresenter, WorkspaceRequestsService, WorkspacePublicRequestEnricherService, WorkspacePublicCityActivityService, WorkspacePublicOverviewService, WorkspacePrivateOverviewService, WorkspaceStatisticsMarketSnapshotsService, WorkspaceStatisticsViewerSnapshotsService, WorkspaceStatisticsService, InsightsService],
+  providers: [WorkspaceService, WorkspaceRequestSnapshotsService, WorkspaceRequestsListPolicy, WorkspaceRequestsPresenter, WorkspaceRequestsService, WorkspaceMarketRequestsService, WorkspacePublicRequestEnricherService, WorkspacePublicCityActivityService, WorkspacePublicOverviewService, WorkspacePrivateOverviewService, WorkspaceStatisticsMarketSnapshotsService, WorkspaceStatisticsViewerSnapshotsService, WorkspaceStatisticsService, InsightsService],
 })
 export class WorkspaceModule {}

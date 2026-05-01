@@ -103,6 +103,117 @@ describe('workspace (e2e)', () => {
     await request(app.getHttpServer()).get('/workspace/requests').expect(401);
   });
 
+  it('GET /workspace/requests returns public market board for guests', async () => {
+    await requestModel.create([
+      {
+        title: 'WC reparieren',
+        serviceKey: 'plumbing',
+        cityId: 'berlin-city',
+        cityName: 'Berlin',
+        propertyType: 'apartment',
+        area: 12,
+        price: 180,
+        preferredDate: new Date('2026-05-05T10:00:00.000Z'),
+        isRecurring: false,
+        status: 'published',
+        categoryKey: 'repairs',
+        categoryName: 'Reparaturen',
+        subcategoryName: 'WC reparieren',
+        publishedAt: new Date('2026-04-28T10:00:00.000Z'),
+        createdAt: new Date('2026-04-28T10:00:00.000Z'),
+        updatedAt: new Date('2026-04-28T10:00:00.000Z'),
+      },
+      {
+        title: 'Suche Hilfe für kleine Reparaturen zuhause',
+        serviceKey: 'handyman',
+        cityId: 'berlin-city',
+        cityName: 'Berlin',
+        propertyType: 'apartment',
+        area: 18,
+        price: 140,
+        preferredDate: new Date('2026-05-03T10:00:00.000Z'),
+        isRecurring: false,
+        status: 'matched',
+        categoryKey: 'repairs',
+        categoryName: 'Reparaturen',
+        subcategoryName: 'Kleine Reparaturen',
+        matchedAt: new Date('2026-04-30T10:00:00.000Z'),
+        createdAt: new Date('2026-04-27T10:00:00.000Z'),
+        updatedAt: new Date('2026-04-30T10:00:00.000Z'),
+      },
+      {
+        title: 'Büroreinigung',
+        serviceKey: 'office-cleaning',
+        cityId: 'hamburg-city',
+        cityName: 'Hamburg',
+        propertyType: 'house',
+        area: 45,
+        price: 320,
+        preferredDate: new Date('2026-04-29T10:00:00.000Z'),
+        isRecurring: false,
+        status: 'closed',
+        categoryKey: 'cleaning',
+        categoryName: 'Reinigung',
+        subcategoryName: 'Büroreinigung',
+        createdAt: new Date('2026-04-25T10:00:00.000Z'),
+        updatedAt: new Date('2026-04-30T12:00:00.000Z'),
+      },
+    ]);
+
+    const res = await request(app.getHttpServer())
+      .get('/workspace/requests')
+      .query({ scope: 'market', state: 'all', period: '30d', sort: 'date_desc', page: 1, limit: 20 })
+      .set('Accept-Language', 'de-DE')
+      .expect(200);
+
+    expect(res.body).toMatchObject({
+      section: 'requests',
+      scope: 'market',
+      header: { title: 'Marktanfragen' },
+      filters: {
+        role: 'all',
+        state: 'all',
+        period: '30d',
+        sort: 'date_desc',
+      },
+    });
+    expect(res.body.summary.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'all', value: 3 }),
+        expect.objectContaining({ key: 'attention', value: 1 }),
+        expect.objectContaining({ key: 'execution', value: 1 }),
+        expect.objectContaining({ key: 'completed', value: 1 }),
+      ]),
+    );
+    expect(res.body.decisionPanel).toEqual(
+      expect.objectContaining({
+        primaryAction: {
+          label: 'Markt prüfen',
+          mode: 'decision',
+          targetFilter: 'needs_action',
+        },
+        summary: expect.objectContaining({
+          totalNeedsAction: 2,
+          highPriorityCount: 1,
+          overdueCount: 1,
+        }),
+      }),
+    );
+    expect(res.body.decisionPanel.queue).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ actionLabel: 'Vertrag ansehen' }),
+        expect.objectContaining({ actionLabel: 'Seit 24h ohne Aktion' }),
+      ]),
+    );
+    expect(res.body.list.items).toHaveLength(3);
+    expect(res.body.list.items[0]).toEqual(
+      expect.objectContaining({
+        createdAtIso: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        nextEventAtIso: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      }),
+    );
+  });
+
   it('GET /workspace/private returns aggregated private overview', async () => {
     const account = await registerAndGetToken(
       app,

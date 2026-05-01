@@ -376,8 +376,14 @@ export class WorkspaceMyRequestCardDto {
   @ApiPropertyOptional({ example: '2026-04-05', nullable: true })
   createdAt?: string | null;
 
+  @ApiPropertyOptional({ example: '2026-04-05T08:00:00.000Z', nullable: true })
+  createdAtIso?: string | null;
+
   @ApiPropertyOptional({ example: '2026-04-07', nullable: true })
   nextEventAt?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-04-07T10:00:00.000Z', nullable: true })
+  nextEventAtIso?: string | null;
 
   @ApiPropertyOptional({ example: 140, nullable: true })
   budget?: number | null;
@@ -615,8 +621,8 @@ export class WorkspaceRequestsResponseDto {
   @ApiProperty({ example: 'requests' })
   section: 'requests';
 
-  @ApiProperty({ enum: ['my'], example: 'my' })
-  scope: 'my';
+  @ApiProperty({ enum: ['my', 'market'], example: 'my' })
+  scope: 'my' | 'market';
 
   @ApiProperty({ type: WorkspaceRequestsHeaderDto })
   header: WorkspaceRequestsHeaderDto;
