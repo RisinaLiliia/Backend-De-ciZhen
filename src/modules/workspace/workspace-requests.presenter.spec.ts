@@ -163,4 +163,39 @@ describe('WorkspaceRequestsPresenter (unit)', () => {
       }),
     );
   });
+
+  it('builds market decision panel copy from queue cards and aggregate counts', () => {
+    const decisionPanel = presenter.buildWorkspaceMarketDecisionPanel({
+      locale: 'de',
+      queueCards: cards,
+      counts: {
+        attention: 7,
+        execution: 2,
+        completed: 1,
+        overdue: 5,
+        recent: 2,
+      },
+    });
+
+    expect(decisionPanel).toEqual(
+      expect.objectContaining({
+        summary: expect.objectContaining({
+          totalNeedsAction: 9,
+          highPriorityCount: 2,
+          newOffersCount: 2,
+          overdueCount: 5,
+        }),
+        primaryAction: {
+          label: 'Markt prüfen',
+          mode: 'decision',
+          targetFilter: 'needs_action',
+        },
+        overview: {
+          highUrgency: 7,
+          inProgress: 2,
+          completedThisPeriod: 1,
+        },
+      }),
+    );
+  });
 });

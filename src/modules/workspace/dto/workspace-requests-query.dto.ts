@@ -4,14 +4,14 @@ import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-va
 
 export class WorkspaceRequestsQueryDto {
   @ApiPropertyOptional({
-    enum: ['my'],
+    enum: ['my', 'market'],
     example: 'my',
-    description: 'Currently the endpoint returns the authenticated user workflow board.',
+    description: 'Returns either the authenticated user workflow board (`my`) or the public market board (`market`).',
     default: 'my',
   })
   @IsOptional()
-  @IsIn(['my'])
-  scope?: 'my';
+  @IsIn(['my', 'market'])
+  scope?: 'my' | 'market';
 
   @ApiPropertyOptional({ enum: ['all', 'customer', 'provider'], example: 'all', default: 'all' })
   @IsOptional()
@@ -29,12 +29,12 @@ export class WorkspaceRequestsQueryDto {
   period?: '24h' | '7d' | '30d' | '90d';
 
   @ApiPropertyOptional({
-    enum: ['activity', 'newest', 'deadline', 'budget', 'price_desc', 'oldest', 'date_asc'],
+    enum: ['activity', 'newest', 'deadline', 'budget', 'price_asc', 'price_desc', 'oldest', 'date_asc', 'date_desc'],
     example: 'activity',
   })
   @IsOptional()
-  @IsIn(['activity', 'newest', 'deadline', 'budget', 'price_desc', 'oldest', 'date_asc'])
-  sort?: 'activity' | 'newest' | 'deadline' | 'budget' | 'price_desc' | 'oldest' | 'date_asc';
+  @IsIn(['activity', 'newest', 'deadline', 'budget', 'price_asc', 'price_desc', 'oldest', 'date_asc', 'date_desc'])
+  sort?: 'activity' | 'newest' | 'deadline' | 'budget' | 'price_asc' | 'price_desc' | 'oldest' | 'date_asc' | 'date_desc';
 
   @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
   @IsOptional()

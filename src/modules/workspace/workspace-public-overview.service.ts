@@ -35,6 +35,8 @@ export class WorkspacePublicOverviewService {
       categoryKey: query.categoryKey,
       subcategoryKey: query.subcategoryKey,
       sort: query.sort,
+      state: query.state,
+      period: query.period,
       priceMin: query.priceMin,
       priceMax: query.priceMax,
       page,

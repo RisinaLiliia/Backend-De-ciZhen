@@ -209,7 +209,15 @@ export class WorkspaceRequestCardsBuilder {
         subcategory: request.subcategoryName ?? null,
         city,
         createdAt: this.support.formatWorkspaceDate(request.createdAt, locale),
+        createdAtIso: request.createdAt ? new Date(request.createdAt).toISOString() : null,
         nextEventAt: this.support.formatWorkspaceDate(booking?.startAt ?? contract?.confirmedAt ?? request.preferredDate ?? null, locale),
+        nextEventAtIso: booking?.startAt
+          ? new Date(booking.startAt).toISOString()
+          : contract?.confirmedAt
+            ? new Date(contract.confirmedAt).toISOString()
+            : request.preferredDate
+              ? new Date(request.preferredDate).toISOString()
+              : null,
         budget: typeof budgetValue === 'number' ? budgetValue : null,
         agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
         state,
@@ -414,7 +422,15 @@ export class WorkspaceRequestCardsBuilder {
         subcategory: request.subcategoryName ?? null,
         city,
         createdAt: this.support.formatWorkspaceDate(offer.createdAt, locale),
+        createdAtIso: offer.createdAt ? new Date(offer.createdAt).toISOString() : null,
         nextEventAt: this.support.formatWorkspaceDate(contract?.confirmedAt ?? request.preferredDate ?? offer.availableAt ?? null, locale),
+        nextEventAtIso: contract?.confirmedAt
+          ? new Date(contract.confirmedAt).toISOString()
+          : request.preferredDate
+            ? new Date(request.preferredDate).toISOString()
+            : offer.availableAt
+              ? new Date(offer.availableAt).toISOString()
+              : null,
         budget: typeof budgetValue === 'number' ? budgetValue : null,
         agreedPrice: typeof contract?.priceAmount === 'number' ? contract.priceAmount : null,
         state,

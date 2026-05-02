@@ -19,6 +19,59 @@ import {
 export class WorkspaceRequestsPresenter {
   private readonly support = new WorkspaceRequestsSupport();
 
+  private buildDecisionQueue(cards: WorkspaceRequestCardModel[]) {
+    return [...cards]
+      .filter((card) => card.decision.needsAction)
+      .sort((left, right) => {
+        const leftRelevant = this.support.parseActivityAt(left.decision.lastRelevantActivityAt) ?? 0;
+        const rightRelevant = this.support.parseActivityAt(right.decision.lastRelevantActivityAt) ?? 0;
+
+        return (
+          right.decision.actionPriority - left.decision.actionPriority ||
+          rightRelevant - leftRelevant ||
+          right.sortCreatedAt - left.sortCreatedAt
+        );
+      });
+  }
+
+  buildWorkspaceSummaryFromCounts(args: {
+    locale: WorkspaceRequestsLocale;
+    activeState: WorkspaceRequestsState;
+    counts: {
+      all: number;
+      attention: number;
+      execution: number;
+      completed: number;
+    };
+  }): WorkspaceRequestsSummaryItemDto[] {
+    return [
+      {
+        key: 'all',
+        label: args.locale === 'de' ? 'Alle' : 'All',
+        value: args.counts.all,
+        isHighlighted: args.activeState === 'all',
+      },
+      {
+        key: 'attention',
+        label: args.locale === 'de' ? 'Aktiv' : 'Active',
+        value: args.counts.attention,
+        isHighlighted: args.activeState === 'attention',
+      },
+      {
+        key: 'execution',
+        label: args.locale === 'de' ? 'In Ausführung' : 'In execution',
+        value: args.counts.execution,
+        isHighlighted: args.activeState === 'execution',
+      },
+      {
+        key: 'completed',
+        label: args.locale === 'de' ? 'Abgeschlossen' : 'Completed',
+        value: args.counts.completed,
+        isHighlighted: args.activeState === 'completed',
+      },
+    ];
+  }
+
   buildWorkspaceSummary(args: {
     locale: WorkspaceRequestsLocale;
     cards: WorkspaceRequestCardModel[];
@@ -31,50 +84,18 @@ export class WorkspaceRequestsPresenter {
       completed: args.cards.filter((card) => card.workflowState === 'completed').length,
     };
 
-    return [
-      {
-        key: 'all',
-        label: args.locale === 'de' ? 'Alle' : 'All',
-        value: counts.all,
-        isHighlighted: args.activeState === 'all',
-      },
-      {
-        key: 'attention',
-        label: args.locale === 'de' ? 'Aktiv' : 'Active',
-        value: counts.attention,
-        isHighlighted: args.activeState === 'attention',
-      },
-      {
-        key: 'execution',
-        label: args.locale === 'de' ? 'In Ausführung' : 'In execution',
-        value: counts.execution,
-        isHighlighted: args.activeState === 'execution',
-      },
-      {
-        key: 'completed',
-        label: args.locale === 'de' ? 'Abgeschlossen' : 'Completed',
-        value: counts.completed,
-        isHighlighted: args.activeState === 'completed',
-      },
-    ];
+    return this.buildWorkspaceSummaryFromCounts({
+      locale: args.locale,
+      activeState: args.activeState,
+      counts,
+    });
   }
 
   buildWorkspaceDecisionPanel(args: {
     locale: WorkspaceRequestsLocale;
     cards: WorkspaceRequestCardModel[];
   }): WorkspaceRequestsDecisionPanelDto {
-    const queue = [...args.cards]
-      .filter((card) => card.decision.needsAction)
-      .sort((left, right) => {
-        const leftRelevant = this.support.parseActivityAt(left.decision.lastRelevantActivityAt) ?? 0;
-        const rightRelevant = this.support.parseActivityAt(right.decision.lastRelevantActivityAt) ?? 0;
-
-        return (
-          right.decision.actionPriority - left.decision.actionPriority ||
-          rightRelevant - leftRelevant ||
-          right.sortCreatedAt - left.sortCreatedAt
-        );
-      });
+    const queue = this.buildDecisionQueue(args.cards);
 
     const totalNeedsAction = queue.length;
     const summary = {
@@ -113,6 +134,57 @@ export class WorkspaceRequestsPresenter {
         highUrgency: args.cards.filter((card) => card.item.urgency === 'high').length,
         inProgress: args.cards.filter((card) => card.workflowState === 'active').length,
         completedThisPeriod: args.cards.filter((card) => card.workflowState === 'completed').length,
+      },
+    };
+  }
+
+  buildWorkspaceMarketDecisionPanel(args: {
+    locale: WorkspaceRequestsLocale;
+    queueCards: WorkspaceRequestCardModel[];
+    counts: {
+      attention: number;
+      execution: number;
+      completed: number;
+      overdue: number;
+      recent: number;
+    };
+  }): WorkspaceRequestsDecisionPanelDto {
+    const queue = this.buildDecisionQueue(args.queueCards);
+
+    return {
+      summary: {
+        totalNeedsAction: args.counts.attention + args.counts.execution,
+        highPriorityCount: args.counts.execution,
+        newOffersCount: args.counts.recent,
+        replyRequiredCount: 0,
+        confirmCompletionCount: 0,
+        overdueCount: args.counts.overdue,
+      },
+      primaryAction: {
+        label: args.locale === 'de' ? 'Markt prüfen' : 'Review market',
+        mode: 'decision',
+        targetFilter: 'needs_action',
+      },
+      queue: queue.map((card) => ({
+        requestId: card.item.requestId,
+        title: card.item.title,
+        actionType: card.decision.actionType as Exclude<WorkspaceRequestDecisionActionType, 'none'>,
+        actionLabel:
+          card.decision.actionLabel ??
+          (args.locale === 'de' ? 'Jetzt öffnen' : 'Open now'),
+        actionPriority: card.decision.actionPriority,
+        actionPriorityLevel:
+          card.decision.actionPriorityLevel === 'none'
+            ? 'low'
+            : card.decision.actionPriorityLevel,
+        actionReason: card.decision.actionReason ?? null,
+        categoryLabel: card.item.category ?? null,
+        cityLabel: card.item.city ?? null,
+      })),
+      overview: {
+        highUrgency: args.counts.attention,
+        inProgress: args.counts.execution,
+        completedThisPeriod: args.counts.completed,
       },
     };
   }
