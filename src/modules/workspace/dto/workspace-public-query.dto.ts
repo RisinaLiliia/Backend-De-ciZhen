@@ -26,6 +26,16 @@ export class WorkspacePublicQueryDto {
   @IsIn(['date_desc', 'date_asc', 'price_asc', 'price_desc'])
   sort?: 'date_desc' | 'date_asc' | 'price_asc' | 'price_desc';
 
+  @ApiPropertyOptional({ enum: ['all', 'attention', 'execution', 'completed'], example: 'all' })
+  @IsOptional()
+  @IsIn(['all', 'attention', 'execution', 'completed'])
+  state?: 'all' | 'attention' | 'execution' | 'completed';
+
+  @ApiPropertyOptional({ enum: ['24h', '7d', '30d', '90d'], example: '30d' })
+  @IsOptional()
+  @IsIn(['24h', '7d', '30d', '90d'])
+  period?: '24h' | '7d' | '30d' | '90d';
+
   @ApiPropertyOptional({ example: 50, description: 'Filter by price >= priceMin' })
   @IsOptional()
   @Type(() => Number)

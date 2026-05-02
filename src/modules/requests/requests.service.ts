@@ -507,13 +507,25 @@ export class RequestsService {
     categoryKey?: string;
     subcategoryKey?: string;
     sort?: 'date_desc' | 'date_asc' | 'price_asc' | 'price_desc';
+    state?: 'all' | 'attention' | 'execution' | 'completed';
+    period?: '24h' | '7d' | '30d' | '90d';
     page?: number;
     limit?: number;
     offset?: number;
     priceMin?: number;
     priceMax?: number;
   }): Promise<RequestDocument[]> {
-    const q: Record<string, unknown> = { status: 'published', archivedAt: null };
+    const q: Record<string, unknown> = { archivedAt: null };
+    const state = filters.state ?? 'all';
+    const period = filters.period;
+
+    if (state === 'execution') {
+      q.status = 'matched';
+    } else if (state === 'completed') {
+      q.status = 'closed';
+    } else {
+      q.status = 'published';
+    }
 
     const hasGeo = this.applyGeoFilter(q, {
       lat: filters.lat,
@@ -554,15 +566,58 @@ export class RequestsService {
       if (typeof max === 'number') (q.price as any).$lte = max;
     }
 
+    if (period) {
+      const now = Date.now();
+      const periodMs =
+        period === '24h'
+          ? 24 * 60 * 60 * 1000
+          : period === '7d'
+            ? 7 * 24 * 60 * 60 * 1000
+            : period === '90d'
+              ? 90 * 24 * 60 * 60 * 1000
+              : 30 * 24 * 60 * 60 * 1000;
+      const cutoff = new Date(now - periodMs);
+
+      if (state === 'execution') {
+        q.$or = [
+          { matchedAt: { $gte: cutoff } },
+          { matchedAt: null, updatedAt: { $gte: cutoff } },
+        ];
+      } else if (state === 'completed') {
+        q.updatedAt = { $gte: cutoff };
+      } else {
+        q.$or = [
+          { publishedAt: { $gte: cutoff } },
+          { publishedAt: null, createdAt: { $gte: cutoff } },
+        ];
+      }
+    }
+
     const sortKey = filters.sort ?? 'date_desc';
     const sort: Record<string, 1 | -1> =
       sortKey === 'date_asc'
-        ? { publishedAt: 1, createdAt: 1 }
+        ? (state === 'execution'
+          ? { matchedAt: 1, updatedAt: 1, createdAt: 1 }
+          : state === 'completed'
+            ? { updatedAt: 1, createdAt: 1 }
+            : { publishedAt: 1, createdAt: 1 })
         : sortKey === 'price_asc'
-          ? { price: 1, publishedAt: -1, createdAt: -1 }
+          ? (state === 'execution'
+            ? { price: 1, matchedAt: -1, updatedAt: -1, createdAt: -1 }
+            : state === 'completed'
+              ? { price: 1, updatedAt: -1, createdAt: -1 }
+              : { price: 1, publishedAt: -1, createdAt: -1 })
           : sortKey === 'price_desc'
-            ? { price: -1, publishedAt: -1, createdAt: -1 }
-            : { publishedAt: -1, createdAt: -1 };
+            ? (state === 'execution'
+              ? { price: -1, matchedAt: -1, updatedAt: -1, createdAt: -1 }
+              : state === 'completed'
+                ? { price: -1, updatedAt: -1, createdAt: -1 }
+                : { price: -1, publishedAt: -1, createdAt: -1 })
+            : (state === 'execution'
+              ? { matchedAt: -1, updatedAt: -1, createdAt: -1 }
+              : state === 'completed'
+                ? { updatedAt: -1, createdAt: -1 }
+                : { publishedAt: -1, createdAt: -1 });
 
     const limit = Math.min(Math.max(filters.limit ?? 20, 1), 100);
     const offsetRaw =
@@ -639,10 +694,22 @@ export class RequestsService {
     serviceKey?: string;
     categoryKey?: string;
     subcategoryKey?: string;
+    state?: 'all' | 'attention' | 'execution' | 'completed';
+    period?: '24h' | '7d' | '30d' | '90d';
     priceMin?: number;
     priceMax?: number;
   }): Promise<number> {
-    const q: Record<string, unknown> = { status: 'published', archivedAt: null };
+    const q: Record<string, unknown> = { archivedAt: null };
+    const state = filters.state ?? 'all';
+    const period = filters.period;
+
+    if (state === 'execution') {
+      q.status = 'matched';
+    } else if (state === 'completed') {
+      q.status = 'closed';
+    } else {
+      q.status = 'published';
+    }
 
     const hasGeo = this.applyGeoFilter(q, {
       lat: filters.lat,
@@ -681,6 +748,33 @@ export class RequestsService {
       q.price = {};
       if (typeof min === 'number') (q.price as any).$gte = min;
       if (typeof max === 'number') (q.price as any).$lte = max;
+    }
+
+    if (period) {
+      const now = Date.now();
+      const periodMs =
+        period === '24h'
+          ? 24 * 60 * 60 * 1000
+          : period === '7d'
+            ? 7 * 24 * 60 * 60 * 1000
+            : period === '90d'
+              ? 90 * 24 * 60 * 60 * 1000
+              : 30 * 24 * 60 * 60 * 1000;
+      const cutoff = new Date(now - periodMs);
+
+      if (state === 'execution') {
+        q.$or = [
+          { matchedAt: { $gte: cutoff } },
+          { matchedAt: null, updatedAt: { $gte: cutoff } },
+        ];
+      } else if (state === 'completed') {
+        q.updatedAt = { $gte: cutoff };
+      } else {
+        q.$or = [
+          { publishedAt: { $gte: cutoff } },
+          { publishedAt: null, createdAt: { $gte: cutoff } },
+        ];
+      }
     }
 
     return this.model.countDocuments(q).exec();

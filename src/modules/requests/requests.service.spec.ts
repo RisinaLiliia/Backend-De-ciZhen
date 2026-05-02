@@ -263,6 +263,25 @@ describe('RequestsService', () => {
     expect(modelMock.find).toHaveBeenCalledWith({ status: 'published', archivedAt: null });
   });
 
+  it('listPublic switches to market execution state when requested', async () => {
+    const exec = jest.fn().mockResolvedValue([]);
+    const limit = jest.fn().mockReturnValue({ exec });
+    const skip = jest.fn().mockReturnValue({ limit });
+    const sort = jest.fn().mockReturnValue({ skip });
+    modelMock.find.mockReturnValue({ sort });
+
+    await service.listPublic({ state: 'execution', period: '30d' });
+
+    expect(modelMock.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'matched',
+        archivedAt: null,
+        $or: expect.any(Array),
+      }),
+    );
+    expect(sort).toHaveBeenCalledWith({ matchedAt: -1, updatedAt: -1, createdAt: -1 });
+  });
+
   it('listPublic adds cityId and serviceKey only when non-empty', async () => {
     const exec = jest.fn().mockResolvedValue([]);
     const limit = jest.fn().mockReturnValue({ exec });
@@ -408,6 +427,21 @@ describe('RequestsService', () => {
       price: { $gte: 50, $lte: 200 },
     });
     expect(total).toBe(2);
+  });
+
+  it('countPublic switches to completed market state when requested', async () => {
+    modelMock.countDocuments.mockReturnValue({ exec: jest.fn().mockResolvedValue(3) });
+
+    const total = await service.countPublic({ state: 'completed', period: '7d' });
+
+    expect(modelMock.countDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'closed',
+        archivedAt: null,
+        updatedAt: expect.any(Object),
+      }),
+    );
+    expect(total).toBe(3);
   });
 
   it('countPublic returns 0 for category mismatch', async () => {
