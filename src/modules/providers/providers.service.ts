@@ -45,7 +45,30 @@ export class ProvidersService {
     if (!profile) throw new NotFoundException('Provider profile not found');
     if (profile.isBlocked) throw new ForbiddenException('Provider profile is blocked');
 
-    Object.assign(profile, updates);
+    const normalizeText = (value: string | null | undefined) => {
+      if (value === undefined) return undefined;
+      const normalized = String(value ?? '').trim();
+      return normalized.length > 0 ? normalized : null;
+    };
+
+    if (updates.displayName !== undefined) profile.displayName = normalizeText(updates.displayName) ?? null;
+    if (updates.bio !== undefined) profile.bio = normalizeText(updates.bio) ?? null;
+    if (updates.companyName !== undefined) profile.companyName = normalizeText(updates.companyName) ?? null;
+    if (updates.vatId !== undefined) profile.vatId = normalizeText(updates.vatId) ?? null;
+    if (updates.cityId !== undefined) profile.cityId = normalizeText(updates.cityId) ?? null;
+    if (updates.serviceKeys !== undefined) {
+      profile.serviceKeys = Array.from(
+        new Set(
+          (Array.isArray(updates.serviceKeys) ? updates.serviceKeys : [])
+            .map((value) => String(value ?? '').trim().toLowerCase())
+            .filter((value) => value.length > 0),
+        ),
+      );
+    }
+    if (updates.basePrice !== undefined) {
+      profile.basePrice = updates.basePrice === null ? null : Number(updates.basePrice);
+    }
+
     if (profile.status === 'draft' && !profile.isBlocked && isProviderProfileComplete(profile)) {
       profile.status = 'active';
     }
