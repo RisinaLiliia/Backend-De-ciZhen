@@ -123,6 +123,22 @@ export class CitiesService {
     return this.cityModel.findById(normalized).exec();
   }
 
+  async findActiveByLabel(label: string, countryCode?: string): Promise<CityDocument | null> {
+    const normalizedLabel = this.normalizeGeoKey(label);
+    if (!normalizedLabel) return null;
+
+    return this.cityModel
+      .findOne({
+        ...this.buildActiveFilter(countryCode),
+        $or: [
+          { normalizedName: normalizedLabel },
+          { normalizedAliases: { $in: [normalizedLabel] } },
+        ],
+      })
+      .sort({ population: -1, sortOrder: 1, name: 1 })
+      .exec();
+  }
+
   private normalizeGeoKey(value: string | null | undefined): string {
     return String(value ?? "")
       .replace(/ß/g, "ss")

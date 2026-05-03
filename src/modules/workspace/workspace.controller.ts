@@ -1,5 +1,8 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Query, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Headers, HttpCode, Patch, Post, Query, Res, UnauthorizedException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import type { Response } from 'express';
+import { ApiBearerAuth, ApiConsumes, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { ApiErrors, ApiPublicErrors } from '../../common/swagger/api-errors.decorator';
 import { WorkspaceService } from './workspace.service';
@@ -20,16 +23,35 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AppRole } from '../users/schemas/user.schema';
 import { WorkspaceStatisticsQueryDto } from './dto/workspace-statistics-query.dto';
 import { WorkspaceStatisticsOverviewResponseDto } from './dto/workspace-statistics-response.dto';
+import { RegisterWorkspaceProfileDto, SaveWorkspaceProfileDto, WorkspaceProfileResponseDto } from './dto/workspace-profile.dto';
+import { AuthResponseDto } from '../auth/dto/auth-response.dto';
+import { IMAGE_MULTER_OPTIONS } from '../uploads/multer.options';
 
 type CurrentUserPayload = { userId: string; role: AppRole; sessionId?: string };
 
 @ApiTags('workspace')
 @Controller('workspace')
 export class WorkspaceController {
+  private static readonly REFRESH_COOKIE_PATH = '/';
+
   constructor(
     private readonly workspace: WorkspaceService,
     private readonly statistics: WorkspaceStatisticsService,
+    private readonly config: ConfigService,
   ) {}
+
+  private setRefreshCookie(res: Response, token: string) {
+    const nodeEnv = this.config.get<string>('app.nodeEnv') ?? 'development';
+    const isProd = nodeEnv === 'production';
+
+    res.cookie('refreshToken', token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      path: WorkspaceController.REFRESH_COOKIE_PATH,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+  }
 
   @Get('public')
   @ApiOperation({
@@ -115,5 +137,47 @@ export class WorkspaceController {
     }
 
     return this.workspace.getRequestsOverview(user?.userId, user?.role, query, acceptLanguage);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Unified workspace profile contract for authenticated users' })
+  @ApiOkResponse({ type: WorkspaceProfileResponseDto })
+  @ApiErrors({ conflict: false, notFound: false })
+  async getProfile(@CurrentUser() user: CurrentUserPayload): Promise<WorkspaceProfileResponseDto> {
+    return this.workspace.getProfile(user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Save unified workspace profile for authenticated users' })
+  @ApiOkResponse({ type: WorkspaceProfileResponseDto })
+  @ApiErrors({ conflict: false, notFound: false })
+  @UseInterceptors(FileInterceptor('avatar', IMAGE_MULTER_OPTIONS))
+  async saveProfile(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: SaveWorkspaceProfileDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<WorkspaceProfileResponseDto> {
+    return this.workspace.saveProfile(user.userId, dto, file);
+  }
+
+  @Post('profile/register')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Register and bootstrap workspace profile in one server-owned flow' })
+  @ApiCreatedResponse({ type: AuthResponseDto })
+  @ApiPublicErrors()
+  @UseInterceptors(FileInterceptor('avatar', IMAGE_MULTER_OPTIONS))
+  async registerProfile(
+    @Body() dto: RegisterWorkspaceProfileDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    const { user, accessToken, refreshToken, expiresIn } = await this.workspace.registerProfile(dto, file);
+    this.setRefreshCookie(res, refreshToken);
+    return { user, accessToken, expiresIn };
   }
 }

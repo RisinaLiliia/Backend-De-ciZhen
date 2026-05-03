@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 
+import type { TokenResponse } from '../auth/auth.types';
 import type { AppRole } from '../users/schemas/user.schema';
 import type {
   WorkspacePublicQueryDto,
@@ -13,10 +14,12 @@ import type {
 } from './dto/workspace-private-response.dto';
 import type { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
 import type { WorkspaceRequestsResponseDto } from './dto/workspace-requests-response.dto';
+import type { RegisterWorkspaceProfileDto, SaveWorkspaceProfileDto, WorkspaceProfileResponseDto } from './dto/workspace-profile.dto';
 import { WorkspaceMarketRequestsService } from './workspace-market-requests.service';
 import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspacePublicOverviewService } from './workspace-public-overview.service';
 import { WorkspacePrivateOverviewService } from './workspace-private-overview.service';
+import { WorkspaceProfileService } from './workspace-profile.service';
 
 @Injectable()
 export class WorkspaceService {
@@ -25,6 +28,7 @@ export class WorkspaceService {
     private readonly workspaceMarketRequests: WorkspaceMarketRequestsService,
     private readonly workspacePublicOverview: WorkspacePublicOverviewService,
     private readonly workspacePrivateOverview: WorkspacePrivateOverviewService,
+    private readonly workspaceProfile: WorkspaceProfileService,
   ) {}
 
   async getPublicOverview(query: WorkspacePublicQueryDto): Promise<WorkspacePublicOverviewResponseDto> {
@@ -58,5 +62,17 @@ export class WorkspaceService {
     }
 
     return this.workspaceRequests.getRequestsOverview(userId, role, query, acceptLanguage);
+  }
+
+  async getProfile(userId: string): Promise<WorkspaceProfileResponseDto> {
+    return this.workspaceProfile.getProfile(userId);
+  }
+
+  async saveProfile(userId: string, dto: SaveWorkspaceProfileDto, file?: Express.Multer.File): Promise<WorkspaceProfileResponseDto> {
+    return this.workspaceProfile.saveProfile(userId, dto, file);
+  }
+
+  async registerProfile(dto: RegisterWorkspaceProfileDto, file?: Express.Multer.File): Promise<TokenResponse> {
+    return this.workspaceProfile.registerProfile(dto, file);
   }
 }
