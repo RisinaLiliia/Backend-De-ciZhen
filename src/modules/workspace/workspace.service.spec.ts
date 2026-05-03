@@ -5,6 +5,7 @@ import { WorkspaceMarketRequestsService } from './workspace-market-requests.serv
 import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspacePublicOverviewService } from './workspace-public-overview.service';
 import { WorkspacePrivateOverviewService } from './workspace-private-overview.service';
+import { WorkspaceProfileService } from './workspace-profile.service';
 
 describe('WorkspaceService (unit)', () => {
   let service: WorkspaceService;
@@ -26,6 +27,12 @@ describe('WorkspaceService (unit)', () => {
     getPrivateOverview: jest.fn(),
   };
 
+  const profileMock = {
+    getProfile: jest.fn(),
+    saveProfile: jest.fn(),
+    registerProfile: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -36,6 +43,7 @@ describe('WorkspaceService (unit)', () => {
         { provide: WorkspaceRequestsService, useValue: requestsMock },
         { provide: WorkspacePublicOverviewService, useValue: publicOverviewMock },
         { provide: WorkspacePrivateOverviewService, useValue: privateOverviewMock },
+        { provide: WorkspaceProfileService, useValue: profileMock },
       ],
     }).compile();
 
@@ -93,6 +101,45 @@ describe('WorkspaceService (unit)', () => {
     const result = await service.getRequestsOverview(null, null, query as any, 'de-DE');
 
     expect(marketRequestsMock.getMarketOverview).toHaveBeenCalledWith(query, 'de-DE');
+    expect(result).toBe(expected);
+  });
+
+  it('delegates profile read to WorkspaceProfileService', async () => {
+    const expected = { common: { name: 'Liliia' }, customer: { bio: null }, provider: { serviceKeys: [] } };
+    profileMock.getProfile.mockResolvedValue(expected);
+
+    const result = await service.getProfile('user-1');
+
+    expect(profileMock.getProfile).toHaveBeenCalledWith('user-1');
+    expect(result).toBe(expected);
+  });
+
+  it('delegates profile save to WorkspaceProfileService', async () => {
+    const expected = { common: { name: 'Liliia Updated' }, customer: { bio: null }, provider: { serviceKeys: [] } };
+    const dto = { name: 'Liliia Updated' };
+    const file = { originalname: 'avatar.png' } as Express.Multer.File;
+    profileMock.saveProfile.mockResolvedValue(expected);
+
+    const result = await service.saveProfile('user-1', dto as any, file);
+
+    expect(profileMock.saveProfile).toHaveBeenCalledWith('user-1', dto, file);
+    expect(result).toBe(expected);
+  });
+
+  it('delegates profile register to WorkspaceProfileService', async () => {
+    const expected = {
+      user: { id: 'user-1', name: 'Liliia', email: 'liliia@example.com', role: 'provider' },
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      expiresIn: 900,
+    };
+    const dto = { name: 'Liliia', email: 'liliia@example.com', viewerMode: 'provider' };
+    const file = { originalname: 'avatar.png' } as Express.Multer.File;
+    profileMock.registerProfile.mockResolvedValue(expected);
+
+    const result = await service.registerProfile(dto as any, file);
+
+    expect(profileMock.registerProfile).toHaveBeenCalledWith(dto, file);
     expect(result).toBe(expected);
   });
 });
