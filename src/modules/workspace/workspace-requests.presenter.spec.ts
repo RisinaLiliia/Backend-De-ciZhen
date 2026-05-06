@@ -190,6 +190,16 @@ describe('WorkspaceRequestsPresenter (unit)', () => {
           mode: 'decision',
           targetFilter: 'needs_action',
         },
+        queue: [
+          expect.objectContaining({
+            requestId: 'request-customer-1',
+            title: 'Logo design for boutique',
+            actionType: 'review_offers',
+            actionLabel: 'Angebote ansehen',
+            categoryLabel: 'Design',
+            cityLabel: 'Berlin',
+          }),
+        ],
         overview: {
           highUrgency: 7,
           inProgress: 2,
