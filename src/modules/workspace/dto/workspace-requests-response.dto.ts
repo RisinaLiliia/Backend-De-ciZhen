@@ -630,14 +630,14 @@ export class WorkspaceRequestsResponseDto {
   @ApiProperty({ type: WorkspaceRequestsFiltersDto })
   filters: WorkspaceRequestsFiltersDto;
 
-  @ApiPropertyOptional({ type: WorkspaceRequestsSummaryDto, nullable: true })
-  summary?: WorkspaceRequestsSummaryDto | null;
+  @ApiProperty({ type: WorkspaceRequestsSummaryDto })
+  summary: WorkspaceRequestsSummaryDto;
 
   @ApiProperty({ type: WorkspaceRequestsListDto })
   list: WorkspaceRequestsListDto;
 
-  @ApiPropertyOptional({ type: WorkspaceRequestsDecisionPanelDto, nullable: true })
-  decisionPanel?: WorkspaceRequestsDecisionPanelDto | null;
+  @ApiProperty({ type: WorkspaceRequestsDecisionPanelDto })
+  decisionPanel: WorkspaceRequestsDecisionPanelDto;
 
   @ApiPropertyOptional({ type: WorkspaceRequestsSidePanelDto, nullable: true })
   sidePanel?: WorkspaceRequestsSidePanelDto | null;

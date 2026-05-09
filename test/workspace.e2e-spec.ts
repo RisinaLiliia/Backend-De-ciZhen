@@ -14,6 +14,13 @@ import { Review, type ReviewDocument } from '../src/modules/reviews/schemas/revi
 
 jest.setTimeout(120000);
 
+function daysFromNow(days: number, hour = 10): Date {
+  const value = new Date();
+  value.setUTCDate(value.getUTCDate() + days);
+  value.setUTCHours(hour, 0, 0, 0);
+  return value;
+}
+
 describe('workspace (e2e)', () => {
   let app: INestApplication;
   let ctx: E2EContext;
@@ -113,15 +120,15 @@ describe('workspace (e2e)', () => {
         propertyType: 'apartment',
         area: 12,
         price: 180,
-        preferredDate: new Date('2026-05-05T10:00:00.000Z'),
+        preferredDate: daysFromNow(-4, 10),
         isRecurring: false,
         status: 'published',
         categoryKey: 'repairs',
         categoryName: 'Reparaturen',
         subcategoryName: 'WC reparieren',
-        publishedAt: new Date('2026-04-28T10:00:00.000Z'),
-        createdAt: new Date('2026-04-28T10:00:00.000Z'),
-        updatedAt: new Date('2026-04-28T10:00:00.000Z'),
+        publishedAt: daysFromNow(-11, 10),
+        createdAt: daysFromNow(-11, 10),
+        updatedAt: daysFromNow(-11, 10),
       },
       {
         title: 'Suche Hilfe für kleine Reparaturen zuhause',
@@ -131,15 +138,15 @@ describe('workspace (e2e)', () => {
         propertyType: 'apartment',
         area: 18,
         price: 140,
-        preferredDate: new Date('2026-05-03T10:00:00.000Z'),
+        preferredDate: daysFromNow(-6, 10),
         isRecurring: false,
         status: 'matched',
         categoryKey: 'repairs',
         categoryName: 'Reparaturen',
         subcategoryName: 'Kleine Reparaturen',
-        matchedAt: new Date('2026-04-30T10:00:00.000Z'),
-        createdAt: new Date('2026-04-27T10:00:00.000Z'),
-        updatedAt: new Date('2026-04-30T10:00:00.000Z'),
+        matchedAt: daysFromNow(-9, 10),
+        createdAt: daysFromNow(-12, 10),
+        updatedAt: daysFromNow(-9, 10),
       },
       {
         title: 'Büroreinigung',
@@ -149,14 +156,14 @@ describe('workspace (e2e)', () => {
         propertyType: 'house',
         area: 45,
         price: 320,
-        preferredDate: new Date('2026-04-29T10:00:00.000Z'),
+        preferredDate: daysFromNow(-10, 10),
         isRecurring: false,
         status: 'closed',
         categoryKey: 'cleaning',
         categoryName: 'Reinigung',
         subcategoryName: 'Büroreinigung',
-        createdAt: new Date('2026-04-25T10:00:00.000Z'),
-        updatedAt: new Date('2026-04-30T12:00:00.000Z'),
+        createdAt: daysFromNow(-14, 10),
+        updatedAt: daysFromNow(-9, 12),
       },
     ]);
 
@@ -277,7 +284,7 @@ describe('workspace (e2e)', () => {
         propertyType: 'apartment',
         area: 50,
         price: 140,
-        preferredDate: new Date('2026-04-07T10:00:00.000Z'),
+        preferredDate: daysFromNow(-3, 10),
         isRecurring: false,
         status: 'published',
         categoryKey: 'cleaning',
@@ -294,7 +301,7 @@ describe('workspace (e2e)', () => {
         propertyType: 'apartment',
         area: 70,
         price: 220,
-        preferredDate: new Date('2026-04-08T12:00:00.000Z'),
+        preferredDate: daysFromNow(-2, 12),
         isRecurring: false,
         status: 'matched',
         categoryKey: 'cleaning',
@@ -311,7 +318,7 @@ describe('workspace (e2e)', () => {
         status: 'sent',
         message: 'Kann morgen starten',
         pricing: { amount: 150, type: 'fixed', details: null },
-        availability: { date: '2026-04-07T11:00:00.000Z', note: null },
+        availability: { date: daysFromNow(-3, 11).toISOString(), note: null },
         metadata: {},
       },
       {
@@ -322,7 +329,7 @@ describe('workspace (e2e)', () => {
         status: 'accepted',
         message: 'Bereit für den Auftrag',
         pricing: { amount: 220, type: 'fixed', details: null },
-        availability: { date: '2026-04-08T10:00:00.000Z', note: null },
+        availability: { date: daysFromNow(-2, 10).toISOString(), note: null },
         metadata: {},
       },
     ]);
@@ -336,7 +343,7 @@ describe('workspace (e2e)', () => {
       priceAmount: 220,
       priceType: 'fixed',
       priceDetails: null,
-      confirmedAt: new Date('2026-04-08T12:30:00.000Z'),
+      confirmedAt: daysFromNow(-2, 13),
       completedAt: null,
       cancelledAt: null,
       cancelReason: null,
@@ -700,7 +707,7 @@ describe('workspace (e2e)', () => {
       cityName: 'Berlin',
       propertyType: 'apartment',
       area: 50,
-      preferredDate: new Date('2026-04-07T10:00:00.000Z'),
+      preferredDate: daysFromNow(-3, 10),
       isRecurring: false,
       status: 'draft',
       categoryKey: 'cleaning',
