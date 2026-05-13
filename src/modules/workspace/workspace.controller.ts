@@ -144,20 +144,23 @@ export class WorkspaceController {
     return this.workspace.getRequestsOverview(user?.userId, user?.role, query, acceptLanguage);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('providers')
   @ApiOperation({
-    summary: 'Unified workspace providers rail contract',
+    summary: 'Unified workspace providers board',
     description:
-      'Returns backend-owned summary cards and decision-panel recommendations for `workspace?section=providers`.',
+      'Returns backend-owned summary cards, decision-panel recommendations, and paginated provider list items for `workspace?section=providers`.',
   })
   @ApiSecurity({} as any)
+  @ApiBearerAuth('access-token')
   @ApiOkResponse({ type: WorkspaceProvidersResponseDto })
   @ApiPublicErrors()
   async getProvidersOverview(
     @Query() query: WorkspaceProvidersQueryDto,
+    @CurrentUser() user: CurrentUserPayload | null,
     @Headers('accept-language') acceptLanguage?: string,
   ): Promise<WorkspaceProvidersResponseDto> {
-    return this.workspace.getProvidersOverview(query, acceptLanguage);
+    return this.workspace.getProvidersOverview(query, user?.userId, acceptLanguage);
   }
 
   @UseGuards(OptionalJwtAuthGuard)

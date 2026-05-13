@@ -127,9 +127,9 @@ describe('WorkspaceService (unit)', () => {
     const query = { cityId: 'city-1', subcategoryKey: 'window_cleaning', viewerMode: 'provider' };
     providersMock.getProvidersOverview.mockResolvedValue(expected);
 
-    const result = await service.getProvidersOverview(query as any, 'de-DE');
+    const result = await service.getProvidersOverview(query as any, 'user-1', 'de-DE');
 
-    expect(providersMock.getProvidersOverview).toHaveBeenCalledWith(query, 'de-DE');
+    expect(providersMock.getProvidersOverview).toHaveBeenCalledWith(query, 'user-1', 'de-DE');
     expect(result).toBe(expected);
   });
 

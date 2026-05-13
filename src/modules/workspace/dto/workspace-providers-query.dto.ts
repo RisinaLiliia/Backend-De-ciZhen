@@ -1,5 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+
+export const WORKSPACE_PROVIDERS_SORT_VALUES = ['date_desc', 'date_asc', 'price_asc', 'price_desc'] as const;
+export type WorkspaceProvidersSortDto = (typeof WORKSPACE_PROVIDERS_SORT_VALUES)[number];
 
 export class WorkspaceProvidersQueryDto {
   @ApiPropertyOptional({ example: '64f0c1a2b3c4d5e6f7a8b9c0' })
@@ -29,4 +33,24 @@ export class WorkspaceProvidersQueryDto {
   @IsOptional()
   @IsIn(['customer', 'provider'])
   viewerMode?: 'customer' | 'provider';
+
+  @ApiPropertyOptional({ enum: WORKSPACE_PROVIDERS_SORT_VALUES, example: 'date_desc' })
+  @IsOptional()
+  @IsIn(WORKSPACE_PROVIDERS_SORT_VALUES)
+  sort?: WorkspaceProvidersSortDto;
+
+  @ApiPropertyOptional({ example: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
 }

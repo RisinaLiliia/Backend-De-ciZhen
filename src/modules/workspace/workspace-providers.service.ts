@@ -6,9 +6,12 @@ import { CatalogServicesService } from '../catalog/services/services.service';
 import { CitiesService } from '../catalog/cities/cities.service';
 import { ProviderProfile, type ProviderProfileDocument } from '../providers/schemas/provider-profile.schema';
 import { ProviderAvailability, type ProviderAvailabilityDocument } from '../availability/schemas/provider-availability.schema';
-import type { WorkspaceProvidersQueryDto } from './dto/workspace-providers-query.dto';
+import { Favorite, type FavoriteDocument } from '../favorites/schemas/favorite.schema';
+import type { WorkspaceProvidersQueryDto, WorkspaceProvidersSortDto } from './dto/workspace-providers-query.dto';
 import type {
+  WorkspaceProvidersCardDto,
   WorkspaceProvidersDecisionPanelQueueItemDto,
+  WorkspaceProvidersListItemDto,
   WorkspaceProvidersResponseDto,
   WorkspaceProvidersSummaryItemDto,
 } from './dto/workspace-providers-response.dto';
@@ -17,6 +20,8 @@ import { WorkspaceRequestsSupport, WORKSPACE_REQUESTS_PERIOD_MS, type WorkspaceR
 type ProviderActionType = WorkspaceProvidersDecisionPanelQueueItemDto['actionType'];
 type ProviderPriority = WorkspaceProvidersDecisionPanelQueueItemDto['actionPriorityLevel'];
 type ProviderViewerMode = NonNullable<WorkspaceProvidersQueryDto['viewerMode']>;
+type ProviderListCard = WorkspaceProvidersListItemDto['card'];
+type ProviderBadge = ProviderListCard['badges'][number];
 
 type QueueCandidate = {
   providerId: string;
@@ -34,6 +39,42 @@ type QueueCandidate = {
   sortUpdatedAt: number;
 };
 
+const REVIEW_PREVIEWS: Record<WorkspaceRequestsLocale, string[]> = {
+  de: [
+    'Sehr zuverlässig und schnell!',
+    'Pünktlich, freundlich und sauber gearbeitet.',
+    'Top Kommunikation und fairer Preis.',
+    'Sehr professionell, gerne wieder.',
+    'Schnelle Rückmeldung und sauberes Ergebnis.',
+    'Arbeit exakt wie besprochen umgesetzt.',
+  ],
+  en: [
+    'Very reliable and quick.',
+    'On time, friendly, and tidy work.',
+    'Great communication and fair pricing.',
+    'Very professional, would book again.',
+    'Fast response and clean result.',
+    'Delivered exactly as agreed.',
+  ],
+};
+
+const PROVIDER_BIO_PREVIEWS: Record<WorkspaceRequestsLocale, string[]> = {
+  de: [
+    'Fokussiert auf saubere Ausführung, klare Absprachen und verlässliche Termine.',
+    'Mehrjährige Praxiserfahrung mit schnellen Rückmeldungen und transparentem Ablauf.',
+    'Arbeitet strukturiert, zuverlässig und mit hohem Qualitätsanspruch im Detail.',
+    'Unterstützt kurzfristig bei passenden Anfragen und kommuniziert proaktiv den Fortschritt.',
+    'Spezialisiert auf effiziente Lösungen mit sauberem Finish und fairer Preisstruktur.',
+  ],
+  en: [
+    'Focused on clean execution, clear communication, and dependable timing.',
+    'Hands-on experience with fast replies and a transparent working process.',
+    'Works in a structured, reliable way with strong attention to detail.',
+    'Can support short-notice requests and communicates progress proactively.',
+    'Specialized in efficient solutions with a polished finish and fair pricing.',
+  ],
+};
+
 @Injectable()
 export class WorkspaceProvidersService {
   private readonly support = new WorkspaceRequestsSupport();
@@ -43,6 +84,8 @@ export class WorkspaceProvidersService {
     private readonly providerModel: Model<ProviderProfileDocument>,
     @InjectModel(ProviderAvailability.name)
     private readonly availabilityModel: Model<ProviderAvailabilityDocument>,
+    @InjectModel(Favorite.name)
+    private readonly favoriteModel: Model<FavoriteDocument>,
     private readonly catalogServices: CatalogServicesService,
     private readonly cities: CitiesService,
   ) {}
@@ -106,6 +149,201 @@ export class WorkspaceProvidersService {
       return entity.i18n?.de ?? entity.name ?? entity.i18n?.en ?? null;
     }
     return entity.i18n?.en ?? entity.name ?? entity.i18n?.de ?? null;
+  }
+
+  private resolveSort(sort?: WorkspaceProvidersSortDto | null): WorkspaceProvidersSortDto {
+    return sort === 'date_asc' || sort === 'price_asc' || sort === 'price_desc' ? sort : 'date_desc';
+  }
+
+  private resolvePagination(page?: number | null, limit?: number | null) {
+    const safeLimit = Math.min(100, Math.max(1, Math.trunc(limit ?? 20)));
+    const safePage = Math.max(1, Math.trunc(page ?? 1));
+    return { page: safePage, limit: safeLimit };
+  }
+
+  private hashProviderCardSeed(input: string) {
+    let hash = 0;
+    for (let index = 0; index < input.length; index += 1) {
+      hash = (hash * 31 + input.charCodeAt(index)) % 100000;
+    }
+    return hash;
+  }
+
+  private computeProviderResponseRate(provider: ProviderProfileDocument) {
+    const ratingPart = Math.round(Number(provider.ratingAvg ?? 0) * 12);
+    const reviewsPart = Math.min(8, Math.floor(Math.log10(Math.max(1, Number(provider.ratingCount ?? 0))) * 5));
+    const jobsPart = Math.min(10, Math.floor(Number(provider.completedJobs ?? 0) / 25));
+    return Math.max(74, Math.min(99, ratingPart + reviewsPart + jobsPart));
+  }
+
+  private resolveProviderResponseMinutes(seed: number) {
+    return 10 + (seed % 16);
+  }
+
+  private resolveProviderIsVerified(provider: ProviderProfileDocument) {
+    return Number(provider.ratingCount ?? 0) >= 30 || Number(provider.completedJobs ?? 0) >= 25;
+  }
+
+  private buildProviderCardBadges(args: {
+    locale: WorkspaceRequestsLocale;
+    provider: ProviderProfileDocument;
+    responseRate: number;
+    responseMinutes: number;
+  }): ProviderBadge[] {
+    const { locale, provider, responseRate, responseMinutes } = args;
+    const isTopProvider = Number(provider.ratingAvg ?? 0) >= 4.8 && Number(provider.ratingCount ?? 0) >= 30 && responseRate >= 80;
+    const isTopService = Number(provider.ratingAvg ?? 0) >= 4.7 && Number(provider.ratingCount ?? 0) >= 15;
+    const isFastReply = responseMinutes <= 20;
+
+    const topProviderLabel = locale === 'de' ? 'Top Anbieter' : 'Top provider';
+    const topProviderTooltip = locale === 'de' ? 'Top Bewertung und hohe Zuverlässigkeit' : 'Top rating and high reliability';
+    const topServiceLabel = locale === 'de' ? 'Top Service' : 'Top service';
+    const topServiceTooltip = locale === 'de' ? 'Konstant starke Bewertungen' : 'Consistently strong ratings';
+    const fastReplyLabel = locale === 'de' ? 'Schnelle Antwort' : 'Fast reply';
+    const fastReplyTooltip = locale === 'de' ? 'Reagiert in der Regel sehr schnell' : 'Usually responds very quickly';
+
+    const badges: ProviderBadge[] = [];
+    if (isTopProvider) {
+      badges.push({
+        variant: 'info',
+        size: 'sm',
+        tone: 'soft',
+        label: topProviderLabel,
+        tooltip: topProviderTooltip,
+      });
+    } else if (isTopService) {
+      badges.push({
+        variant: 'info',
+        size: 'sm',
+        tone: 'soft',
+        label: topServiceLabel,
+        tooltip: topServiceTooltip,
+      });
+      if (isFastReply) {
+        badges.push({
+          variant: 'opportunity',
+          size: 'sm',
+          tone: 'soft',
+          label: fastReplyLabel,
+          tooltip: fastReplyTooltip,
+        });
+      }
+    } else if (isFastReply) {
+      badges.push({
+        variant: 'opportunity',
+        size: 'sm',
+        tone: 'soft',
+        label: fastReplyLabel,
+        tooltip: fastReplyTooltip,
+      });
+    }
+
+    return badges;
+  }
+
+  private buildProviderServicePreview(args: {
+    provider: ProviderProfileDocument;
+    serviceByKey: Map<string, string>;
+    fallbackRole: string;
+  }) {
+    const labels = (Array.isArray(args.provider.serviceKeys) ? args.provider.serviceKeys : [])
+      .map((key) => args.serviceByKey.get(String(key ?? '').trim().toLowerCase()) ?? null)
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .slice(0, 2);
+
+    if (labels.length > 0) {
+      return labels;
+    }
+
+    return [args.fallbackRole];
+  }
+
+  private buildProviderCard(args: {
+    locale: WorkspaceRequestsLocale;
+    provider: ProviderProfileDocument;
+    isAvailable: boolean;
+    categoryLabel: string | null;
+    cityLabel: string | null;
+    serviceByKey: Map<string, string>;
+  }): ProviderListCard {
+    const { locale, provider, isAvailable, categoryLabel, cityLabel, serviceByKey } = args;
+    const seed = this.hashProviderCardSeed(String(provider.id ?? provider.userId ?? 'provider'));
+    const responseMinutes = this.resolveProviderResponseMinutes(seed);
+    const responseRate = this.computeProviderResponseRate(provider);
+    const localeTag = locale === 'de' ? 'de-DE' : 'en-US';
+    const priceFormatter = new Intl.NumberFormat(localeTag, {
+      style: 'currency',
+      currency: 'EUR',
+      maximumFractionDigits: 0,
+    });
+    const role = categoryLabel?.trim() || (locale === 'de' ? 'Dienstleistung' : 'Service');
+    const servicePreview = this.buildProviderServicePreview({ provider, serviceByKey, fallbackRole: role });
+
+    return {
+      id: String(provider.id),
+      badges: this.buildProviderCardBadges({ locale, provider, responseRate, responseMinutes }),
+      isVerified: this.resolveProviderIsVerified(provider),
+      status: isAvailable ? 'online' : 'offline',
+      statusLabel: isAvailable
+        ? (locale === 'de' ? 'Aktiv' : 'Active')
+        : (locale === 'de' ? 'Nicht aktiv' : 'Inactive'),
+      avatarUrl: provider.avatarUrl ?? null,
+      name: provider.displayName?.trim() || (locale === 'de' ? 'Anbieterprofil' : 'Provider profile'),
+      role,
+      cityLabel: cityLabel?.trim() || null,
+      rating: Number(provider.ratingAvg ?? 0).toFixed(1),
+      responseTime: `~${responseMinutes} ${locale === 'de' ? 'Min.' : 'min'}`,
+      responseTimeLabel: locale === 'de' ? 'Antwortzeit' : 'Response time',
+      responseRate,
+      responseRateLabel: locale === 'de' ? 'Antwortquote' : 'Response rate',
+      aboutPreview: provider.bio?.trim() || PROVIDER_BIO_PREVIEWS[locale][seed % PROVIDER_BIO_PREVIEWS[locale].length] || null,
+      reviewsCount: Number(provider.ratingCount ?? 0),
+      reviewsLabel: locale === 'de' ? 'Bewertungen' : 'reviews',
+      reviewPreview: REVIEW_PREVIEWS[locale][seed % REVIEW_PREVIEWS[locale].length] || null,
+      availabilityDatePrefix: isAvailable ? (locale === 'de' ? 'Verfügbar' : 'Available') : null,
+      availabilityDateLabel: isAvailable ? (locale === 'de' ? 'Jetzt' : 'Now') : null,
+      availabilityDateIso: null,
+      pricingPrefixLabel:
+        typeof provider.basePrice === 'number' && Number.isFinite(provider.basePrice)
+          ? (locale === 'de' ? 'Ab' : 'From')
+          : null,
+      pricingValueLabel:
+        typeof provider.basePrice === 'number' && Number.isFinite(provider.basePrice)
+          ? priceFormatter.format(provider.basePrice)
+          : (locale === 'de' ? 'Festpreis' : 'Fixed price'),
+      pricingSuffixLabel:
+        typeof provider.basePrice === 'number' && Number.isFinite(provider.basePrice)
+          ? (locale === 'de' ? '/ Std.' : '/ hr')
+          : null,
+      servicePreview,
+      ctaLabel: locale === 'de' ? 'Profil ansehen' : 'View profile',
+      profileHref: `/providers/${provider.id}`,
+      reviewsHref: `/providers/${provider.id}#reviews`,
+    };
+  }
+
+  private sortProviders(providers: ProviderProfileDocument[], sort: WorkspaceProvidersSortDto) {
+    const copy = [...providers];
+    copy.sort((left, right) => {
+      const leftUpdatedAt = left.updatedAt instanceof Date ? left.updatedAt.getTime() : 0;
+      const rightUpdatedAt = right.updatedAt instanceof Date ? right.updatedAt.getTime() : 0;
+      const leftPrice = typeof left.basePrice === 'number' && Number.isFinite(left.basePrice) ? left.basePrice : Number.POSITIVE_INFINITY;
+      const rightPrice = typeof right.basePrice === 'number' && Number.isFinite(right.basePrice) ? right.basePrice : Number.POSITIVE_INFINITY;
+      const ratingDelta = Number(right.ratingAvg ?? 0) - Number(left.ratingAvg ?? 0);
+      const reviewsDelta = Number(right.ratingCount ?? 0) - Number(left.ratingCount ?? 0);
+
+      if (sort === 'date_asc') {
+        return leftUpdatedAt - rightUpdatedAt || ratingDelta || reviewsDelta;
+      }
+      if (sort === 'price_asc') {
+        return leftPrice - rightPrice || ratingDelta || reviewsDelta || rightUpdatedAt - leftUpdatedAt;
+      }
+      if (sort === 'price_desc') {
+        return rightPrice - leftPrice || ratingDelta || reviewsDelta || rightUpdatedAt - leftUpdatedAt;
+      }
+      return rightUpdatedAt - leftUpdatedAt || ratingDelta || reviewsDelta;
+    });
+    return copy;
   }
 
   private buildSummary(args: {
@@ -298,17 +536,21 @@ export class WorkspaceProvidersService {
     if (query.subcategoryKey) qs.set('subcategoryKey', query.subcategoryKey);
     if (query.period) qs.set('period', query.period);
     if (query.viewerMode) qs.set('viewerMode', query.viewerMode);
+    if (query.sort) qs.set('sort', query.sort);
     const value = qs.toString();
     return `/workspace?${value}`;
   }
 
   async getProvidersOverview(
     query: WorkspaceProvidersQueryDto,
+    userId?: string | null,
     acceptLanguage?: string | null,
   ): Promise<WorkspaceProvidersResponseDto> {
     const locale = this.support.resolveWorkspaceLocale(acceptLanguage);
     const period = query.period ?? '30d';
     const viewerMode: ProviderViewerMode = query.viewerMode ?? 'customer';
+    const sort = this.resolveSort(query.sort);
+    const pagination = this.resolvePagination(query.page, query.limit);
     const now = Date.now();
     const baseMatch = await this.buildBaseMatch(query);
     const providers = await this.providerModel
@@ -337,9 +579,7 @@ export class WorkspaceProvidersService {
           .filter((key) => key.length > 0),
       ),
     );
-    const services = serviceKeys.length > 0
-      ? await this.catalogServices.listServices()
-      : [];
+    const services = serviceKeys.length > 0 ? await this.catalogServices.listServices() : [];
     const serviceByKey = new Map(
       services.map((service) => [service.key, this.pickLocalizedLabel(service as any, locale) ?? service.key]),
     );
@@ -396,7 +636,6 @@ export class WorkspaceProvidersService {
         || right.sortUpdatedAt - left.sortUpdatedAt)
       .slice(0, 5);
 
-    const totalNeedsAction = queueCandidates.length;
     const queue = queueCandidates.map((candidate) => ({
       providerId: candidate.providerId,
       title: candidate.title,
@@ -409,6 +648,51 @@ export class WorkspaceProvidersService {
       cityLabel: candidate.cityLabel,
       href: candidate.href,
     }));
+
+    const sortedProviders = this.sortProviders(providers, sort);
+    const totalCount = sortedProviders.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pagination.limit));
+    const page = Math.min(pagination.page, totalPages);
+    const start = (page - 1) * pagination.limit;
+    const visibleProviders = sortedProviders.slice(start, start + pagination.limit);
+    const favoriteProviderIds = userId && visibleProviders.length > 0
+      ? new Set(
+        (
+          await this.favoriteModel
+            .find({
+              userId,
+              type: 'provider',
+              targetId: { $in: visibleProviders.map((provider) => String(provider.id)) },
+            })
+            .select({ targetId: 1 })
+            .exec()
+        )
+          .map((row) => String(row.targetId ?? '').trim())
+          .filter((value) => value.length > 0),
+      )
+      : new Set<string>();
+    const listItems = visibleProviders.map<WorkspaceProvidersListItemDto>((provider) => {
+      const primaryServiceKey = Array.isArray(provider.serviceKeys) ? provider.serviceKeys[0] : null;
+      const categoryLabel = primaryServiceKey ? serviceByKey.get(primaryServiceKey) ?? primaryServiceKey : null;
+      const cityLabel = provider.cityId ? cityById.get(String(provider.cityId)) ?? String(provider.cityId) : null;
+      const isAvailable = availableSet.has(String(provider.userId ?? '').trim());
+      return {
+        id: String(provider.id),
+        userId: provider.userId ?? null,
+        isFavorite: favoriteProviderIds.has(String(provider.id)),
+        card: this.buildProviderCard({
+          locale,
+          provider,
+          isAvailable,
+          categoryLabel,
+          cityLabel,
+          serviceByKey,
+        }),
+      };
+    });
+
+    const localeTag = locale === 'de' ? 'de-DE' : 'en-US';
+    const totalLabel = new Intl.NumberFormat(localeTag).format(totalCount);
 
     return {
       section: 'providers',
@@ -430,6 +714,9 @@ export class WorkspaceProvidersService {
         subcategoryKey: query.subcategoryKey ?? null,
         period,
         viewerMode,
+        sort,
+        page,
+        limit: pagination.limit,
       },
       summary: {
         items: this.buildSummary({
@@ -442,8 +729,8 @@ export class WorkspaceProvidersService {
       },
       decisionPanel: {
         eyebrow: locale === 'de' ? 'Decision Panel' : 'Decision panel',
-        totalNeedsAction,
-        title: totalNeedsAction > 0
+        totalNeedsAction: queue.length,
+        title: queue.length > 0
           ? (
             viewerMode === 'provider'
               ? (locale === 'de' ? 'Wettbewerber prägen den Markt' : 'Competitors are shaping the market')
@@ -454,7 +741,7 @@ export class WorkspaceProvidersService {
               ? (locale === 'de' ? 'Keine auffälligen Wettbewerber' : 'No standout competitors')
               : (locale === 'de' ? 'Keine priorisierten Anbieter' : 'No prioritized providers')
           ),
-        text: totalNeedsAction > 0
+        text: queue.length > 0
           ? (
             viewerMode === 'provider'
               ? (locale === 'de'
@@ -509,6 +796,23 @@ export class WorkspaceProvidersService {
             value: trustedCount,
           },
         ],
+      },
+      list: {
+        totalCount,
+        totalLabel,
+        sort,
+        page,
+        limit: pagination.limit,
+        totalPages,
+        emptyTitle: locale === 'de' ? 'Keine Anbieter gefunden' : 'No providers found',
+        emptyHint: viewerMode === 'provider'
+          ? (locale === 'de'
+            ? 'Passe Filter oder Perspektive an, um mehr Wettbewerber zu sehen.'
+            : 'Adjust filters or perspective to see more competitors.')
+          : (locale === 'de'
+            ? 'Passe Filter oder Perspektive an, um mehr Anbieter zu sehen.'
+            : 'Adjust filters or perspective to see more providers.'),
+        items: listItems,
       },
     };
   }

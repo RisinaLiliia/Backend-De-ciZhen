@@ -77,9 +77,10 @@ export class WorkspaceService {
 
   async getProvidersOverview(
     query: WorkspaceProvidersQueryDto,
+    userId?: string | null,
     acceptLanguage?: string | null,
   ): Promise<WorkspaceProvidersResponseDto> {
-    return this.workspaceProviders.getProvidersOverview(query, acceptLanguage);
+    return this.workspaceProviders.getProvidersOverview(query, userId, acceptLanguage);
   }
 
   async getReviewsRail(

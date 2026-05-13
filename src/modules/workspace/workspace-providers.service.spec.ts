@@ -5,6 +5,7 @@ import { CatalogServicesService } from '../catalog/services/services.service';
 import { CitiesService } from '../catalog/cities/cities.service';
 import { ProviderProfile } from '../providers/schemas/provider-profile.schema';
 import { ProviderAvailability } from '../availability/schemas/provider-availability.schema';
+import { Favorite } from '../favorites/schemas/favorite.schema';
 import { WorkspaceProvidersService } from './workspace-providers.service';
 
 describe('WorkspaceProvidersService (unit)', () => {
@@ -25,6 +26,13 @@ describe('WorkspaceProvidersService (unit)', () => {
     find: availabilityFindMock,
   };
 
+  const favoriteExecMock = jest.fn();
+  const favoriteSelectMock = jest.fn(() => ({ exec: favoriteExecMock }));
+  const favoriteFindMock = jest.fn(() => ({ select: favoriteSelectMock }));
+  const favoriteModelMock = {
+    find: favoriteFindMock,
+  };
+
   const catalogServicesMock = {
     listServices: jest.fn(),
   };
@@ -42,6 +50,7 @@ describe('WorkspaceProvidersService (unit)', () => {
         WorkspaceProvidersService,
         { provide: getModelToken(ProviderProfile.name), useValue: providerModelMock },
         { provide: getModelToken(ProviderAvailability.name), useValue: availabilityModelMock },
+        { provide: getModelToken(Favorite.name), useValue: favoriteModelMock },
         { provide: CatalogServicesService, useValue: catalogServicesMock },
         { provide: CitiesService, useValue: citiesMock },
       ],
@@ -54,32 +63,39 @@ describe('WorkspaceProvidersService (unit)', () => {
     nowSpy.mockRestore();
   });
 
-  it('returns a contract-driven providers rail payload', async () => {
+  it('returns a contract-driven providers workspace payload with rail and list data', async () => {
     const providerA = {
       id: 'provider-1',
       userId: 'user-1',
       displayName: 'Anna K.',
+      bio: 'Saubere Arbeit und schnelle Rückmeldung.',
+      avatarUrl: null,
       cityId: 'city-1',
       serviceKeys: ['window_cleaning'],
       ratingAvg: 4.9,
       ratingCount: 18,
       completedJobs: 22,
+      basePrice: 55,
       updatedAt: new Date('2026-05-10T08:00:00.000Z'),
     };
     const providerB = {
       id: 'provider-2',
       userId: 'user-2',
       displayName: 'Mark T.',
+      bio: null,
+      avatarUrl: null,
       cityId: 'city-1',
       serviceKeys: ['window_cleaning'],
       ratingAvg: 4.7,
       ratingCount: 9,
       completedJobs: 14,
+      basePrice: 65,
       updatedAt: new Date('2026-05-09T08:00:00.000Z'),
     };
 
     providerExecMock.mockResolvedValue([providerA, providerB]);
     availabilityExecMock.mockResolvedValue([{ providerUserId: 'user-1' }]);
+    favoriteExecMock.mockResolvedValue([{ targetId: 'provider-1' }]);
     catalogServicesMock.listServices.mockResolvedValue([
       { key: 'window_cleaning', name: 'Window cleaning', i18n: { de: 'Fensterreinigung', en: 'Window cleaning' } },
     ]);
@@ -92,7 +108,11 @@ describe('WorkspaceProvidersService (unit)', () => {
         cityId: 'city-1',
         subcategoryKey: 'window_cleaning',
         period: '30d',
+        sort: 'date_desc',
+        page: 1,
+        limit: 20,
       },
+      'viewer-1',
       'de-DE',
     );
 
@@ -129,7 +149,7 @@ describe('WorkspaceProvidersService (unit)', () => {
     ]);
     expect(result.decisionPanel.primaryAction).toEqual({
       label: 'Anbieter prüfen',
-      href: '/workspace?section=providers&cityId=city-1&subcategoryKey=window_cleaning&period=30d',
+      href: '/workspace?section=providers&cityId=city-1&subcategoryKey=window_cleaning&period=30d&sort=date_desc',
       targetFilter: 'recommended',
     });
     expect(result.decisionPanel.queue).toEqual([
@@ -148,5 +168,40 @@ describe('WorkspaceProvidersService (unit)', () => {
         cityLabel: 'Berlin',
       }),
     ]);
+    expect(result.list).toEqual(
+      expect.objectContaining({
+        totalCount: 2,
+        totalLabel: '2',
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        sort: 'date_desc',
+        items: [
+          expect.objectContaining({
+            id: 'provider-1',
+            userId: 'user-1',
+            isFavorite: true,
+            card: expect.objectContaining({
+              id: 'provider-1',
+              name: 'Anna K.',
+              role: 'Fensterreinigung',
+              cityLabel: 'Berlin',
+              status: 'online',
+              pricingValueLabel: '55 €',
+            }),
+          }),
+          expect.objectContaining({
+            id: 'provider-2',
+            userId: 'user-2',
+            isFavorite: false,
+            card: expect.objectContaining({
+              id: 'provider-2',
+              name: 'Mark T.',
+              status: 'offline',
+            }),
+          }),
+        ],
+      }),
+    );
   });
 });

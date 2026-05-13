@@ -26,6 +26,15 @@ export class WorkspaceProvidersFiltersDto {
 
   @ApiPropertyOptional({ enum: ['customer', 'provider'], example: 'customer', nullable: true })
   viewerMode?: 'customer' | 'provider' | null;
+
+  @ApiPropertyOptional({ enum: ['date_desc', 'date_asc', 'price_asc', 'price_desc'], example: 'date_desc' })
+  sort?: 'date_desc' | 'date_asc' | 'price_asc' | 'price_desc';
+
+  @ApiPropertyOptional({ example: 1 })
+  page?: number;
+
+  @ApiPropertyOptional({ example: 20 })
+  limit?: number;
 }
 
 export class WorkspaceProvidersSummaryItemDto {
@@ -139,6 +148,152 @@ export class WorkspaceProvidersDecisionPanelDto {
   overview: WorkspaceProvidersDecisionPanelOverviewItemDto[];
 }
 
+export class WorkspaceProvidersCardBadgeDto {
+  @ApiProperty({ enum: ['neutral', 'info', 'success', 'warning', 'danger', 'risk', 'opportunity'], example: 'info' })
+  variant: 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'risk' | 'opportunity';
+
+  @ApiProperty({ enum: ['sm', 'md'], example: 'sm' })
+  size: 'sm' | 'md';
+
+  @ApiProperty({ enum: ['soft', 'outline', 'solid'], example: 'soft' })
+  tone: 'soft' | 'outline' | 'solid';
+
+  @ApiProperty({ example: 'Top Anbieter' })
+  label: string;
+
+  @ApiPropertyOptional({ example: 'Top rating and high reliability', nullable: true })
+  tooltip?: string | null;
+}
+
+export class WorkspaceProvidersCardDto {
+  @ApiProperty({ example: 'provider-1' })
+  id: string;
+
+  @ApiProperty({ type: WorkspaceProvidersCardBadgeDto, isArray: true })
+  badges: WorkspaceProvidersCardBadgeDto[];
+
+  @ApiProperty({ example: true })
+  isVerified: boolean;
+
+  @ApiProperty({ enum: ['online', 'offline'], example: 'online' })
+  status: 'online' | 'offline';
+
+  @ApiProperty({ example: 'Aktiv' })
+  statusLabel: string;
+
+  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg', nullable: true })
+  avatarUrl?: string | null;
+
+  @ApiProperty({ example: 'Anna K.' })
+  name: string;
+
+  @ApiProperty({ example: 'Fensterreinigung' })
+  role: string;
+
+  @ApiPropertyOptional({ example: 'Berlin', nullable: true })
+  cityLabel?: string | null;
+
+  @ApiProperty({ example: '4.9' })
+  rating: string;
+
+  @ApiPropertyOptional({ example: '~18 Min.', nullable: true })
+  responseTime?: string | null;
+
+  @ApiPropertyOptional({ example: 'Antwortzeit', nullable: true })
+  responseTimeLabel?: string | null;
+
+  @ApiPropertyOptional({ example: 82, nullable: true })
+  responseRate?: number | null;
+
+  @ApiPropertyOptional({ example: 'Antwortquote', nullable: true })
+  responseRateLabel?: string | null;
+
+  @ApiPropertyOptional({ example: 'Saubere Ausführung und verlässliche Termine.', nullable: true })
+  aboutPreview?: string | null;
+
+  @ApiProperty({ example: 18 })
+  reviewsCount: number;
+
+  @ApiProperty({ example: 'Bewertungen' })
+  reviewsLabel: string;
+
+  @ApiPropertyOptional({ example: 'Sehr zuverlässig und schnell!', nullable: true })
+  reviewPreview?: string | null;
+
+  @ApiPropertyOptional({ example: 'Verfügbar', nullable: true })
+  availabilityDatePrefix?: string | null;
+
+  @ApiPropertyOptional({ example: 'Heute', nullable: true })
+  availabilityDateLabel?: string | null;
+
+  @ApiPropertyOptional({ example: null, nullable: true })
+  availabilityDateIso?: string | null;
+
+  @ApiPropertyOptional({ example: 'Ab', nullable: true })
+  pricingPrefixLabel?: string | null;
+
+  @ApiPropertyOptional({ example: '€55', nullable: true })
+  pricingValueLabel?: string | null;
+
+  @ApiPropertyOptional({ example: '/ Std.', nullable: true })
+  pricingSuffixLabel?: string | null;
+
+  @ApiProperty({ type: String, isArray: true, example: ['Fensterreinigung', 'Glasflächen'] })
+  servicePreview: string[];
+
+  @ApiProperty({ example: 'Profil ansehen' })
+  ctaLabel: string;
+
+  @ApiProperty({ example: '/providers/provider-1' })
+  profileHref: string;
+
+  @ApiProperty({ example: '/providers/provider-1#reviews' })
+  reviewsHref: string;
+}
+
+export class WorkspaceProvidersListItemDto {
+  @ApiProperty({ example: 'provider-1' })
+  id: string;
+
+  @ApiPropertyOptional({ example: '65f0c1a2b3c4d5e6f7a8b9c1', nullable: true })
+  userId?: string | null;
+
+  @ApiProperty({ example: false })
+  isFavorite: boolean;
+
+  @ApiProperty({ type: WorkspaceProvidersCardDto })
+  card: WorkspaceProvidersCardDto;
+}
+
+export class WorkspaceProvidersListDto {
+  @ApiProperty({ example: 44 })
+  totalCount: number;
+
+  @ApiProperty({ example: '44' })
+  totalLabel: string;
+
+  @ApiProperty({ enum: ['date_desc', 'date_asc', 'price_asc', 'price_desc'], example: 'date_desc' })
+  sort: 'date_desc' | 'date_asc' | 'price_asc' | 'price_desc';
+
+  @ApiProperty({ example: 1 })
+  page: number;
+
+  @ApiProperty({ example: 20 })
+  limit: number;
+
+  @ApiProperty({ example: 3 })
+  totalPages: number;
+
+  @ApiProperty({ example: 'Keine Anbieter gefunden' })
+  emptyTitle: string;
+
+  @ApiProperty({ example: 'Passe Filter oder Perspektive an, um mehr Anbieter zu sehen.' })
+  emptyHint: string;
+
+  @ApiProperty({ type: WorkspaceProvidersListItemDto, isArray: true })
+  items: WorkspaceProvidersListItemDto[];
+}
+
 export class WorkspaceProvidersResponseDto {
   @ApiProperty({ example: 'providers' })
   section: 'providers';
@@ -154,4 +309,7 @@ export class WorkspaceProvidersResponseDto {
 
   @ApiProperty({ type: WorkspaceProvidersDecisionPanelDto })
   decisionPanel: WorkspaceProvidersDecisionPanelDto;
+
+  @ApiProperty({ type: WorkspaceProvidersListDto })
+  list: WorkspaceProvidersListDto;
 }
