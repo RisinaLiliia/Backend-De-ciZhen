@@ -15,6 +15,11 @@ import {
 } from './dto/workspace-public-requests-batch.dto';
 import { WorkspacePrivateQueryDto } from './dto/workspace-private-query.dto';
 import { WorkspacePrivateOverviewResponseDto } from './dto/workspace-private-response.dto';
+import { WorkspaceProvidersQueryDto } from './dto/workspace-providers-query.dto';
+import { WorkspaceProvidersResponseDto } from './dto/workspace-providers-response.dto';
+import { WorkspaceReviewsQueryDto } from './dto/workspace-reviews-query.dto';
+import { WorkspaceReviewsResponseDto } from './dto/workspace-reviews-response.dto';
+import { WorkspaceActionsResponseDto } from './dto/workspace-actions-response.dto';
 import { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
 import { WorkspaceRequestsResponseDto } from './dto/workspace-requests-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -137,6 +142,62 @@ export class WorkspaceController {
     }
 
     return this.workspace.getRequestsOverview(user?.userId, user?.role, query, acceptLanguage);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('providers')
+  @ApiOperation({
+    summary: 'Unified workspace providers board',
+    description:
+      'Returns backend-owned summary cards, decision-panel recommendations, and paginated provider list items for `workspace?section=providers`.',
+  })
+  @ApiSecurity({} as any)
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ type: WorkspaceProvidersResponseDto })
+  @ApiPublicErrors()
+  async getProvidersOverview(
+    @Query() query: WorkspaceProvidersQueryDto,
+    @CurrentUser() user: CurrentUserPayload | null,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<WorkspaceProvidersResponseDto> {
+    return this.workspace.getProvidersOverview(query, user?.userId, acceptLanguage);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('reviews')
+  @ApiSecurity({} as any)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Unified workspace reviews rail contract',
+    description:
+      'Returns backend-owned summary cards, queue semantics, and composer permissions for `workspace?section=reviews`.',
+  })
+  @ApiOkResponse({ type: WorkspaceReviewsResponseDto })
+  @ApiPublicErrors()
+  async getReviewsRail(
+    @Query() query: WorkspaceReviewsQueryDto,
+    @CurrentUser() user: CurrentUserPayload | null,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<WorkspaceReviewsResponseDto> {
+    return this.workspace.getReviewsRail(query, user?.userId, user?.role, acceptLanguage);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('actions')
+  @ApiSecurity({} as any)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Unified workspace actions rail contract',
+    description:
+      'Returns backend-owned readiness summary and next-step queue for `workspace?section=actions`.',
+  })
+  @ApiOkResponse({ type: WorkspaceActionsResponseDto })
+  @ApiPublicErrors()
+  async getActionsRail(
+    @CurrentUser() user: CurrentUserPayload | null,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<WorkspaceActionsResponseDto> {
+    return this.workspace.getActionsRail(user?.userId, user?.role, acceptLanguage);
   }
 
   @UseGuards(JwtAuthGuard)

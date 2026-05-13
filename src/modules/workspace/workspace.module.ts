@@ -6,6 +6,9 @@ import { WorkspaceService } from './workspace.service';
 import { WorkspaceStatisticsService } from './workspace-statistics.service';
 import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspaceMarketRequestsService } from './workspace-market-requests.service';
+import { WorkspaceProvidersService } from './workspace-providers.service';
+import { WorkspaceReviewsService } from './workspace-reviews.service';
+import { WorkspaceActionsService } from './workspace-actions.service';
 import { WorkspaceRequestSnapshotsService } from './workspace-request-snapshots.service';
 import { WorkspaceRequestsListPolicy } from './workspace-requests-list-policy';
 import { WorkspaceRequestsPresenter } from './workspace-requests.presenter';
@@ -26,12 +29,14 @@ import { Offer, OfferSchema } from '../offers/schemas/offer.schema';
 import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
 import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
 import { ProviderProfile, ProviderProfileSchema } from '../providers/schemas/provider-profile.schema';
+import { ProviderAvailability, ProviderAvailabilitySchema } from '../availability/schemas/provider-availability.schema';
 import { Favorite, FavoriteSchema } from '../favorites/schemas/favorite.schema';
 import { Review, ReviewSchema } from '../reviews/schemas/review.schema';
 import { ClientProfile, ClientProfileSchema } from '../users/schemas/client-profile.schema';
 import { CitiesModule } from '../catalog/cities/cities.module';
 import { CatalogServicesModule } from '../catalog/services/services.module';
 import { ProvidersModule } from '../providers/providers.module';
+import { ReviewsModule } from '../reviews/reviews.module';
 import { AuthModule } from '../auth/auth.module';
 import { UploadsModule } from '../uploads/uploads.module';
 
@@ -44,6 +49,7 @@ import { UploadsModule } from '../uploads/uploads.module';
     CitiesModule,
     CatalogServicesModule,
     ProvidersModule,
+    ReviewsModule,
     AuthModule,
     UploadsModule,
     MongooseModule.forFeature([
@@ -52,6 +58,7 @@ import { UploadsModule } from '../uploads/uploads.module';
       { name: Contract.name, schema: ContractSchema },
       { name: Booking.name, schema: BookingSchema },
       { name: ProviderProfile.name, schema: ProviderProfileSchema },
+      { name: ProviderAvailability.name, schema: ProviderAvailabilitySchema },
       { name: Favorite.name, schema: FavoriteSchema },
       { name: Review.name, schema: ReviewSchema },
       { name: ClientProfile.name, schema: ClientProfileSchema },
@@ -65,6 +72,9 @@ import { UploadsModule } from '../uploads/uploads.module';
     WorkspaceRequestsPresenter,
     WorkspaceRequestsService,
     WorkspaceMarketRequestsService,
+    WorkspaceProvidersService,
+    WorkspaceReviewsService,
+    WorkspaceActionsService,
     WorkspacePublicRequestEnricherService,
     WorkspacePublicCityActivityService,
     WorkspacePublicOverviewService,
