@@ -6,6 +6,9 @@ import { WorkspaceRequestsService } from './workspace-requests.service';
 import { WorkspacePublicOverviewService } from './workspace-public-overview.service';
 import { WorkspacePrivateOverviewService } from './workspace-private-overview.service';
 import { WorkspaceProfileService } from './workspace-profile.service';
+import { WorkspaceProvidersService } from './workspace-providers.service';
+import { WorkspaceReviewsService } from './workspace-reviews.service';
+import { WorkspaceActionsService } from './workspace-actions.service';
 
 describe('WorkspaceService (unit)', () => {
   let service: WorkspaceService;
@@ -21,6 +24,18 @@ describe('WorkspaceService (unit)', () => {
   const publicOverviewMock = {
     getPublicOverview: jest.fn(),
     getPublicRequestsBatch: jest.fn(),
+  };
+
+  const providersMock = {
+    getProvidersOverview: jest.fn(),
+  };
+
+  const reviewsMock = {
+    getReviewsRail: jest.fn(),
+  };
+
+  const actionsMock = {
+    getActionsRail: jest.fn(),
   };
 
   const privateOverviewMock = {
@@ -41,6 +56,9 @@ describe('WorkspaceService (unit)', () => {
         WorkspaceService,
         { provide: WorkspaceMarketRequestsService, useValue: marketRequestsMock },
         { provide: WorkspaceRequestsService, useValue: requestsMock },
+        { provide: WorkspaceProvidersService, useValue: providersMock },
+        { provide: WorkspaceReviewsService, useValue: reviewsMock },
+        { provide: WorkspaceActionsService, useValue: actionsMock },
         { provide: WorkspacePublicOverviewService, useValue: publicOverviewMock },
         { provide: WorkspacePrivateOverviewService, useValue: privateOverviewMock },
         { provide: WorkspaceProfileService, useValue: profileMock },
@@ -101,6 +119,38 @@ describe('WorkspaceService (unit)', () => {
     const result = await service.getRequestsOverview(null, null, query as any, 'de-DE');
 
     expect(marketRequestsMock.getMarketOverview).toHaveBeenCalledWith(query, 'de-DE');
+    expect(result).toBe(expected);
+  });
+
+  it('delegates providers overview to WorkspaceProvidersService', async () => {
+    const expected = { section: 'providers' };
+    const query = { cityId: 'city-1', subcategoryKey: 'window_cleaning', viewerMode: 'provider' };
+    providersMock.getProvidersOverview.mockResolvedValue(expected);
+
+    const result = await service.getProvidersOverview(query as any, 'de-DE');
+
+    expect(providersMock.getProvidersOverview).toHaveBeenCalledWith(query, 'de-DE');
+    expect(result).toBe(expected);
+  });
+
+  it('delegates reviews rail to WorkspaceReviewsService', async () => {
+    const expected = { section: 'reviews' };
+    const query = { range: '30d', sort: 'created_desc' };
+    reviewsMock.getReviewsRail.mockResolvedValue(expected);
+
+    const result = await service.getReviewsRail(query as any, 'user-1', 'provider', 'de-DE');
+
+    expect(reviewsMock.getReviewsRail).toHaveBeenCalledWith(query, 'user-1', 'provider', 'de-DE');
+    expect(result).toBe(expected);
+  });
+
+  it('delegates actions rail to WorkspaceActionsService', async () => {
+    const expected = { section: 'actions' };
+    actionsMock.getActionsRail.mockResolvedValue(expected);
+
+    const result = await service.getActionsRail('user-1', 'provider', 'de-DE');
+
+    expect(actionsMock.getActionsRail).toHaveBeenCalledWith('user-1', 'provider', 'de-DE');
     expect(result).toBe(expected);
   });
 

@@ -2,7 +2,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import type { Document } from 'mongoose';
 
-export type ProviderProfileDocument = ProviderProfile & Document;
+export type ProviderProfileDocument = ProviderProfile & Document & {
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+};
 
 export type ProviderStatus = 'draft' | 'active' | 'suspended';
 export type ProviderLegalType = 'individual' | 'company';
