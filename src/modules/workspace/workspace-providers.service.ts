@@ -9,7 +9,6 @@ import { ProviderAvailability, type ProviderAvailabilityDocument } from '../avai
 import { Favorite, type FavoriteDocument } from '../favorites/schemas/favorite.schema';
 import type { WorkspaceProvidersQueryDto, WorkspaceProvidersSortDto } from './dto/workspace-providers-query.dto';
 import type {
-  WorkspaceProvidersCardDto,
   WorkspaceProvidersDecisionPanelQueueItemDto,
   WorkspaceProvidersListItemDto,
   WorkspaceProvidersResponseDto,

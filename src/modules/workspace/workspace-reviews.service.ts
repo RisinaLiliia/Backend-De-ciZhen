@@ -7,7 +7,7 @@ import type {
   WorkspaceReviewsDecisionQueueItemDto,
   WorkspaceReviewsResponseDto,
 } from './dto/workspace-reviews-response.dto';
-import { WorkspaceRequestsSupport, type WorkspaceRequestsLocale } from './workspace-requests.support';
+import { WorkspaceRequestsSupport } from './workspace-requests.support';
 
 @Injectable()
 export class WorkspaceReviewsService {
