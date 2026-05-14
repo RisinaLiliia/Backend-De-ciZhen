@@ -43,6 +43,463 @@ export class WorkspaceStatisticsService extends WorkspaceStatisticsOverviewSuppo
     super();
   }
 
+  private roundMetric(value: number | null): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+    return Math.round(value * 10) / 10;
+  }
+
+  private safeDivide(numerator: number | null | undefined, denominator: number | null | undefined): number | null {
+    if (typeof numerator !== 'number' || !Number.isFinite(numerator)) return null;
+    if (typeof denominator !== 'number' || !Number.isFinite(denominator) || denominator <= 0) return null;
+    return numerator / denominator;
+  }
+
+  private toPercent(value: number | null): number | null {
+    if (value === null) return null;
+    return value * 100;
+  }
+
+  private roundGap(userValue: number | null, marketValue: number | null): number | null {
+    if (userValue === null || marketValue === null) return null;
+    return this.roundMetric(userValue - marketValue);
+  }
+
+  private resolveUserMetricDirection(params: {
+    userValue: number | null;
+    marketValue: number | null;
+    lowerIsBetter?: boolean;
+  }): 'up' | 'down' | 'flat' {
+    const { userValue, marketValue, lowerIsBetter = false } = params;
+    if (userValue === null || marketValue === null) return 'flat';
+    if (Math.abs(userValue - marketValue) < 0.01) return 'flat';
+    if (lowerIsBetter) {
+      return userValue < marketValue ? 'up' : 'down';
+    }
+    return userValue > marketValue ? 'up' : 'down';
+  }
+
+  private resolveUserMetricTone(params: {
+    userValue: number | null;
+    marketValue: number | null;
+    lowerIsBetter?: boolean;
+    warningThreshold?: number;
+  }): 'positive' | 'neutral' | 'warning' {
+    const { userValue, marketValue, lowerIsBetter = false, warningThreshold = 0 } = params;
+    if (userValue === null || marketValue === null) return 'neutral';
+
+    const delta = lowerIsBetter ? marketValue - userValue : userValue - marketValue;
+    if (delta > warningThreshold) return 'positive';
+    if (delta < -warningThreshold) return 'warning';
+    return 'neutral';
+  }
+
+  private resolveRecommendationPriority(
+    priority: 'high' | 'medium' | 'low' | undefined | null,
+  ): 'high' | 'medium' | 'low' {
+    if (priority === 'high' || priority === 'medium') return priority;
+    return 'low';
+  }
+
+  private resolveUserSignalCode(
+    code: string | null | undefined,
+    fallback: 'slow_response' | 'high_unanswered' | 'low_visibility' | 'high_demand_city' | 'growing_category' | 'low_competition_segment' | 'price_above_market' | 'price_below_market' | 'strong_position',
+  ): 'slow_response' | 'high_unanswered' | 'low_visibility' | 'high_demand_city' | 'growing_category' | 'low_competition_segment' | 'price_above_market' | 'price_below_market' | 'strong_position' {
+    if (
+      code === 'slow_response'
+      || code === 'high_unanswered'
+      || code === 'low_visibility'
+      || code === 'high_demand_city'
+      || code === 'growing_category'
+      || code === 'low_competition_segment'
+      || code === 'price_above_market'
+      || code === 'price_below_market'
+      || code === 'strong_position'
+    ) {
+      return code;
+    }
+    return fallback;
+  }
+
+  private resolveUserActionCode(
+    code: string | null | undefined,
+  ): 'respond_faster' | 'adjust_price' | 'focus_market' | 'complete_profile' | 'follow_up_unanswered' | 'follow_up_requests' | null {
+    if (
+      code === 'respond_faster'
+      || code === 'adjust_price'
+      || code === 'focus_market'
+      || code === 'complete_profile'
+      || code === 'follow_up_unanswered'
+      || code === 'follow_up_requests'
+    ) {
+      return code;
+    }
+    return null;
+  }
+
+  private buildStatisticsUserIntelligence(params: {
+    mode: WorkspaceStatisticsOverviewResponseDto['mode'];
+    viewerMode: WorkspaceStatisticsOverviewResponseDto['viewerMode'];
+    profileFunnel: WorkspaceStatisticsOverviewResponseDto['profileFunnel'];
+    kpis: WorkspaceStatisticsOverviewResponseDto['kpis'];
+    activityMetrics: WorkspaceStatisticsOverviewResponseDto['activity']['metrics'];
+    marketAverageOrderValue: number | null;
+    decisionLayer: WorkspaceStatisticsOverviewResponseDto['decisionLayer'];
+    personalizedPricing: WorkspaceStatisticsOverviewResponseDto['personalizedPricing'];
+    categoryFit: WorkspaceStatisticsOverviewResponseDto['categoryFit'];
+    cityComparison: WorkspaceStatisticsOverviewResponseDto['cityComparison'];
+    risks: WorkspaceStatisticsOverviewResponseDto['risks'];
+    opportunities: WorkspaceStatisticsOverviewResponseDto['opportunities'];
+    nextSteps: WorkspaceStatisticsOverviewResponseDto['nextSteps'];
+    funnelComparison: WorkspaceStatisticsOverviewResponseDto['funnelComparison'];
+  }): NonNullable<WorkspaceStatisticsOverviewResponseDto['userIntelligence']> | null {
+    const {
+      mode,
+      viewerMode,
+      profileFunnel,
+      kpis,
+      activityMetrics,
+      marketAverageOrderValue,
+      decisionLayer,
+      personalizedPricing,
+      categoryFit,
+      cityComparison,
+      risks,
+      opportunities,
+      nextSteps,
+      funnelComparison,
+    } = params;
+
+    if (mode !== 'personalized' || !viewerMode) return null;
+
+    const formulaMetrics: NonNullable<WorkspaceStatisticsOverviewResponseDto['userIntelligence']>['formulaMetrics'] = [
+      {
+        key: 'offer_rate',
+        formula: 'offers / requests',
+        unit: 'percent',
+        userValue: this.roundMetric(this.toPercent(this.safeDivide(profileFunnel.offersTotal, profileFunnel.requestsTotal))),
+        marketValue: this.roundMetric(activityMetrics.offerRatePercent),
+        gap: this.roundGap(
+          this.toPercent(this.safeDivide(profileFunnel.offersTotal, profileFunnel.requestsTotal)),
+          activityMetrics.offerRatePercent,
+        ),
+        direction: this.resolveUserMetricDirection({
+          userValue: this.toPercent(this.safeDivide(profileFunnel.offersTotal, profileFunnel.requestsTotal)),
+          marketValue: activityMetrics.offerRatePercent,
+        }),
+        tone: this.resolveUserMetricTone({
+          userValue: this.toPercent(this.safeDivide(profileFunnel.offersTotal, profileFunnel.requestsTotal)),
+          marketValue: activityMetrics.offerRatePercent,
+          warningThreshold: 3,
+        }),
+      },
+      {
+        key: 'response_rate',
+        formula: 'responses / offers',
+        unit: 'percent',
+        userValue: this.roundMetric(this.toPercent(this.safeDivide(profileFunnel.confirmedResponsesTotal, profileFunnel.offersTotal))),
+        marketValue: null,
+        gap: null,
+        direction: 'flat',
+        tone: 'neutral',
+      },
+      {
+        key: 'conversion_rate',
+        formula: 'contracts / requests',
+        unit: 'percent',
+        userValue: this.roundMetric(this.toPercent(this.safeDivide(profileFunnel.closedContractsTotal, profileFunnel.requestsTotal))),
+        marketValue: null,
+        gap: null,
+        direction: 'flat',
+        tone: 'neutral',
+      },
+      {
+        key: 'completion_rate',
+        formula: 'completed / contracts',
+        unit: 'percent',
+        userValue: this.roundMetric(this.toPercent(this.safeDivide(profileFunnel.completedJobsTotal, profileFunnel.closedContractsTotal))),
+        marketValue: null,
+        gap: null,
+        direction: 'flat',
+        tone: 'neutral',
+      },
+      {
+        key: 'cancellation_rate',
+        formula: 'cancellations / contracts',
+        unit: 'percent',
+        userValue: null,
+        marketValue: this.roundMetric(activityMetrics.cancellationRatePercent),
+        gap: null,
+        direction: 'flat',
+        tone: 'neutral',
+      },
+      {
+        key: 'avg_response_time',
+        formula: 'sum(response_time) / responses',
+        unit: 'minutes',
+        userValue: this.roundMetric(kpis.avgResponseMinutes ?? null),
+        marketValue: this.roundMetric(activityMetrics.responseMedianMinutes),
+        gap: this.roundGap(kpis.avgResponseMinutes ?? null, activityMetrics.responseMedianMinutes),
+        direction: this.resolveUserMetricDirection({
+          userValue: kpis.avgResponseMinutes ?? null,
+          marketValue: activityMetrics.responseMedianMinutes,
+          lowerIsBetter: true,
+        }),
+        tone: this.resolveUserMetricTone({
+          userValue: kpis.avgResponseMinutes ?? null,
+          marketValue: activityMetrics.responseMedianMinutes,
+          lowerIsBetter: true,
+          warningThreshold: 30,
+        }),
+      },
+      {
+        key: 'revenue',
+        formula: 'sum(order_price * platform_fee)',
+        unit: 'currency',
+        userValue: this.roundMetric(profileFunnel.profitAmount),
+        marketValue: this.roundMetric(activityMetrics.platformRevenueAmount),
+        gap: this.roundGap(profileFunnel.profitAmount, activityMetrics.platformRevenueAmount),
+        direction: this.resolveUserMetricDirection({
+          userValue: profileFunnel.profitAmount,
+          marketValue: activityMetrics.platformRevenueAmount,
+        }),
+        tone: this.resolveUserMetricTone({
+          userValue: profileFunnel.profitAmount,
+          marketValue: activityMetrics.platformRevenueAmount,
+          warningThreshold: 25,
+        }),
+      },
+      {
+        key: 'avg_order_value',
+        formula: 'total_revenue / completed_orders',
+        unit: 'currency',
+        userValue: this.roundMetric(this.safeDivide(profileFunnel.profitAmount, profileFunnel.completedJobsTotal)),
+        marketValue: this.roundMetric(marketAverageOrderValue),
+        gap: this.roundGap(
+          this.safeDivide(profileFunnel.profitAmount, profileFunnel.completedJobsTotal),
+          marketAverageOrderValue,
+        ),
+        direction: this.resolveUserMetricDirection({
+          userValue: this.safeDivide(profileFunnel.profitAmount, profileFunnel.completedJobsTotal),
+          marketValue: marketAverageOrderValue,
+        }),
+        tone: this.resolveUserMetricTone({
+          userValue: this.safeDivide(profileFunnel.profitAmount, profileFunnel.completedJobsTotal),
+          marketValue: marketAverageOrderValue,
+          warningThreshold: 10,
+        }),
+      },
+    ];
+
+    const decisionMetrics: NonNullable<WorkspaceStatisticsOverviewResponseDto['userIntelligence']>['decisionMetrics'] =
+      (decisionLayer?.metrics ?? [])
+        .filter((metric) => metric.id === 'offer_rate' || metric.id === 'avg_response_time' || metric.id === 'unanswered_over_24h')
+        .map((metric) => ({
+          key:
+            metric.id === 'avg_response_time'
+              ? 'response_time'
+              : metric.id === 'unanswered_over_24h'
+                ? 'unanswered'
+                : 'offer_rate',
+          unit:
+            metric.unit === 'minutes'
+              ? 'minutes'
+              : metric.unit === 'count'
+                ? 'count'
+                : 'percent',
+          userValue: metric.userValue,
+          marketValue: metric.marketValue,
+          direction:
+            metric.direction === 'better'
+              ? 'up'
+              : metric.direction === 'worse'
+                ? 'down'
+                : 'flat',
+          tone:
+            metric.status === 'good'
+              ? 'positive'
+              : metric.status === 'warning' || metric.status === 'critical'
+                ? 'warning'
+                : 'neutral',
+          status:
+            metric.id === 'unanswered_over_24h'
+              ? (metric.userValue ?? 0) >= 20
+                ? 'high'
+                : (metric.userValue ?? 0) >= 8
+                  ? 'medium'
+                  : (metric.userValue ?? 0) > 0
+                    ? 'low'
+                    : null
+              : null,
+        }));
+
+    const nextActionSteps: NonNullable<WorkspaceStatisticsOverviewResponseDto['userIntelligence']>['nextSteps'] =
+      (nextSteps?.items ?? [])
+        .map((item, index) => {
+          const actionCode = this.resolveUserActionCode(item.actionCode ?? item.action?.code ?? null);
+          if (!actionCode) return null;
+          return {
+            id: `step-${actionCode}-${index + 1}`,
+            code: actionCode,
+            priority: this.resolveRecommendationPriority(item.priority),
+            targetValue: null,
+            cityLabel: null,
+            categoryLabel: null,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+    const riskItems: NonNullable<WorkspaceStatisticsOverviewResponseDto['userIntelligence']>['risks'] =
+      (risks?.items ?? []).map((item, index) => ({
+        id: `risk-${item.code}-${index + 1}`,
+        code: this.resolveUserSignalCode(item.actionCode === 'follow_up_unanswered' ? 'high_unanswered' : item.code, 'slow_response'),
+        severity: this.resolveRecommendationPriority(item.priority),
+        cityLabel: null,
+        categoryLabel: null,
+        value: null,
+        secondaryValue: null,
+      }));
+
+    const opportunityItems: NonNullable<WorkspaceStatisticsOverviewResponseDto['userIntelligence']>['opportunities'] =
+      (opportunities?.items ?? []).map((item, index) => ({
+        id: `opportunity-${item.code}-${index + 1}`,
+        code: this.resolveUserSignalCode(
+          item.actionCode === 'focus_market' ? 'high_demand_city' : item.code,
+          'strong_position',
+        ),
+        severity: this.resolveRecommendationPriority(item.priority),
+        cityLabel: null,
+        categoryLabel: null,
+        value: null,
+        secondaryValue: null,
+      }));
+
+    const signals: NonNullable<WorkspaceStatisticsOverviewResponseDto['userIntelligence']>['signals'] = [
+      ...riskItems.map((item) => ({
+        id: `signal-${item.code}`,
+        type: 'risk' as const,
+        code: item.code,
+        severity: item.severity,
+        metricKey:
+          item.code === 'slow_response'
+            ? ('avg_response_time' as const)
+            : item.code === 'high_unanswered'
+              ? ('unanswered' as const)
+              : null,
+        actionCode:
+          item.code === 'slow_response'
+            ? ('respond_faster' as const)
+            : item.code === 'high_unanswered'
+              ? ('follow_up_unanswered' as const)
+              : null,
+      })),
+      ...opportunityItems.map((item) => ({
+        id: `signal-${item.code}`,
+        type: item.code === 'strong_position' ? 'performance' as const : 'opportunity' as const,
+        code: item.code,
+        severity: item.severity,
+        metricKey: null,
+        actionCode:
+          item.code === 'high_demand_city' || item.code === 'low_competition_segment'
+            ? ('focus_market' as const)
+            : null,
+      })),
+      ...((personalizedPricing?.position === 'above' || personalizedPricing?.position === 'below')
+        ? [{
+            id: `signal-price-${personalizedPricing.position}`,
+            type: 'performance' as const,
+            code: personalizedPricing.position === 'above'
+              ? ('price_above_market' as const)
+              : ('price_below_market' as const),
+            severity: personalizedPricing.effect === 'warning' ? 'high' as const : 'medium' as const,
+            metricKey: 'avg_order_value' as const,
+            actionCode: personalizedPricing.actionCode === 'adjust_price' ? 'adjust_price' as const : null,
+          }]
+        : []),
+    ];
+
+    const offerMetric = formulaMetrics.find((metric) => metric.key === 'offer_rate');
+    const responseMetric = formulaMetrics.find((metric) => metric.key === 'avg_response_time');
+    const conversionMetric = formulaMetrics.find((metric) => metric.key === 'conversion_rate');
+    const profileScore = this.clampPercent(kpis.profileCompleteness ?? 55) / 100;
+    const successScore = this.clampPercent(kpis.successRate) / 100;
+    const offerScore = offerMetric && offerMetric.userValue !== null && offerMetric.marketValue !== null
+      ? Math.max(0, Math.min(1, (offerMetric.userValue / Math.max(1, offerMetric.marketValue)) / 1.5))
+      : 0.5;
+    const responseScore = responseMetric && responseMetric.userValue !== null && responseMetric.marketValue !== null
+      ? Math.max(0, Math.min(1, (responseMetric.marketValue / Math.max(1, responseMetric.userValue)) / 1.5))
+      : 0.5;
+    const conversionScore = conversionMetric?.userValue !== null && conversionMetric?.userValue !== undefined
+      ? Math.max(0, Math.min(1, (conversionMetric.userValue ?? 0) / 100))
+      : 0.5;
+    const blendedScore = (offerScore * 0.3) + (responseScore * 0.25) + (conversionScore * 0.15) + (successScore * 0.15) + (profileScore * 0.15);
+    const percentile = this.clampPercent(blendedScore * 100);
+    const categoryLead = categoryFit?.items[0] ?? null;
+    const cityLead = cityComparison?.items[0] ?? null;
+    const categoryBoost =
+      categoryLead?.opportunity === 'high'
+        ? 8
+        : categoryLead?.opportunity === 'medium'
+          ? 3
+          : categoryLead?.opportunity === 'low'
+            ? -4
+            : 0;
+    const cityBoost =
+      cityLead?.userActivity === 'high'
+        ? 8
+        : cityLead?.userActivity === 'medium'
+          ? 3
+          : cityLead?.userActivity === 'low'
+            ? -4
+            : 0;
+
+    const performancePosition: NonNullable<WorkspaceStatisticsOverviewResponseDto['userIntelligence']>['performancePosition'] = {
+      percentile,
+      categoryPercentile: this.clampPercent(percentile + categoryBoost),
+      cityPercentile: this.clampPercent(percentile + cityBoost),
+      bucket: percentile >= 70 ? 'top' : percentile >= 45 ? 'average' : 'below',
+      categoryLabel: categoryLead?.label ?? null,
+      cityLabel: cityLead?.city ?? null,
+    };
+
+    const responseStage = funnelComparison?.stages.find((stage) => stage.key === 'responses') ?? null;
+    const profileGap = responseStage && typeof responseStage.gapRate === 'number' && responseStage.gapRate < 0
+      ? {
+          fromStage: 'offers' as const,
+          toStage: 'confirmations' as const,
+          lossPercent: this.roundMetric(Math.abs(responseStage.gapRate)),
+          lostCount:
+            responseStage.marketCount !== null && responseStage.userCount !== null
+              ? Math.max(0, Math.round(responseStage.marketCount - responseStage.userCount))
+              : null,
+          tone: Math.abs(responseStage.gapRate) >= 15 ? 'warning' as const : Math.abs(responseStage.gapRate) >= 5 ? 'neutral' as const : 'positive' as const,
+        }
+      : null;
+
+    const pricing = personalizedPricing
+      ? {
+          currentPrice: personalizedPricing.userPrice,
+          recommendedMin: personalizedPricing.recommendedMin,
+          recommendedMax: personalizedPricing.recommendedMax,
+          marketAverage: personalizedPricing.marketAverage,
+          status: personalizedPricing.position,
+          conversionImpact: personalizedPricing.effect,
+        }
+      : null;
+
+    return {
+      comparisonLabel: viewerMode === 'customer' ? 'Customer vs Market' : 'Provider vs Market',
+      formulaMetrics,
+      decisionMetrics,
+      signals,
+      performancePosition,
+      profileGap,
+      risks: riskItems,
+      opportunities: opportunityItems,
+      pricing,
+      nextSteps: nextActionSteps,
+    };
+  }
+
   async getStatisticsOverview(
     query: WorkspaceStatisticsRange | WorkspaceStatisticsQueryDto | undefined,
     userId?: string | null,
@@ -632,6 +1089,7 @@ export class WorkspaceStatisticsService extends WorkspaceStatisticsOverviewSuppo
       funnelComparison,
       decisionLayer,
       selectedUserAverageOrderValue,
+      marketAverageOrderValue,
       conversionRatePercent,
     } = this.buildProfileFunnelContext({
       range,
@@ -809,6 +1267,22 @@ export class WorkspaceStatisticsService extends WorkspaceStatisticsOverviewSuppo
         .filter((item) => item.action?.actionType !== 'none' || this.resolveInsightActionCode(item) !== null)
         .slice(0, 3),
     });
+    const userIntelligence = this.buildStatisticsUserIntelligence({
+      mode,
+      viewerMode,
+      profileFunnel,
+      kpis,
+      activityMetrics,
+      marketAverageOrderValue,
+      decisionLayer,
+      personalizedPricing,
+      categoryFit,
+      cityComparison,
+      risks,
+      opportunities,
+      nextSteps,
+      funnelComparison,
+    });
 
     return {
       decisionContext,
@@ -832,6 +1306,7 @@ export class WorkspaceStatisticsService extends WorkspaceStatisticsOverviewSuppo
       risks,
       opportunities,
       nextSteps,
+      userIntelligence,
       summary,
       kpis,
       activity: {

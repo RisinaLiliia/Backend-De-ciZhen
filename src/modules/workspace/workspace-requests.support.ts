@@ -555,6 +555,112 @@ export class WorkspaceRequestsSupport {
         || action.key === 'duplicate-request';
     }) ?? null;
   }
+  resolveWorkspaceRequestCardChrome(args: {
+    locale: WorkspaceRequestsLocale;
+    card: Pick<WorkspaceMyRequestCardDto, 'state' | 'activity' | 'status' | 'decision'>;
+  }): NonNullable<WorkspaceMyRequestCardDto['chrome']> {
+    const { locale, card } = args;
+    const priorityLabel = this.resolveWorkspaceRequestCardPriorityLabel({ locale, card });
+    const signalPills: NonNullable<WorkspaceMyRequestCardDto['chrome']>['signalPills'] = [];
+
+    if (card.decision.needsAction && card.decision.actionLabel) {
+      signalPills.push({
+        key: 'decision',
+        label: card.decision.actionLabel,
+        tone: card.decision.actionPriorityLevel === 'high' ? 'warning' : 'info',
+      });
+    }
+
+    if (card.status.badgeLabel) {
+      signalPills.push({
+        key: 'status',
+        label: card.status.badgeLabel,
+        tone:
+          card.status.badgeTone === 'danger'
+            ? 'warning'
+            : card.status.badgeTone === 'success'
+              ? 'success'
+              : card.status.badgeTone === 'warning'
+                ? 'warning'
+                : 'info',
+      });
+    }
+
+    const insights: NonNullable<WorkspaceMyRequestCardDto['chrome']>['insights'] = [];
+    const decisionDescription = card.decision.actionReason?.trim() ?? '';
+    const activityDescription = card.activity?.label?.trim() ?? '';
+
+    if (decisionDescription) {
+      insights.push({
+        key: 'decision',
+        title: this.resolveWorkspaceRequestCardInsightTitle({ locale, card }),
+        description: decisionDescription,
+        tone: card.decision.actionPriorityLevel === 'high' ? 'warning' : 'info',
+      });
+    }
+
+    if (activityDescription && activityDescription !== decisionDescription) {
+      insights.push({
+        key: 'activity',
+        title: locale === 'de' ? 'Status' : 'Status',
+        description: activityDescription,
+        tone: card.activity?.tone ?? 'neutral',
+      });
+    }
+
+    return {
+      priorityLabel,
+      priorityTone: card.decision.actionPriorityLevel,
+      signalPills: signalPills.slice(0, 2),
+      insights: insights.slice(0, 2),
+    };
+  }
+  private resolveWorkspaceRequestCardPriorityLabel(args: {
+    locale: WorkspaceRequestsLocale;
+    card: Pick<WorkspaceMyRequestCardDto, 'state' | 'decision'>;
+  }): string | null {
+    const { locale, card } = args;
+    if (card.decision.needsAction) {
+      return locale === 'de' ? 'Handlungsbedarf' : 'Action required';
+    }
+
+    if (card.state === 'active') {
+      return locale === 'de' ? 'In Arbeit' : 'In progress';
+    }
+
+    if (card.state === 'completed') {
+      return locale === 'de' ? 'Abgeschlossen' : 'Completed';
+    }
+
+    return null;
+  }
+  private resolveWorkspaceRequestCardInsightTitle(args: {
+    locale: WorkspaceRequestsLocale;
+    card: Pick<WorkspaceMyRequestCardDto, 'decision'>;
+  }): string {
+    const { locale, card } = args;
+    if (card.decision.actionType === 'review_offers') {
+      return locale === 'de' ? 'Angebote' : 'Offers';
+    }
+
+    if (card.decision.actionType === 'reply_required') {
+      return locale === 'de' ? 'Rückmeldungen' : 'Replies';
+    }
+
+    if (card.decision.actionType === 'confirm_contract') {
+      return locale === 'de' ? 'Vertrag' : 'Contract';
+    }
+
+    if (card.decision.actionType === 'confirm_completion') {
+      return locale === 'de' ? 'Abschluss' : 'Completion';
+    }
+
+    if (card.decision.actionType === 'review_completion') {
+      return locale === 'de' ? 'Bewertung' : 'Review';
+    }
+
+    return locale === 'de' ? 'Aktueller Stand' : 'Current status';
+  }
   resolveWorkspaceLifecycleState(args: {
     role: WorkspaceRequestCardRole;
     ownerLifecycleStage?: WorkspaceCustomerLifecycleStage | null;
