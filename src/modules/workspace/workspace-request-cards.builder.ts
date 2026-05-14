@@ -196,6 +196,15 @@ export class WorkspaceRequestCardsBuilder {
       statusActions: status.actions,
     });
     const urgency = this.support.resolveWorkspaceUrgency(deadlineAt, now);
+    const chrome = this.support.resolveWorkspaceRequestCardChrome({
+      locale,
+      card: {
+        state,
+        activity,
+        status,
+        decision,
+      },
+    });
 
     return {
       item: {
@@ -273,6 +282,7 @@ export class WorkspaceRequestCardsBuilder {
         primaryAction,
         secondaryAction,
         decision,
+        chrome,
       },
       role: 'customer',
       workflowState: state,
@@ -410,6 +420,15 @@ export class WorkspaceRequestCardsBuilder {
       statusActions: status.actions,
       request,
     });
+    const chrome = this.support.resolveWorkspaceRequestCardChrome({
+      locale,
+      card: {
+        state,
+        activity,
+        status,
+        decision,
+      },
+    });
 
     return {
       item: {
@@ -493,6 +512,7 @@ export class WorkspaceRequestCardsBuilder {
         primaryAction,
         secondaryAction,
         decision,
+        chrome,
       },
       role: 'provider',
       workflowState: state,

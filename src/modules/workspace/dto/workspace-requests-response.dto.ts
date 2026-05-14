@@ -306,6 +306,45 @@ export class WorkspaceRequestDecisionDto {
   primaryAction?: WorkspaceRequestCardStatusActionDto | null;
 }
 
+export class WorkspaceRequestCardChromeSignalDto {
+  @ApiProperty({ example: 'decision' })
+  key: string;
+
+  @ApiProperty({ example: '2 Angebote prüfen' })
+  label: string;
+
+  @ApiProperty({ enum: ['info', 'warning', 'success', 'neutral'], example: 'warning' })
+  tone: 'info' | 'warning' | 'success' | 'neutral';
+}
+
+export class WorkspaceRequestCardChromeInsightDto {
+  @ApiProperty({ example: 'decision' })
+  key: string;
+
+  @ApiProperty({ example: 'Angebote' })
+  title: string;
+
+  @ApiProperty({ example: 'Neue Angebote warten auf deine Auswahl.' })
+  description: string;
+
+  @ApiProperty({ enum: ['info', 'warning', 'success', 'neutral'], example: 'warning' })
+  tone: 'info' | 'warning' | 'success' | 'neutral';
+}
+
+export class WorkspaceRequestCardChromeDto {
+  @ApiPropertyOptional({ example: 'Handlungsbedarf', nullable: true })
+  priorityLabel?: string | null;
+
+  @ApiProperty({ enum: ['high', 'medium', 'low', 'none'], example: 'high' })
+  priorityTone: 'high' | 'medium' | 'low' | 'none';
+
+  @ApiProperty({ type: WorkspaceRequestCardChromeSignalDto, isArray: true })
+  signalPills: WorkspaceRequestCardChromeSignalDto[];
+
+  @ApiProperty({ type: WorkspaceRequestCardChromeInsightDto, isArray: true })
+  insights: WorkspaceRequestCardChromeInsightDto[];
+}
+
 export class WorkspaceMyRequestCardDto {
   @ApiProperty({ example: 'customer:65f0c1a2b3c4d5e6f7a8b9c1' })
   id: string;
@@ -447,6 +486,9 @@ export class WorkspaceMyRequestCardDto {
 
   @ApiProperty({ type: WorkspaceRequestDecisionDto })
   decision: WorkspaceRequestDecisionDto;
+
+  @ApiPropertyOptional({ type: WorkspaceRequestCardChromeDto, nullable: true })
+  chrome?: WorkspaceRequestCardChromeDto | null;
 }
 
 export class WorkspaceRequestsListDto {
