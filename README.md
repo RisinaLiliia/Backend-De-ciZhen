@@ -20,7 +20,83 @@ The API is designed with modular domain boundaries and production-style structur
 - NestJS
 - MongoDB (Mongoose ODM)
 - Redis (session & refresh flow management)
-- Swagger (`/docs`)
+- Swagger OpenAPI documentation
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install
+```
+
+### Environment Setup
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+cp .env.example .env
+```
+
+### Development
+
+```bash
+npm run start:dev
+```
+
+The server runs on `http://localhost:3000` by default.
+
+### Build & Production
+
+```bash
+npm run build
+npm run start:prod
+```
+
+## API Documentation
+
+When the backend is running, Swagger UI is available at:
+
+```
+http://localhost:3000/docs
+```
+
+The generated OpenAPI specification is also stored in the repository root as:
+
+```
+swagger.json
+```
+
+This file can be used for client generation, external documentation tools, or API inspection.
+
+## Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Coverage
+npm run test:cov
+```
+
+## Code Quality
+
+```bash
+# Lint
+npm run lint
+
+# Format
+npm run format
+
+# Type check
+npm run typecheck
+
+# Full CI verification
+npm run ci:verify
+```
 
 ## Architecture Overview
 
