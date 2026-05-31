@@ -55,6 +55,7 @@ describe('WorkspaceProfileService', () => {
     providersMock.getByUserId.mockResolvedValue({
       displayName: 'Anna Cleaner',
       bio: 'Provider bio',
+      avatarUrl: 'https://cdn/provider.png',
       cityId: 'city-1',
       serviceKeys: ['home_cleaning'],
       basePrice: 40,
@@ -70,6 +71,7 @@ describe('WorkspaceProfileService', () => {
       customer: { bio: 'Customer bio' },
       provider: {
         displayName: 'Anna Cleaner',
+        avatarUrl: 'https://cdn/provider.png',
         selectedCategoryKey: 'cleaning',
         selectedServiceKey: 'home_cleaning',
         serviceKeys: ['home_cleaning'],
@@ -104,6 +106,7 @@ describe('WorkspaceProfileService', () => {
     catalogMock.listServices.mockResolvedValue([{ key: 'home_cleaning', categoryKey: 'cleaning' }]);
 
     await service.saveProfile('user-1', {
+      viewerMode: 'provider',
       name: 'Liliia Updated',
       city: 'Berlin',
       phone: '+49111',
@@ -125,6 +128,48 @@ describe('WorkspaceProfileService', () => {
       serviceKeys: ['home_cleaning'],
       basePrice: 55,
     }));
+  });
+
+  it('stores uploaded avatar on provider profile in provider mode', async () => {
+    uploadsMock.uploadImage.mockResolvedValue({ url: 'https://cdn/provider-avatar.png' });
+    usersMock.updateMe.mockResolvedValue({});
+    providersMock.getOrCreateMyProfile.mockResolvedValue({});
+    providersMock.updateMyProfile.mockResolvedValue({});
+    citiesMock.findActiveByLabel.mockResolvedValue({ _id: { toString: () => 'city-1' } });
+    usersMock.findById.mockResolvedValue({
+      name: 'Liliia',
+      email: 'liliia@example.com',
+      city: 'Berlin',
+      phone: '+49123',
+      bio: 'Customer bio',
+      avatar: { url: 'https://cdn/u.png' },
+    });
+    providersMock.getByUserId.mockResolvedValue({
+      displayName: 'Anna Cleaner',
+      bio: 'Provider bio',
+      avatarUrl: 'https://cdn/provider-avatar.png',
+      cityId: 'city-1',
+      serviceKeys: [],
+      basePrice: null,
+      status: 'active',
+      isBlocked: false,
+    });
+    catalogMock.listServices.mockResolvedValue([]);
+
+    await service.saveProfile(
+      'user-1',
+      { viewerMode: 'provider', name: 'Liliia', city: 'Berlin' },
+      { originalname: 'avatar.png' } as Express.Multer.File,
+    );
+
+    expect(usersMock.updateMe).not.toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ avatarUrl: 'https://cdn/provider-avatar.png' }),
+    );
+    expect(providersMock.updateMyProfile).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ avatarUrl: 'https://cdn/provider-avatar.png' }),
+    );
   });
 
   it('registers guest profile and resolves provider service keys on the server', async () => {

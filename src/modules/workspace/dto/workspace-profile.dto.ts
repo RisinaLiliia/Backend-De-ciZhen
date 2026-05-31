@@ -34,6 +34,9 @@ export class WorkspaceProfileProviderDto {
   @ApiPropertyOptional({ example: 'Ich arbeite sauber und pünktlich.', nullable: true })
   bio: string | null;
 
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatars/provider-u1.png', nullable: true })
+  avatarUrl: string | null;
+
   @ApiPropertyOptional({ example: '68163f3d8ff0c1a8f677a111', nullable: true })
   cityId: string | null;
 
@@ -71,6 +74,11 @@ export class WorkspaceProfileResponseDto {
 }
 
 export class SaveWorkspaceProfileDto {
+  @ApiPropertyOptional({ example: 'provider', enum: ['provider', 'customer'] })
+  @IsOptional()
+  @IsIn(['provider', 'customer'])
+  viewerMode?: 'provider' | 'customer';
+
   @ApiPropertyOptional({ example: 'Liliia' })
   @IsOptional()
   @IsString()
@@ -137,7 +145,7 @@ export class RegisterWorkspaceProfileDto extends SaveWorkspaceProfileDto {
 
   @ApiProperty({ example: 'provider', enum: ['provider', 'customer'] })
   @IsIn(['provider', 'customer'])
-  viewerMode: 'provider' | 'customer';
+  declare viewerMode: 'provider' | 'customer';
 
   @ApiProperty({ example: 'liliia@example.com' })
   @IsEmail()
