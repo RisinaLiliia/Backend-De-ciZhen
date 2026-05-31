@@ -26,6 +26,7 @@ import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ChatsModule } from './modules/chats/chats.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
+import { CustomersModule } from './modules/customers/customers.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     FavoritesModule,
     ChatsModule,
     AnalyticsModule,
+    CustomersModule,
     WorkspaceModule,
   ],
   controllers: [AppController],

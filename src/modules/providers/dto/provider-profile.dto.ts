@@ -14,6 +14,9 @@ export class ProviderProfileDto {
   @ApiPropertyOptional({ example: 'I do cleaning in Berlin...' })
   bio?: string | null;
 
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatars/provider-u1.png', nullable: true })
+  avatarUrl?: string | null;
+
   @ApiPropertyOptional({ example: 'Sparkle GmbH' })
   companyName?: string | null;
 

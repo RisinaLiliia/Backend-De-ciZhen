@@ -146,6 +146,7 @@ export class WorkspaceProfileService {
       provider: {
         displayName: providerProfile?.displayName ?? null,
         bio: providerProfile?.bio ?? null,
+        avatarUrl: providerProfile?.avatarUrl ?? null,
         cityId: providerProfile?.cityId ?? fallbackCity ?? null,
         selectedCategoryKey: providerSelection.selectedCategoryKey,
         selectedServiceKey: providerSelection.selectedServiceKey,
@@ -171,13 +172,14 @@ export class WorkspaceProfileService {
     file?: Express.Multer.File,
   ): Promise<WorkspaceProfileResponseDto> {
     const avatarUrl = await this.uploadAvatar(userId, file);
+    const viewerMode = dto.viewerMode === 'provider' ? 'provider' : 'customer';
     const userUpdates: Record<string, string | undefined> & { avatarUrl?: string } = {};
 
     if (dto.name !== undefined) userUpdates.name = dto.name.trim();
     if (dto.city !== undefined) userUpdates.city = String(dto.city).trim();
     if (dto.phone !== undefined) userUpdates.phone = String(dto.phone).trim();
     if (dto.customerBio !== undefined) userUpdates.bio = String(dto.customerBio).trim();
-    if (avatarUrl !== undefined) userUpdates.avatarUrl = avatarUrl;
+    if (avatarUrl !== undefined && viewerMode === 'customer') userUpdates.avatarUrl = avatarUrl;
 
     if (Object.keys(userUpdates).length > 0) {
       await this.users.updateMe(userId, userUpdates);
@@ -192,7 +194,8 @@ export class WorkspaceProfileService {
       || dto.providerBio !== undefined
       || nextServiceKeys !== undefined
       || nextBasePrice !== undefined
-      || nextCityId !== undefined;
+      || nextCityId !== undefined
+      || (avatarUrl !== undefined && viewerMode === 'provider');
 
     if (shouldUpdateProvider) {
       await this.providers.getOrCreateMyProfile(userId);
@@ -201,6 +204,7 @@ export class WorkspaceProfileService {
           ? { displayName: String(dto.providerDisplayName).trim() || null }
           : {}),
         ...(dto.providerBio !== undefined ? { bio: String(dto.providerBio).trim() || null } : {}),
+        ...(avatarUrl !== undefined && viewerMode === 'provider' ? { avatarUrl } : {}),
         ...(nextServiceKeys !== undefined ? { serviceKeys: nextServiceKeys } : {}),
         ...(nextBasePrice !== undefined ? { basePrice: nextBasePrice } : {}),
         ...(nextCityId !== undefined ? { cityId: nextCityId } : {}),
@@ -243,7 +247,7 @@ export class WorkspaceProfileService {
       ...(dto.viewerMode === 'customer'
         ? { bio: String(dto.customerBio ?? '').trim() }
         : {}),
-      ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+      ...(dto.viewerMode === 'customer' && avatarUrl !== undefined ? { avatarUrl } : {}),
     });
 
     if (dto.viewerMode === 'provider') {
@@ -253,6 +257,7 @@ export class WorkspaceProfileService {
       await this.providers.updateMyProfile(userId, {
         displayName: String(dto.providerDisplayName ?? dto.name).trim() || dto.name.trim(),
         bio: String(dto.providerBio ?? '').trim() || null,
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
         cityId: city._id.toString(),
         ...(serviceKeys !== undefined ? { serviceKeys } : {}),
         ...(basePrice !== undefined ? { basePrice } : {}),

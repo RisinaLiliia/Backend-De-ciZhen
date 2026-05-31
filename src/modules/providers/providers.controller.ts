@@ -23,6 +23,7 @@ export class ProvidersController {
       userId: p.userId,
       displayName: p.displayName,
       bio: p.bio,
+      avatarUrl: p.avatarUrl ?? null,
       companyName: p.companyName,
       vatId: p.vatId,
       cityId: p.cityId,

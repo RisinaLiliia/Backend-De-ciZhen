@@ -39,7 +39,7 @@ export class ProvidersService {
 
   async updateMyProfile(
     userId: string,
-    updates: Partial<Pick<ProviderProfile, 'displayName' | 'bio' | 'companyName' | 'vatId' | 'cityId' | 'serviceKeys' | 'basePrice'>>,
+    updates: Partial<Pick<ProviderProfile, 'displayName' | 'bio' | 'avatarUrl' | 'companyName' | 'vatId' | 'cityId' | 'serviceKeys' | 'basePrice'>>,
   ): Promise<ProviderProfileDocument> {
     const profile = await this.model.findOne({ userId }).exec();
     if (!profile) throw new NotFoundException('Provider profile not found');
@@ -53,6 +53,7 @@ export class ProvidersService {
 
     if (updates.displayName !== undefined) profile.displayName = normalizeText(updates.displayName) ?? null;
     if (updates.bio !== undefined) profile.bio = normalizeText(updates.bio) ?? null;
+    if (updates.avatarUrl !== undefined) profile.avatarUrl = normalizeText(updates.avatarUrl) ?? null;
     if (updates.companyName !== undefined) profile.companyName = normalizeText(updates.companyName) ?? null;
     if (updates.vatId !== undefined) profile.vatId = normalizeText(updates.vatId) ?? null;
     if (updates.cityId !== undefined) profile.cityId = normalizeText(updates.cityId) ?? null;

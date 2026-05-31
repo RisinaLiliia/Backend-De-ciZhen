@@ -15,6 +15,12 @@ export class UpdateMyProviderProfileDto {
   @MaxLength(2000)
   bio?: string;
 
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatars/provider-u1.png', nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  avatarUrl?: string | null;
+
   @ApiPropertyOptional({ example: 'Sparkle GmbH' })
   @IsOptional()
   @IsString()

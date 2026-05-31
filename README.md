@@ -590,6 +590,33 @@ Available locally/remotely at:
 /docs
 ```
 
+## Customer Public Profile Contract
+- `GET /customers/:id` returns the public customer profile for workspace/detail surfaces.
+- The response is sourced from backend-owned customer data only: `users + client_profiles + presence + city lookup`.
+- Exposed fields:
+  - `id`
+  - `userId`
+  - `displayName`
+  - `bio`
+  - `avatarUrl`
+  - `cityId`
+  - `cityName`
+  - `ratingAvg`
+  - `ratingCount`
+  - `isOnline`
+  - `lastSeenAt`
+- This endpoint is the public/readonly counterpart to the owner-only `/workspace/profile` flow for customer mode.
+
+## Platform Reviews Overview Contract
+- `GET /reviews/platform/overview` supports workspace reviews filtering directly on the backend.
+- Query parameters:
+  - `range`: `24h | 7d | 30d | 90d`
+  - `sort`: `created_desc | rating_desc`
+  - `limit`: `1..100`
+- `offset`: `0..n`
+- Filtering happens before pagination and before summary aggregation, so `items`, `total`, and `summary.distribution` always describe the same selected period.
+- This is the contract consumed by `/workspace?section=reviews`.
+
 ### Generate static OpenAPI spec
 
 ```bash
