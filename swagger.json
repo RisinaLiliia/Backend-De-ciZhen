@@ -8316,6 +8316,80 @@
         ]
       }
     },
+    "/customers/{id}": {
+      "get": {
+        "operationId": "CustomersController_getPublicById",
+        "summary": "Get public customer profile by user id",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerPublicDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "customers"
+        ],
+        "security": [
+          {}
+        ]
+      }
+    },
     "/workspace/public": {
       "get": {
         "operationId": "WorkspaceController_getPublicOverview",
@@ -8360,6 +8434,36 @@
                 "date_asc",
                 "price_asc",
                 "price_desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "all",
+              "enum": [
+                "all",
+                "attention",
+                "execution",
+                "completed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "30d",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
               ],
               "type": "string"
             }
@@ -8829,19 +8933,20 @@
     "/workspace/requests": {
       "get": {
         "operationId": "WorkspaceController_getRequestsOverview",
-        "summary": "Personalized workspace requests board",
-        "description": "Returns the authenticated user request workflow board with backend-owned summary cards, progress states, list items, and side panel recommendations.",
+        "summary": "Unified workspace requests board",
+        "description": "Returns either the authenticated user workflow board (`scope=my`) or the public market board (`scope=market`) with backend-owned summary cards, progress states, list items, and right-rail decision data.",
         "parameters": [
           {
             "name": "scope",
             "required": false,
             "in": "query",
-            "description": "Currently the endpoint returns the authenticated user workflow board.",
+            "description": "Returns either the authenticated user workflow board (`my`) or the public market board (`market`).",
             "schema": {
               "default": "my",
               "example": "my",
               "enum": [
-                "my"
+                "my",
+                "market"
               ],
               "type": "string"
             }
@@ -8904,9 +9009,11 @@
                 "newest",
                 "deadline",
                 "budget",
+                "price_asc",
                 "price_desc",
                 "oldest",
-                "date_asc"
+                "date_asc",
+                "date_desc"
               ],
               "type": "string"
             }
@@ -8950,6 +9057,427 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkspaceRequestsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {
+            "access-token": []
+          },
+          {}
+        ]
+      }
+    },
+    "/workspace/providers": {
+      "get": {
+        "operationId": "WorkspaceController_getProvidersOverview",
+        "summary": "Unified workspace providers board",
+        "description": "Returns backend-owned summary cards, decision-panel recommendations, and paginated provider list items for `workspace?section=providers`.",
+        "parameters": [
+          {
+            "name": "cityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "64f0c1a2b3c4d5e6f7a8b9c0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "cleaning",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subcategoryKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "window_cleaning",
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "30d",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "viewerMode",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "customer",
+              "enum": [
+                "customer",
+                "provider"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "date_desc",
+              "enum": [
+                "date_desc",
+                "date_asc",
+                "price_asc",
+                "price_desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "accept-language",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProvidersResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {
+            "access-token": []
+          },
+          {}
+        ]
+      }
+    },
+    "/workspace/reviews": {
+      "get": {
+        "operationId": "WorkspaceController_getReviewsRail",
+        "summary": "Unified workspace reviews rail contract",
+        "description": "Returns backend-owned summary cards, queue semantics, and composer permissions for `workspace?section=reviews`.",
+        "parameters": [
+          {
+            "name": "range",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "30d",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "created_desc",
+              "enum": [
+                "created_desc",
+                "rating_desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "accept-language",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceReviewsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {
+            "access-token": []
+          },
+          {}
+        ]
+      }
+    },
+    "/workspace/actions": {
+      "get": {
+        "operationId": "WorkspaceController_getActionsRail",
+        "summary": "Unified workspace actions rail contract",
+        "description": "Returns backend-owned readiness summary and next-step queue for `workspace?section=actions`.",
+        "parameters": [
+          {
+            "name": "accept-language",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceActionsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {
+            "access-token": []
+          },
+          {}
+        ]
+      }
+    },
+    "/workspace/profile": {
+      "get": {
+        "operationId": "WorkspaceController_getProfile",
+        "summary": "Unified workspace profile contract for authenticated users",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProfileResponseDto"
                 }
               }
             }
@@ -9012,6 +9540,163 @@
           {
             "access-token": []
           }
+        ]
+      },
+      "patch": {
+        "operationId": "WorkspaceController_saveProfile",
+        "summary": "Save unified workspace profile for authenticated users",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveWorkspaceProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProfileResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/workspace/profile/register": {
+      "post": {
+        "operationId": "WorkspaceController_registerProfile",
+        "summary": "Register and bootstrap workspace profile in one server-owned flow",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterWorkspaceProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
         ]
       }
     },
@@ -9940,6 +10625,11 @@
             "type": "object",
             "example": "I do cleaning in Berlin..."
           },
+          "avatarUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/avatars/provider-u1.png",
+            "nullable": true
+          },
           "companyName": {
             "type": "object",
             "example": "Sparkle GmbH"
@@ -10019,6 +10709,11 @@
           "bio": {
             "type": "string",
             "example": "I do cleaning in Berlin..."
+          },
+          "avatarUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/avatars/provider-u1.png",
+            "nullable": true
           },
           "companyName": {
             "type": "string",
@@ -12669,6 +13364,70 @@
           "createdAt"
         ]
       },
+      "CustomerPublicDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011"
+          },
+          "userId": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011"
+          },
+          "displayName": {
+            "type": "object",
+            "example": "Ban Raflas",
+            "nullable": true
+          },
+          "bio": {
+            "type": "object",
+            "example": "Ich beschreibe hier meine Anforderungen und Arbeitsweise.",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/avatars/customer-u1.png",
+            "nullable": true
+          },
+          "cityId": {
+            "type": "object",
+            "example": "68163f3d8ff0c1a8f677a111",
+            "nullable": true
+          },
+          "cityName": {
+            "type": "object",
+            "example": "Frankfurt",
+            "nullable": true
+          },
+          "ratingAvg": {
+            "type": "number",
+            "example": 4.8,
+            "description": "Average rating (0..5)"
+          },
+          "ratingCount": {
+            "type": "number",
+            "example": 12,
+            "description": "Total ratings count"
+          },
+          "isOnline": {
+            "type": "boolean",
+            "example": false
+          },
+          "lastSeenAt": {
+            "type": "object",
+            "example": "2026-05-31T10:15:00.000Z",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "ratingAvg",
+          "ratingCount",
+          "isOnline"
+        ]
+      },
       "WorkspacePublicSummaryDto": {
         "type": "object",
         "properties": {
@@ -13707,6 +14466,580 @@
           "subtitle",
           "hasReliableItems",
           "items"
+        ]
+      },
+      "WorkspaceStatisticsUserFormulaMetricDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "offer_rate",
+              "response_rate",
+              "conversion_rate",
+              "completion_rate",
+              "cancellation_rate",
+              "avg_response_time",
+              "revenue",
+              "avg_order_value"
+            ],
+            "example": "offer_rate"
+          },
+          "formula": {
+            "type": "string",
+            "enum": [
+              "offers / requests",
+              "responses / offers",
+              "contracts / requests",
+              "completed / contracts",
+              "cancellations / contracts",
+              "sum(response_time) / responses",
+              "sum(order_price * platform_fee)",
+              "total_revenue / completed_orders"
+            ],
+            "example": "offers / requests"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "percent",
+              "minutes",
+              "currency"
+            ],
+            "example": "percent"
+          },
+          "userValue": {
+            "type": "object",
+            "example": 68,
+            "nullable": true
+          },
+          "marketValue": {
+            "type": "object",
+            "example": 54,
+            "nullable": true
+          },
+          "gap": {
+            "type": "object",
+            "example": 14,
+            "nullable": true
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "example": "up"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "positive"
+          }
+        },
+        "required": [
+          "key",
+          "formula",
+          "unit",
+          "userValue",
+          "marketValue",
+          "gap",
+          "direction",
+          "tone"
+        ]
+      },
+      "WorkspaceStatisticsUserComparisonMetricDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "offer_rate",
+              "response_time",
+              "unanswered"
+            ],
+            "example": "offer_rate"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "percent",
+              "minutes",
+              "count"
+            ],
+            "example": "percent"
+          },
+          "userValue": {
+            "type": "object",
+            "example": 68,
+            "nullable": true
+          },
+          "marketValue": {
+            "type": "object",
+            "example": 54,
+            "nullable": true
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "example": "up"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "positive"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "nullable": true,
+            "example": "medium"
+          }
+        },
+        "required": [
+          "key",
+          "unit",
+          "userValue",
+          "marketValue",
+          "direction",
+          "tone",
+          "status"
+        ]
+      },
+      "WorkspaceStatisticsUserSignalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "signal-slow-response"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "risk",
+              "opportunity",
+              "performance",
+              "growth"
+            ],
+            "example": "risk"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "high_unanswered",
+              "slow_response",
+              "overpriced",
+              "underpriced",
+              "high_demand_city",
+              "growing_category",
+              "low_visibility",
+              "strong_position",
+              "low_competition_segment",
+              "price_above_market",
+              "price_below_market"
+            ],
+            "example": "slow_response"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "metricKey": {
+            "type": "string",
+            "enum": [
+              "offer_rate",
+              "response_rate",
+              "conversion_rate",
+              "completion_rate",
+              "cancellation_rate",
+              "avg_response_time",
+              "revenue",
+              "avg_order_value",
+              "response_time",
+              "unanswered"
+            ],
+            "nullable": true,
+            "example": "avg_response_time"
+          },
+          "actionCode": {
+            "type": "string",
+            "enum": [
+              "respond_faster",
+              "adjust_price",
+              "focus_market",
+              "complete_profile",
+              "follow_up_unanswered",
+              "follow_up_requests"
+            ],
+            "nullable": true,
+            "example": "respond_faster"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "code",
+          "severity",
+          "metricKey",
+          "actionCode"
+        ]
+      },
+      "WorkspaceStatisticsUserPerformancePositionDto": {
+        "type": "object",
+        "properties": {
+          "percentile": {
+            "type": "object",
+            "example": 74,
+            "nullable": true
+          },
+          "categoryPercentile": {
+            "type": "object",
+            "example": 81,
+            "nullable": true
+          },
+          "cityPercentile": {
+            "type": "object",
+            "example": 69,
+            "nullable": true
+          },
+          "bucket": {
+            "type": "string",
+            "enum": [
+              "top",
+              "average",
+              "below"
+            ],
+            "example": "top"
+          },
+          "categoryLabel": {
+            "type": "object",
+            "example": "Reinigung",
+            "nullable": true
+          },
+          "cityLabel": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          }
+        },
+        "required": [
+          "percentile",
+          "categoryPercentile",
+          "cityPercentile",
+          "bucket",
+          "categoryLabel",
+          "cityLabel"
+        ]
+      },
+      "WorkspaceStatisticsUserProfileGapDto": {
+        "type": "object",
+        "properties": {
+          "fromStage": {
+            "type": "string",
+            "enum": [
+              "offers"
+            ],
+            "example": "offers"
+          },
+          "toStage": {
+            "type": "string",
+            "enum": [
+              "confirmations"
+            ],
+            "example": "confirmations"
+          },
+          "lossPercent": {
+            "type": "object",
+            "example": 45,
+            "nullable": true
+          },
+          "lostCount": {
+            "type": "object",
+            "example": 12,
+            "nullable": true
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "warning"
+          }
+        },
+        "required": [
+          "fromStage",
+          "toStage",
+          "lossPercent",
+          "lostCount",
+          "tone"
+        ]
+      },
+      "WorkspaceStatisticsUserPriorityItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "risk-slow-response"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "slow_response",
+              "high_unanswered",
+              "low_visibility",
+              "high_demand_city",
+              "growing_category",
+              "low_competition_segment",
+              "price_above_market",
+              "price_below_market",
+              "strong_position"
+            ],
+            "example": "slow_response"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "cityLabel": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "categoryLabel": {
+            "type": "object",
+            "example": "Reinigung",
+            "nullable": true
+          },
+          "value": {
+            "type": "object",
+            "example": 24,
+            "nullable": true
+          },
+          "secondaryValue": {
+            "type": "object",
+            "example": 54,
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "severity",
+          "cityLabel",
+          "categoryLabel",
+          "value",
+          "secondaryValue"
+        ]
+      },
+      "WorkspaceStatisticsUserPricingDto": {
+        "type": "object",
+        "properties": {
+          "currentPrice": {
+            "type": "object",
+            "example": 240,
+            "nullable": true
+          },
+          "recommendedMin": {
+            "type": "object",
+            "example": 190,
+            "nullable": true
+          },
+          "recommendedMax": {
+            "type": "object",
+            "example": 260,
+            "nullable": true
+          },
+          "marketAverage": {
+            "type": "object",
+            "example": 220,
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "below",
+              "within",
+              "above",
+              "unknown"
+            ],
+            "example": "within"
+          },
+          "conversionImpact": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "neutral",
+              "warning"
+            ],
+            "example": "positive"
+          }
+        },
+        "required": [
+          "currentPrice",
+          "recommendedMin",
+          "recommendedMax",
+          "marketAverage",
+          "status",
+          "conversionImpact"
+        ]
+      },
+      "WorkspaceStatisticsUserActionStepDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "step-respond-faster"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "respond_faster",
+              "adjust_price",
+              "focus_market",
+              "complete_profile",
+              "follow_up_unanswered",
+              "follow_up_requests"
+            ],
+            "example": "respond_faster"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "targetValue": {
+            "type": "object",
+            "example": 24,
+            "nullable": true
+          },
+          "cityLabel": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "categoryLabel": {
+            "type": "object",
+            "example": "Reinigung",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "priority",
+          "targetValue",
+          "cityLabel",
+          "categoryLabel"
+        ]
+      },
+      "WorkspaceStatisticsUserIntelligenceDto": {
+        "type": "object",
+        "properties": {
+          "comparisonLabel": {
+            "type": "object",
+            "example": "User vs Market",
+            "nullable": true
+          },
+          "formulaMetrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsUserFormulaMetricDto"
+            }
+          },
+          "decisionMetrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsUserComparisonMetricDto"
+            }
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsUserSignalDto"
+            }
+          },
+          "performancePosition": {
+            "$ref": "#/components/schemas/WorkspaceStatisticsUserPerformancePositionDto"
+          },
+          "profileGap": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsUserProfileGapDto"
+              }
+            ]
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsUserPriorityItemDto"
+            }
+          },
+          "opportunities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsUserPriorityItemDto"
+            }
+          },
+          "pricing": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsUserPricingDto"
+              }
+            ]
+          },
+          "nextSteps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceStatisticsUserActionStepDto"
+            }
+          }
+        },
+        "required": [
+          "comparisonLabel",
+          "formulaMetrics",
+          "decisionMetrics",
+          "signals",
+          "performancePosition",
+          "profileGap",
+          "risks",
+          "opportunities",
+          "pricing",
+          "nextSteps"
         ]
       },
       "WorkspaceStatisticsSummaryDto": {
@@ -15374,6 +16707,14 @@
               }
             ]
           },
+          "userIntelligence": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceStatisticsUserIntelligenceDto"
+              }
+            ]
+          },
           "summary": {
             "$ref": "#/components/schemas/WorkspaceStatisticsSummaryDto"
           },
@@ -16029,6 +17370,97 @@
           "label"
         ]
       },
+      "WorkspaceRequestVisibilityDto": {
+        "type": "object",
+        "properties": {
+          "inPublicFeed": {
+            "type": "boolean",
+            "example": true
+          },
+          "retainedForParticipants": {
+            "type": "boolean",
+            "example": false
+          },
+          "isInactive": {
+            "type": "boolean",
+            "example": false
+          },
+          "inactiveReason": {
+            "type": "string",
+            "enum": [
+              "cancelled_by_customer"
+            ],
+            "nullable": true,
+            "example": "cancelled_by_customer"
+          },
+          "inactiveMessage": {
+            "type": "object",
+            "example": "Dieser Auftrag wurde vom Auftraggeber storniert.",
+            "nullable": true
+          },
+          "purgeAt": {
+            "type": "object",
+            "example": "2026-05-03T10:00:00.000Z",
+            "nullable": true
+          },
+          "canRestore": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "inPublicFeed",
+          "retainedForParticipants",
+          "isInactive"
+        ]
+      },
+      "WorkspaceRequestCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "canManage": {
+            "type": "boolean",
+            "example": true
+          },
+          "canEdit": {
+            "type": "boolean",
+            "example": true
+          },
+          "canDelete": {
+            "type": "boolean",
+            "example": true
+          },
+          "canDuplicate": {
+            "type": "boolean",
+            "example": true
+          },
+          "canRestore": {
+            "type": "boolean",
+            "example": false
+          },
+          "canReviewOffers": {
+            "type": "boolean",
+            "example": true
+          },
+          "canPublish": {
+            "type": "boolean",
+            "example": false
+          },
+          "canUnpublish": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "canManage",
+          "canEdit",
+          "canDelete",
+          "canDuplicate",
+          "canRestore",
+          "canReviewOffers",
+          "canPublish",
+          "canUnpublish"
+        ]
+      },
       "WorkspaceMyRequestCardProgressStepDto": {
         "type": "object",
         "properties": {
@@ -16379,6 +17811,104 @@
           "actionPriorityLevel"
         ]
       },
+      "WorkspaceRequestCardChromeSignalDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "decision"
+          },
+          "label": {
+            "type": "string",
+            "example": "2 Angebote prüfen"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "success",
+              "neutral"
+            ],
+            "example": "warning"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "tone"
+        ]
+      },
+      "WorkspaceRequestCardChromeInsightDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "decision"
+          },
+          "title": {
+            "type": "string",
+            "example": "Angebote"
+          },
+          "description": {
+            "type": "string",
+            "example": "Neue Angebote warten auf deine Auswahl."
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "success",
+              "neutral"
+            ],
+            "example": "warning"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "description",
+          "tone"
+        ]
+      },
+      "WorkspaceRequestCardChromeDto": {
+        "type": "object",
+        "properties": {
+          "priorityLabel": {
+            "type": "object",
+            "example": "Handlungsbedarf",
+            "nullable": true
+          },
+          "priorityTone": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "none"
+            ],
+            "example": "high"
+          },
+          "signalPills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRequestCardChromeSignalDto"
+            }
+          },
+          "insights": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRequestCardChromeInsightDto"
+            }
+          }
+        },
+        "required": [
+          "priorityTone",
+          "signalPills",
+          "insights"
+        ]
+      },
       "WorkspaceMyRequestCardDto": {
         "type": "object",
         "properties": {
@@ -16413,6 +17943,23 @@
             "nullable": true,
             "example": "offers_received"
           },
+          "lifecycleState": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "published_with_responses",
+              "contract_pending",
+              "in_progress",
+              "completion_pending",
+              "completed",
+              "reviewed",
+              "cancelled",
+              "inactive_retained"
+            ],
+            "nullable": true,
+            "example": "published_with_responses"
+          },
           "title": {
             "type": "string",
             "example": "Wohnung reinigen"
@@ -16436,9 +17983,19 @@
             "example": "2026-04-05",
             "nullable": true
           },
+          "createdAtIso": {
+            "type": "object",
+            "example": "2026-04-05T08:00:00.000Z",
+            "nullable": true
+          },
           "nextEventAt": {
             "type": "object",
             "example": "2026-04-07",
+            "nullable": true
+          },
+          "nextEventAtIso": {
+            "type": "object",
+            "example": "2026-04-07T10:00:00.000Z",
             "nullable": true
           },
           "budget": {
@@ -16483,6 +18040,33 @@
               }
             ]
           },
+          "visibility": {
+            "$ref": "#/components/schemas/WorkspaceRequestVisibilityDto"
+          },
+          "responseCount": {
+            "type": "object",
+            "example": 2,
+            "nullable": true
+          },
+          "canEdit": {
+            "type": "boolean",
+            "example": true
+          },
+          "canDelete": {
+            "type": "boolean",
+            "example": true
+          },
+          "canDuplicate": {
+            "type": "boolean",
+            "example": true
+          },
+          "canRestore": {
+            "type": "boolean",
+            "example": false
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/WorkspaceRequestCapabilitiesDto"
+          },
           "progress": {
             "$ref": "#/components/schemas/WorkspaceMyRequestCardProgressDto"
           },
@@ -16498,8 +18082,38 @@
           "status": {
             "$ref": "#/components/schemas/WorkspaceRequestCardStatusDto"
           },
+          "menuActions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRequestCardStatusActionDto"
+            }
+          },
+          "primaryAction": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceRequestCardStatusActionDto"
+              }
+            ]
+          },
+          "secondaryAction": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceRequestCardStatusActionDto"
+              }
+            ]
+          },
           "decision": {
             "$ref": "#/components/schemas/WorkspaceRequestDecisionDto"
+          },
+          "chrome": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceRequestCardChromeDto"
+              }
+            ]
           }
         },
         "required": [
@@ -16510,10 +18124,13 @@
           "category",
           "state",
           "stateLabel",
+          "visibility",
+          "capabilities",
           "progress",
           "quickActions",
           "requestPreview",
           "status",
+          "menuActions",
           "decision"
         ]
       },
@@ -16882,7 +18499,8 @@
           "scope": {
             "type": "string",
             "enum": [
-              "my"
+              "my",
+              "market"
             ],
             "example": "my"
           },
@@ -16893,23 +18511,13 @@
             "$ref": "#/components/schemas/WorkspaceRequestsFiltersDto"
           },
           "summary": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/WorkspaceRequestsSummaryDto"
-              }
-            ]
+            "$ref": "#/components/schemas/WorkspaceRequestsSummaryDto"
           },
           "list": {
             "$ref": "#/components/schemas/WorkspaceRequestsListDto"
           },
           "decisionPanel": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/WorkspaceRequestsDecisionPanelDto"
-              }
-            ]
+            "$ref": "#/components/schemas/WorkspaceRequestsDecisionPanelDto"
           },
           "sidePanel": {
             "nullable": true,
@@ -16925,7 +18533,1453 @@
           "scope",
           "header",
           "filters",
+          "summary",
+          "list",
+          "decisionPanel"
+        ]
+      },
+      "WorkspaceProvidersHeaderDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Anbieter im Markt"
+          },
+          "subtitle": {
+            "type": "object",
+            "example": "Ein gemeinsamer Marktblick für verfügbare, bewährte und relevante Anbieter.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "WorkspaceProvidersFiltersDto": {
+        "type": "object",
+        "properties": {
+          "cityId": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          },
+          "categoryKey": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          },
+          "subcategoryKey": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d",
+              "90d"
+            ],
+            "example": "30d"
+          },
+          "viewerMode": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "provider"
+            ],
+            "example": "customer",
+            "nullable": true
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "date_desc",
+              "date_asc",
+              "price_asc",
+              "price_desc"
+            ],
+            "example": "date_desc"
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 20
+          }
+        }
+      },
+      "WorkspaceProvidersSummaryItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "all",
+              "available",
+              "top_rated",
+              "trusted"
+            ],
+            "example": "all"
+          },
+          "label": {
+            "type": "string",
+            "example": "Alle"
+          },
+          "value": {
+            "type": "number",
+            "example": 154
+          },
+          "helper": {
+            "type": "string",
+            "example": "Gesamter Anbieterpool"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "all",
+              "attention",
+              "execution",
+              "completed"
+            ],
+            "example": "all"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "helper",
+          "tone"
+        ]
+      },
+      "WorkspaceProvidersSummaryDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceProvidersSummaryItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "WorkspaceProvidersDecisionPanelPrimaryActionDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Anbieter prüfen"
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=providers"
+          },
+          "targetFilter": {
+            "type": "string",
+            "enum": [
+              "recommended"
+            ],
+            "example": "recommended"
+          }
+        },
+        "required": [
+          "label",
+          "href",
+          "targetFilter"
+        ]
+      },
+      "WorkspaceProvidersDecisionPanelQueueItemDto": {
+        "type": "object",
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "title": {
+            "type": "string",
+            "example": "Anna K."
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "review_provider",
+              "contact_provider",
+              "open_availability",
+              "review_trust"
+            ],
+            "example": "contact_provider"
+          },
+          "actionLabel": {
+            "type": "string",
+            "example": "Jetzt verfügbar"
+          },
+          "actionPriority": {
+            "type": "number",
+            "example": 90
+          },
+          "actionPriorityLevel": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "actionReason": {
+            "type": "object",
+            "example": "Sofort planbar und stark bewertet.",
+            "nullable": true
+          },
+          "categoryLabel": {
+            "type": "object",
+            "example": "Fensterreinigung",
+            "nullable": true
+          },
+          "cityLabel": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "href": {
+            "type": "string",
+            "example": "/providers/65f0c1a2b3c4d5e6f7a8b9c1"
+          }
+        },
+        "required": [
+          "providerId",
+          "title",
+          "actionType",
+          "actionLabel",
+          "actionPriority",
+          "actionPriorityLevel",
+          "href"
+        ]
+      },
+      "WorkspaceProvidersDecisionPanelOverviewItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "available",
+              "top_rated",
+              "trusted"
+            ],
+            "example": "available"
+          },
+          "label": {
+            "type": "string",
+            "example": "Jetzt verfügbar"
+          },
+          "value": {
+            "type": "number",
+            "example": 42
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value"
+        ]
+      },
+      "WorkspaceProvidersDecisionPanelDto": {
+        "type": "object",
+        "properties": {
+          "eyebrow": {
+            "type": "string",
+            "example": "Decision Panel"
+          },
+          "totalNeedsAction": {
+            "type": "number",
+            "example": 23
+          },
+          "title": {
+            "type": "string",
+            "example": "Anbieter brauchen Aufmerksamkeit"
+          },
+          "text": {
+            "type": "string",
+            "example": "12 sind direkt verfügbar, 8 stark bewertet und 3 frisch aktualisiert."
+          },
+          "primaryAction": {
+            "$ref": "#/components/schemas/WorkspaceProvidersDecisionPanelPrimaryActionDto"
+          },
+          "queueTitle": {
+            "type": "string",
+            "example": "Action Queue"
+          },
+          "queue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceProvidersDecisionPanelQueueItemDto"
+            }
+          },
+          "emptyText": {
+            "type": "string",
+            "example": "Im aktuellen Kontext gibt es keine priorisierten Anbieter."
+          },
+          "overviewEyebrow": {
+            "type": "string",
+            "example": "Angebotslage"
+          },
+          "overview": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceProvidersDecisionPanelOverviewItemDto"
+            }
+          }
+        },
+        "required": [
+          "eyebrow",
+          "totalNeedsAction",
+          "title",
+          "text",
+          "primaryAction",
+          "queueTitle",
+          "queue",
+          "emptyText",
+          "overviewEyebrow",
+          "overview"
+        ]
+      },
+      "WorkspaceProvidersCardBadgeDto": {
+        "type": "object",
+        "properties": {
+          "variant": {
+            "type": "string",
+            "enum": [
+              "neutral",
+              "info",
+              "success",
+              "warning",
+              "danger",
+              "risk",
+              "opportunity"
+            ],
+            "example": "info"
+          },
+          "size": {
+            "type": "string",
+            "enum": [
+              "sm",
+              "md"
+            ],
+            "example": "sm"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "outline",
+              "solid"
+            ],
+            "example": "soft"
+          },
+          "label": {
+            "type": "string",
+            "example": "Top Anbieter"
+          },
+          "tooltip": {
+            "type": "object",
+            "example": "Top rating and high reliability",
+            "nullable": true
+          }
+        },
+        "required": [
+          "variant",
+          "size",
+          "tone",
+          "label"
+        ]
+      },
+      "WorkspaceProvidersCardDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "provider-1"
+          },
+          "badges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceProvidersCardBadgeDto"
+            }
+          },
+          "isVerified": {
+            "type": "boolean",
+            "example": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "online",
+              "offline"
+            ],
+            "example": "online"
+          },
+          "statusLabel": {
+            "type": "string",
+            "example": "Aktiv"
+          },
+          "avatarUrl": {
+            "type": "object",
+            "example": "https://example.com/avatar.jpg",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "example": "Anna K."
+          },
+          "role": {
+            "type": "string",
+            "example": "Fensterreinigung"
+          },
+          "cityLabel": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "rating": {
+            "type": "string",
+            "example": "4.9"
+          },
+          "responseTime": {
+            "type": "object",
+            "example": "~18 Min.",
+            "nullable": true
+          },
+          "responseTimeLabel": {
+            "type": "object",
+            "example": "Antwortzeit",
+            "nullable": true
+          },
+          "responseRate": {
+            "type": "object",
+            "example": 82,
+            "nullable": true
+          },
+          "responseRateLabel": {
+            "type": "object",
+            "example": "Antwortquote",
+            "nullable": true
+          },
+          "aboutPreview": {
+            "type": "object",
+            "example": "Saubere Ausführung und verlässliche Termine.",
+            "nullable": true
+          },
+          "reviewsCount": {
+            "type": "number",
+            "example": 18
+          },
+          "reviewsLabel": {
+            "type": "string",
+            "example": "Bewertungen"
+          },
+          "reviewPreview": {
+            "type": "object",
+            "example": "Sehr zuverlässig und schnell!",
+            "nullable": true
+          },
+          "availabilityDatePrefix": {
+            "type": "object",
+            "example": "Verfügbar",
+            "nullable": true
+          },
+          "availabilityDateLabel": {
+            "type": "object",
+            "example": "Heute",
+            "nullable": true
+          },
+          "availabilityDateIso": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          },
+          "pricingPrefixLabel": {
+            "type": "object",
+            "example": "Ab",
+            "nullable": true
+          },
+          "pricingValueLabel": {
+            "type": "object",
+            "example": "€55",
+            "nullable": true
+          },
+          "pricingSuffixLabel": {
+            "type": "object",
+            "example": "/ Std.",
+            "nullable": true
+          },
+          "servicePreview": {
+            "example": [
+              "Fensterreinigung",
+              "Glasflächen"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ctaLabel": {
+            "type": "string",
+            "example": "Profil ansehen"
+          },
+          "profileHref": {
+            "type": "string",
+            "example": "/providers/provider-1"
+          },
+          "reviewsHref": {
+            "type": "string",
+            "example": "/providers/provider-1#reviews"
+          }
+        },
+        "required": [
+          "id",
+          "badges",
+          "isVerified",
+          "status",
+          "statusLabel",
+          "name",
+          "role",
+          "rating",
+          "reviewsCount",
+          "reviewsLabel",
+          "servicePreview",
+          "ctaLabel",
+          "profileHref",
+          "reviewsHref"
+        ]
+      },
+      "WorkspaceProvidersListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "provider-1"
+          },
+          "userId": {
+            "type": "object",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1",
+            "nullable": true
+          },
+          "isFavorite": {
+            "type": "boolean",
+            "example": false
+          },
+          "card": {
+            "$ref": "#/components/schemas/WorkspaceProvidersCardDto"
+          }
+        },
+        "required": [
+          "id",
+          "isFavorite",
+          "card"
+        ]
+      },
+      "WorkspaceProvidersListDto": {
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "type": "number",
+            "example": 44
+          },
+          "totalLabel": {
+            "type": "string",
+            "example": "44"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "date_desc",
+              "date_asc",
+              "price_asc",
+              "price_desc"
+            ],
+            "example": "date_desc"
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "example": 3
+          },
+          "emptyTitle": {
+            "type": "string",
+            "example": "Keine Anbieter gefunden"
+          },
+          "emptyHint": {
+            "type": "string",
+            "example": "Passe Filter oder Perspektive an, um mehr Anbieter zu sehen."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceProvidersListItemDto"
+            }
+          }
+        },
+        "required": [
+          "totalCount",
+          "totalLabel",
+          "sort",
+          "page",
+          "limit",
+          "totalPages",
+          "emptyTitle",
+          "emptyHint",
+          "items"
+        ]
+      },
+      "WorkspaceProvidersResponseDto": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "example": "providers"
+          },
+          "header": {
+            "$ref": "#/components/schemas/WorkspaceProvidersHeaderDto"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/WorkspaceProvidersFiltersDto"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WorkspaceProvidersSummaryDto"
+          },
+          "decisionPanel": {
+            "$ref": "#/components/schemas/WorkspaceProvidersDecisionPanelDto"
+          },
+          "list": {
+            "$ref": "#/components/schemas/WorkspaceProvidersListDto"
+          }
+        },
+        "required": [
+          "section",
+          "header",
+          "filters",
+          "summary",
+          "decisionPanel",
           "list"
+        ]
+      },
+      "WorkspaceReviewsFiltersDto": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d",
+              "90d"
+            ],
+            "example": "30d"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created_desc",
+              "rating_desc"
+            ],
+            "example": "created_desc"
+          }
+        }
+      },
+      "WorkspaceReviewsSummaryItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "all",
+              "positive",
+              "critical",
+              "recent"
+            ],
+            "example": "all"
+          },
+          "label": {
+            "type": "string",
+            "example": "Alle"
+          },
+          "value": {
+            "type": "number",
+            "example": 154
+          },
+          "helper": {
+            "type": "string",
+            "example": "Plattformstimmen im Zeitraum"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "all",
+              "attention",
+              "execution",
+              "completed"
+            ],
+            "example": "all"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "helper",
+          "tone"
+        ]
+      },
+      "WorkspaceReviewsDecisionActionDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Bewertungen prüfen"
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=reviews"
+          },
+          "targetFilter": {
+            "type": "string",
+            "enum": [
+              "focus"
+            ],
+            "example": "focus"
+          }
+        },
+        "required": [
+          "label",
+          "href",
+          "targetFilter"
+        ]
+      },
+      "WorkspaceReviewsDecisionQueueItemDto": {
+        "type": "object",
+        "properties": {
+          "reviewId": {
+            "type": "string",
+            "example": "65f0c1a2b3c4d5e6f7a8b9c1"
+          },
+          "title": {
+            "type": "string",
+            "example": "Anna K."
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "review_feedback"
+            ],
+            "example": "review_feedback"
+          },
+          "actionLabel": {
+            "type": "string",
+            "example": "2★ Bewertung"
+          },
+          "actionPriority": {
+            "type": "number",
+            "example": 90
+          },
+          "actionPriorityLevel": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "actionReason": {
+            "type": "object",
+            "example": "Antwort kam zu spät.",
+            "nullable": true
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=reviews"
+          }
+        },
+        "required": [
+          "reviewId",
+          "title",
+          "actionType",
+          "actionLabel",
+          "actionPriority",
+          "actionPriorityLevel",
+          "href"
+        ]
+      },
+      "WorkspaceReviewsDecisionOverviewItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "avg",
+              "positive",
+              "critical"
+            ],
+            "example": "avg"
+          },
+          "label": {
+            "type": "string",
+            "example": "Ø Bewertung"
+          },
+          "value": {
+            "type": "string",
+            "example": "4.8"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value"
+        ]
+      },
+      "WorkspaceReviewsDecisionPanelDto": {
+        "type": "object",
+        "properties": {
+          "eyebrow": {
+            "type": "string",
+            "example": "Decision Panel"
+          },
+          "totalNeedsAction": {
+            "type": "number",
+            "example": 12
+          },
+          "title": {
+            "type": "string",
+            "example": "Feedback im Fokus"
+          },
+          "text": {
+            "type": "string",
+            "example": "3 kritische und 8 neue Stimmen im gewählten Zeitraum."
+          },
+          "primaryAction": {
+            "$ref": "#/components/schemas/WorkspaceReviewsDecisionActionDto"
+          },
+          "queueTitle": {
+            "type": "string",
+            "example": "Action Queue"
+          },
+          "queue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReviewsDecisionQueueItemDto"
+            }
+          },
+          "emptyText": {
+            "type": "string",
+            "example": "Im aktuellen Zeitraum gibt es kein priorisiertes Feedback."
+          },
+          "overviewEyebrow": {
+            "type": "string",
+            "example": "Review-Lage"
+          },
+          "overview": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReviewsDecisionOverviewItemDto"
+            }
+          }
+        },
+        "required": [
+          "eyebrow",
+          "totalNeedsAction",
+          "title",
+          "text",
+          "primaryAction",
+          "queueTitle",
+          "queue",
+          "emptyText",
+          "overviewEyebrow",
+          "overview"
+        ]
+      },
+      "WorkspaceReviewsComposerDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "requiresAuthorName": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled",
+          "requiresAuthorName"
+        ]
+      },
+      "WorkspaceReviewsResponseDto": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "example": "reviews"
+          },
+          "header": {
+            "type": "object",
+            "example": {
+              "title": "Plattformbewertungen",
+              "subtitle": "Backend-owned review health and feedback focus for the workspace rail."
+            }
+          },
+          "filters": {
+            "$ref": "#/components/schemas/WorkspaceReviewsFiltersDto"
+          },
+          "summary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReviewsSummaryItemDto"
+            }
+          },
+          "decisionPanel": {
+            "$ref": "#/components/schemas/WorkspaceReviewsDecisionPanelDto"
+          },
+          "composer": {
+            "$ref": "#/components/schemas/WorkspaceReviewsComposerDto"
+          }
+        },
+        "required": [
+          "section",
+          "header",
+          "filters",
+          "summary",
+          "decisionPanel",
+          "composer"
+        ]
+      },
+      "WorkspaceActionsFiltersDto": {
+        "type": "object",
+        "properties": {
+          "viewerMode": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "customer"
+            ],
+            "example": "provider",
+            "nullable": true
+          }
+        }
+      },
+      "WorkspaceActionsSummaryItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "account",
+              "customer",
+              "provider",
+              "activation"
+            ],
+            "example": "provider"
+          },
+          "label": {
+            "type": "string",
+            "example": "Anbieterprofil"
+          },
+          "value": {
+            "type": "number",
+            "example": 70
+          },
+          "helper": {
+            "type": "string",
+            "example": "Vollständigkeit im aktuellen Modus"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "all",
+              "attention",
+              "execution",
+              "completed"
+            ],
+            "example": "execution"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "helper",
+          "tone"
+        ]
+      },
+      "WorkspaceActionsDecisionActionDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Profil weiterführen"
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=actions&viewerMode=provider"
+          },
+          "targetFilter": {
+            "type": "string",
+            "enum": [
+              "setup"
+            ],
+            "example": "setup"
+          }
+        },
+        "required": [
+          "label",
+          "href",
+          "targetFilter"
+        ]
+      },
+      "WorkspaceActionsDecisionQueueItemDto": {
+        "type": "object",
+        "properties": {
+          "actionId": {
+            "type": "string",
+            "example": "provider_photo"
+          },
+          "title": {
+            "type": "string",
+            "example": "Profilfoto hinzufügen"
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "complete_profile",
+              "activate_profile",
+              "create_account"
+            ],
+            "example": "complete_profile"
+          },
+          "actionLabel": {
+            "type": "string",
+            "example": "Für mehr Vertrauen im Markt"
+          },
+          "actionPriority": {
+            "type": "number",
+            "example": 90
+          },
+          "actionPriorityLevel": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "actionReason": {
+            "type": "object",
+            "example": "Ohne Foto wirkt das Profil unvollständig.",
+            "nullable": true
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=actions&viewerMode=provider"
+          }
+        },
+        "required": [
+          "actionId",
+          "title",
+          "actionType",
+          "actionLabel",
+          "actionPriority",
+          "actionPriorityLevel",
+          "href"
+        ]
+      },
+      "WorkspaceActionsDecisionOverviewItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "account",
+              "customer",
+              "provider"
+            ],
+            "example": "provider"
+          },
+          "label": {
+            "type": "string",
+            "example": "Anbieterprofil"
+          },
+          "value": {
+            "type": "string",
+            "example": "70%"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value"
+        ]
+      },
+      "WorkspaceActionsDecisionPanelDto": {
+        "type": "object",
+        "properties": {
+          "eyebrow": {
+            "type": "string",
+            "example": "Decision Panel"
+          },
+          "totalNeedsAction": {
+            "type": "number",
+            "example": 3
+          },
+          "title": {
+            "type": "string",
+            "example": "Nächste Aktivierungen"
+          },
+          "text": {
+            "type": "string",
+            "example": "2 Schritte bis zum aktiven Anbieterprofil."
+          },
+          "primaryAction": {
+            "$ref": "#/components/schemas/WorkspaceActionsDecisionActionDto"
+          },
+          "queueTitle": {
+            "type": "string",
+            "example": "Action Queue"
+          },
+          "queue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceActionsDecisionQueueItemDto"
+            }
+          },
+          "emptyText": {
+            "type": "string",
+            "example": "Der aktuelle Arbeitsbereich ist vollständig vorbereitet."
+          },
+          "overviewEyebrow": {
+            "type": "string",
+            "example": "Readiness"
+          },
+          "overview": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceActionsDecisionOverviewItemDto"
+            }
+          }
+        },
+        "required": [
+          "eyebrow",
+          "totalNeedsAction",
+          "title",
+          "text",
+          "primaryAction",
+          "queueTitle",
+          "queue",
+          "emptyText",
+          "overviewEyebrow",
+          "overview"
+        ]
+      },
+      "WorkspaceActionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "example": "actions"
+          },
+          "header": {
+            "type": "object",
+            "example": {
+              "title": "Profil-Aktivierung",
+              "subtitle": "Backend-owned readiness and next-step rail for the actions workspace mode."
+            }
+          },
+          "filters": {
+            "$ref": "#/components/schemas/WorkspaceActionsFiltersDto"
+          },
+          "summary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceActionsSummaryItemDto"
+            }
+          },
+          "decisionPanel": {
+            "$ref": "#/components/schemas/WorkspaceActionsDecisionPanelDto"
+          }
+        },
+        "required": [
+          "section",
+          "header",
+          "filters",
+          "summary",
+          "decisionPanel"
+        ]
+      },
+      "WorkspaceProfileCommonDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Liliia"
+          },
+          "email": {
+            "type": "string",
+            "example": "liliia@example.com"
+          },
+          "city": {
+            "type": "object",
+            "example": "Berlin",
+            "nullable": true
+          },
+          "cityId": {
+            "type": "object",
+            "example": "68163f3d8ff0c1a8f677a111",
+            "nullable": true
+          },
+          "phone": {
+            "type": "object",
+            "example": "+49123456789",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/avatars/u1.png",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ]
+      },
+      "WorkspaceProfileCustomerDto": {
+        "type": "object",
+        "properties": {
+          "bio": {
+            "type": "object",
+            "example": "Ich beschreibe hier meine Anforderungen.",
+            "nullable": true
+          }
+        }
+      },
+      "WorkspaceProfileProviderDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "object",
+            "example": "Anna Cleaner",
+            "nullable": true
+          },
+          "bio": {
+            "type": "object",
+            "example": "Ich arbeite sauber und pünktlich.",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "object",
+            "example": "https://cdn.example.com/avatars/provider-u1.png",
+            "nullable": true
+          },
+          "cityId": {
+            "type": "object",
+            "example": "68163f3d8ff0c1a8f677a111",
+            "nullable": true
+          },
+          "selectedCategoryKey": {
+            "type": "object",
+            "example": "cleaning",
+            "nullable": true
+          },
+          "selectedServiceKey": {
+            "type": "object",
+            "example": "home_cleaning",
+            "nullable": true
+          },
+          "serviceKeys": {
+            "example": [
+              "home_cleaning"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "basePrice": {
+            "type": "object",
+            "example": 40,
+            "nullable": true
+          },
+          "status": {
+            "type": "object",
+            "example": "draft",
+            "nullable": true
+          },
+          "isBlocked": {
+            "type": "boolean",
+            "example": false
+          },
+          "isProfileComplete": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "serviceKeys",
+          "isBlocked",
+          "isProfileComplete"
+        ]
+      },
+      "WorkspaceProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "common": {
+            "$ref": "#/components/schemas/WorkspaceProfileCommonDto"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/WorkspaceProfileCustomerDto"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/WorkspaceProfileProviderDto"
+          }
+        },
+        "required": [
+          "common",
+          "customer",
+          "provider"
+        ]
+      },
+      "SaveWorkspaceProfileDto": {
+        "type": "object",
+        "properties": {
+          "viewerMode": {
+            "type": "string",
+            "example": "provider",
+            "enum": [
+              "provider",
+              "customer"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "example": "Liliia"
+          },
+          "city": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+49123456789"
+          },
+          "customerBio": {
+            "type": "string",
+            "example": "Kurzprofil als Auftraggeber."
+          },
+          "providerDisplayName": {
+            "type": "string",
+            "example": "Anna Cleaner"
+          },
+          "providerBio": {
+            "type": "string",
+            "example": "Kurzprofil als Anbieter."
+          },
+          "providerCategoryKey": {
+            "type": "string",
+            "example": "cleaning"
+          },
+          "providerServiceKey": {
+            "type": "string",
+            "example": "home_cleaning"
+          },
+          "providerBasePrice": {
+            "type": "string",
+            "example": "40"
+          }
+        }
+      },
+      "RegisterWorkspaceProfileDto": {
+        "type": "object",
+        "properties": {
+          "viewerMode": {
+            "type": "string",
+            "example": "provider",
+            "enum": [
+              "provider",
+              "customer"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "example": "Liliia"
+          },
+          "city": {
+            "type": "string",
+            "example": "Berlin"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+49123456789"
+          },
+          "customerBio": {
+            "type": "string",
+            "example": "Kurzprofil als Auftraggeber."
+          },
+          "providerDisplayName": {
+            "type": "string",
+            "example": "Anna Cleaner"
+          },
+          "providerBio": {
+            "type": "string",
+            "example": "Kurzprofil als Anbieter."
+          },
+          "providerCategoryKey": {
+            "type": "string",
+            "example": "cleaning"
+          },
+          "providerServiceKey": {
+            "type": "string",
+            "example": "home_cleaning"
+          },
+          "providerBasePrice": {
+            "type": "string",
+            "example": "40"
+          },
+          "email": {
+            "type": "string",
+            "example": "liliia@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "Password1!"
+          },
+          "cityId": {
+            "type": "string",
+            "example": "68163f3d8ff0c1a8f677a111"
+          },
+          "acceptPrivacyPolicy": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "cityId",
+          "acceptPrivacyPolicy"
         ]
       },
       "PlatformActivityPointDto": {
