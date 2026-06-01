@@ -9466,6 +9466,84 @@
         ]
       }
     },
+    "/workspace/chat": {
+      "get": {
+        "operationId": "WorkspaceController_getChatRail",
+        "summary": "Unified workspace chat rail contract",
+        "description": "Returns backend-owned inbox priorities, next conversation queue, and chat overview metrics for `workspace?section=chat`.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceChatResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "workspace"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/workspace/profile": {
       "get": {
         "operationId": "WorkspaceController_getProfile",
@@ -19725,6 +19803,207 @@
           "section",
           "header",
           "filters",
+          "summary",
+          "decisionPanel"
+        ]
+      },
+      "WorkspaceChatDecisionActionDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Ungelesene öffnen"
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=chat&filter=unread"
+          },
+          "targetFilter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "unread"
+            ],
+            "example": "unread"
+          }
+        },
+        "required": [
+          "label",
+          "href",
+          "targetFilter"
+        ]
+      },
+      "WorkspaceChatDecisionQueueItemDto": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "example": "66f0c1a2b3c4d5e6f7a8b9aa"
+          },
+          "title": {
+            "type": "string",
+            "example": "Anna Schneider"
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "reply",
+              "review_context",
+              "follow_up"
+            ],
+            "example": "reply"
+          },
+          "actionLabel": {
+            "type": "string",
+            "example": "3 ungelesen"
+          },
+          "actionPriority": {
+            "type": "number",
+            "example": 88
+          },
+          "actionPriorityLevel": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "example": "high"
+          },
+          "actionReason": {
+            "type": "object",
+            "example": "Bezogen auf: Badrenovierung in Karlsruhe",
+            "nullable": true
+          },
+          "href": {
+            "type": "string",
+            "example": "/workspace?section=chat&conversation=66f0c1a2b3c4d5e6f7a8b9aa"
+          }
+        },
+        "required": [
+          "conversationId",
+          "title",
+          "actionType",
+          "actionLabel",
+          "actionPriority",
+          "actionPriorityLevel",
+          "href"
+        ]
+      },
+      "WorkspaceChatDecisionOverviewItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "unread",
+              "active",
+              "archived"
+            ],
+            "example": "active"
+          },
+          "label": {
+            "type": "string",
+            "example": "Aktiv"
+          },
+          "value": {
+            "type": "number",
+            "example": 12
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value"
+        ]
+      },
+      "WorkspaceChatDecisionPanelDto": {
+        "type": "object",
+        "properties": {
+          "eyebrow": {
+            "type": "string",
+            "example": "Decision Panel"
+          },
+          "totalNeedsAction": {
+            "type": "number",
+            "example": 4
+          },
+          "title": {
+            "type": "string",
+            "example": "Konversationen brauchen Antwort"
+          },
+          "text": {
+            "type": "string",
+            "example": "4 ungelesene Konversationen, 12 aktive Threads im Workspace."
+          },
+          "primaryAction": {
+            "$ref": "#/components/schemas/WorkspaceChatDecisionActionDto"
+          },
+          "queueTitle": {
+            "type": "string",
+            "example": "Action Queue"
+          },
+          "queue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceChatDecisionQueueItemDto"
+            }
+          },
+          "emptyText": {
+            "type": "string",
+            "example": "Der Posteingang ist aktuell geklärt."
+          },
+          "overviewEyebrow": {
+            "type": "string",
+            "example": "Inbox status"
+          },
+          "overview": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceChatDecisionOverviewItemDto"
+            }
+          }
+        },
+        "required": [
+          "eyebrow",
+          "totalNeedsAction",
+          "title",
+          "text",
+          "primaryAction",
+          "queueTitle",
+          "queue",
+          "emptyText",
+          "overviewEyebrow",
+          "overview"
+        ]
+      },
+      "WorkspaceChatResponseDto": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "example": "chat"
+          },
+          "header": {
+            "type": "object",
+            "example": {
+              "title": "Nachrichten",
+              "subtitle": "Backend-owned conversation priorities and inbox status for the workspace rail."
+            }
+          },
+          "summary": {
+            "type": "object",
+            "example": {
+              "items": []
+            }
+          },
+          "decisionPanel": {
+            "$ref": "#/components/schemas/WorkspaceChatDecisionPanelDto"
+          }
+        },
+        "required": [
+          "section",
+          "header",
           "summary",
           "decisionPanel"
         ]

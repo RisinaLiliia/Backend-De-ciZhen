@@ -20,6 +20,7 @@ import { WorkspaceProvidersResponseDto } from './dto/workspace-providers-respons
 import { WorkspaceReviewsQueryDto } from './dto/workspace-reviews-query.dto';
 import { WorkspaceReviewsResponseDto } from './dto/workspace-reviews-response.dto';
 import { WorkspaceActionsResponseDto } from './dto/workspace-actions-response.dto';
+import { WorkspaceChatResponseDto } from './dto/workspace-chat-response.dto';
 import { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
 import { WorkspaceRequestsResponseDto } from './dto/workspace-requests-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -198,6 +199,23 @@ export class WorkspaceController {
     @Headers('accept-language') acceptLanguage?: string,
   ): Promise<WorkspaceActionsResponseDto> {
     return this.workspace.getActionsRail(user?.userId, user?.role, acceptLanguage);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('chat')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Unified workspace chat rail contract',
+    description:
+      'Returns backend-owned inbox priorities, next conversation queue, and chat overview metrics for `workspace?section=chat`.',
+  })
+  @ApiOkResponse({ type: WorkspaceChatResponseDto })
+  @ApiErrors({ conflict: false, notFound: false })
+  async getChatRail(
+    @CurrentUser() user: CurrentUserPayload,
+    @Headers('accept-language') acceptLanguage?: string | null,
+  ): Promise<WorkspaceChatResponseDto> {
+    return this.workspace.getChatRail(user.userId, acceptLanguage);
   }
 
   @UseGuards(JwtAuthGuard)
