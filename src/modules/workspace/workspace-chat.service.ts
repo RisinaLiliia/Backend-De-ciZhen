@@ -198,8 +198,8 @@ export class WorkspaceChatService {
         return right.updatedAt.getTime() - left.updatedAt.getTime();
       })
       .slice(0, 5)
-      .map((item) => {
-        delete item.updatedAt;
+      .map(({ updatedAt, ...item }) => {
+        void updatedAt;
         return item;
       });
 
