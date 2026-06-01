@@ -9,6 +9,7 @@ import { WorkspaceMarketRequestsService } from './workspace-market-requests.serv
 import { WorkspaceProvidersService } from './workspace-providers.service';
 import { WorkspaceReviewsService } from './workspace-reviews.service';
 import { WorkspaceActionsService } from './workspace-actions.service';
+import { WorkspaceChatService } from './workspace-chat.service';
 import { WorkspaceRequestSnapshotsService } from './workspace-request-snapshots.service';
 import { WorkspaceRequestsListPolicy } from './workspace-requests-list-policy';
 import { WorkspaceRequestsPresenter } from './workspace-requests.presenter';
@@ -39,6 +40,8 @@ import { ProvidersModule } from '../providers/providers.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { AuthModule } from '../auth/auth.module';
 import { UploadsModule } from '../uploads/uploads.module';
+import { ChatsModule } from '../chats/chats.module';
+import { ChatThread, ChatThreadSchema } from '../chats/schemas/chat-thread.schema';
 
 @Module({
   imports: [
@@ -52,7 +55,9 @@ import { UploadsModule } from '../uploads/uploads.module';
     ReviewsModule,
     AuthModule,
     UploadsModule,
+    ChatsModule,
     MongooseModule.forFeature([
+      { name: ChatThread.name, schema: ChatThreadSchema },
       { name: Request.name, schema: RequestSchema },
       { name: Offer.name, schema: OfferSchema },
       { name: Contract.name, schema: ContractSchema },
@@ -75,6 +80,7 @@ import { UploadsModule } from '../uploads/uploads.module';
     WorkspaceProvidersService,
     WorkspaceReviewsService,
     WorkspaceActionsService,
+    WorkspaceChatService,
     WorkspacePublicRequestEnricherService,
     WorkspacePublicCityActivityService,
     WorkspacePublicOverviewService,

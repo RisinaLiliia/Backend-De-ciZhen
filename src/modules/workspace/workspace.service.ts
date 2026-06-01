@@ -17,6 +17,7 @@ import type { WorkspaceProvidersResponseDto } from './dto/workspace-providers-re
 import type { WorkspaceReviewsQueryDto } from './dto/workspace-reviews-query.dto';
 import type { WorkspaceReviewsResponseDto } from './dto/workspace-reviews-response.dto';
 import type { WorkspaceActionsResponseDto } from './dto/workspace-actions-response.dto';
+import type { WorkspaceChatResponseDto } from './dto/workspace-chat-response.dto';
 import type { WorkspaceRequestsQueryDto } from './dto/workspace-requests-query.dto';
 import type { WorkspaceRequestsResponseDto } from './dto/workspace-requests-response.dto';
 import type { RegisterWorkspaceProfileDto, SaveWorkspaceProfileDto, WorkspaceProfileResponseDto } from './dto/workspace-profile.dto';
@@ -28,6 +29,7 @@ import { WorkspacePublicOverviewService } from './workspace-public-overview.serv
 import { WorkspacePrivateOverviewService } from './workspace-private-overview.service';
 import { WorkspaceProfileService } from './workspace-profile.service';
 import { WorkspaceActionsService } from './workspace-actions.service';
+import { WorkspaceChatService } from './workspace-chat.service';
 
 @Injectable()
 export class WorkspaceService {
@@ -37,6 +39,7 @@ export class WorkspaceService {
     private readonly workspaceProviders: WorkspaceProvidersService,
     private readonly workspaceReviews: WorkspaceReviewsService,
     private readonly workspaceActions: WorkspaceActionsService,
+    private readonly workspaceChat: WorkspaceChatService,
     private readonly workspacePublicOverview: WorkspacePublicOverviewService,
     private readonly workspacePrivateOverview: WorkspacePrivateOverviewService,
     private readonly workspaceProfile: WorkspaceProfileService,
@@ -98,6 +101,13 @@ export class WorkspaceService {
     acceptLanguage?: string | null,
   ): Promise<WorkspaceActionsResponseDto> {
     return this.workspaceActions.getActionsRail(userId, role, acceptLanguage);
+  }
+
+  async getChatRail(
+    userId: string,
+    acceptLanguage?: string | null,
+  ): Promise<WorkspaceChatResponseDto> {
+    return this.workspaceChat.getChatRail(userId, acceptLanguage);
   }
 
   async getProfile(userId: string): Promise<WorkspaceProfileResponseDto> {
