@@ -9,6 +9,7 @@ import { WorkspaceProfileService } from './workspace-profile.service';
 import { WorkspaceProvidersService } from './workspace-providers.service';
 import { WorkspaceReviewsService } from './workspace-reviews.service';
 import { WorkspaceActionsService } from './workspace-actions.service';
+import { WorkspaceChatService } from './workspace-chat.service';
 
 describe('WorkspaceService (unit)', () => {
   let service: WorkspaceService;
@@ -38,6 +39,10 @@ describe('WorkspaceService (unit)', () => {
     getActionsRail: jest.fn(),
   };
 
+  const chatMock = {
+    getChatRail: jest.fn(),
+  };
+
   const privateOverviewMock = {
     getPrivateOverview: jest.fn(),
   };
@@ -59,6 +64,7 @@ describe('WorkspaceService (unit)', () => {
         { provide: WorkspaceProvidersService, useValue: providersMock },
         { provide: WorkspaceReviewsService, useValue: reviewsMock },
         { provide: WorkspaceActionsService, useValue: actionsMock },
+        { provide: WorkspaceChatService, useValue: chatMock },
         { provide: WorkspacePublicOverviewService, useValue: publicOverviewMock },
         { provide: WorkspacePrivateOverviewService, useValue: privateOverviewMock },
         { provide: WorkspaceProfileService, useValue: profileMock },
@@ -151,6 +157,16 @@ describe('WorkspaceService (unit)', () => {
     const result = await service.getActionsRail('user-1', 'provider', 'de-DE');
 
     expect(actionsMock.getActionsRail).toHaveBeenCalledWith('user-1', 'provider', 'de-DE');
+    expect(result).toBe(expected);
+  });
+
+  it('delegates chat rail to WorkspaceChatService', async () => {
+    const expected = { section: 'chat' };
+    chatMock.getChatRail.mockResolvedValue(expected);
+
+    const result = await service.getChatRail('user-1', 'de-DE');
+
+    expect(chatMock.getChatRail).toHaveBeenCalledWith('user-1', 'de-DE');
     expect(result).toBe(expected);
   });
 
