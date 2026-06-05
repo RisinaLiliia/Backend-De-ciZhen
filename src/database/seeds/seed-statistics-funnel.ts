@@ -27,6 +27,12 @@ const COUNTS = {
   completedContracts: 38,
 } as const;
 
+const PERIOD_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const PREFERRED_CITY_KEYS = ['berlin', 'hamburg', 'munich', 'karlsruhe', 'baden-baden'] as const;
+
 const DEMAND_CATEGORY_TARGETS = [
   { categoryKey: 'cleaning_housekeeping', categoryName: 'Cleaning & Housekeeping', serviceKey: 'home_cleaning', weightPercent: 30 },
   { categoryKey: 'handyman_repairs', categoryName: 'Handyman & Repairs', serviceKey: 'handyman_help', weightPercent: 18 },
@@ -114,22 +120,69 @@ async function ensureUser(users: any, email: string, role: 'client' | 'provider'
   return { _id: insertResult.insertedId, email, role };
 }
 
-async function resolveCity(cities: any) {
-  const city = await cities.findOne({
-    $or: [{ key: 'berlin' }, { name: /^Berlin$/i }],
-  }) ?? await cities.findOne({ isActive: true }, { sort: { sortOrder: 1, key: 1 } });
+type SeedCityRef = {
+  cityId: string;
+  cityName: string;
+  location?: { type: 'Point'; coordinates: [number, number] };
+};
 
-  if (!city?._id) {
-    throw new Error('No active city found. Run `npm run seed:cities` first.');
-  }
-
+function toSeedCityRef(city: any): SeedCityRef {
   const i18n = city.i18n as { de?: string; en?: string } | undefined;
   const cityName = String(i18n?.de ?? i18n?.en ?? city.name ?? city.key ?? 'Berlin').trim();
+  const lng = typeof city.lng === 'number' ? city.lng : null;
+  const lat = typeof city.lat === 'number' ? city.lat : null;
 
   return {
     cityId: String(city._id),
     cityName,
+    ...(lng !== null && lat !== null
+      ? { location: { type: 'Point' as const, coordinates: [lng, lat] as [number, number] } }
+      : {}),
   };
+}
+
+async function resolveCities(cities: any): Promise<SeedCityRef[]> {
+  const preferredCities = await cities
+    .find({ key: { $in: [...PREFERRED_CITY_KEYS] }, isActive: true })
+    .sort({ sortOrder: 1, key: 1 })
+    .toArray();
+
+  const fallbackCities = preferredCities.length > 0
+    ? []
+    : await cities.find({ isActive: true }).sort({ sortOrder: 1, key: 1 }).limit(5).toArray();
+
+  const resolved = (preferredCities.length > 0 ? preferredCities : fallbackCities).map(toSeedCityRef);
+  if (resolved.length === 0) {
+    throw new Error('No active city found. Run `npm run seed:cities` first.');
+  }
+
+  return resolved;
+}
+
+function seededUnit(index: number, salt: number) {
+  const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function buildDistributedCreatedAt(index: number, total: number, periodStartMs: number) {
+  const dayIndex = Math.min(PERIOD_DAYS - 1, Math.floor((index * PERIOD_DAYS) / total));
+  const hour = 7 + Math.floor(seededUnit(index, 1) * 12);
+  const minute = Math.floor(seededUnit(index, 2) * 60);
+  return new Date(periodStartMs + dayIndex * DAY_MS + hour * HOUR_MS + minute * MINUTE_MS);
+}
+
+function addOffset(date: Date, minutes: number) {
+  return new Date(date.getTime() + minutes * MINUTE_MS);
+}
+
+function clampToPast(date: Date, nowMs: number) {
+  return date.getTime() >= nowMs ? new Date(nowMs - 5 * MINUTE_MS) : date;
+}
+
+function buildDistributedIndexes(total: number, count: number, salt: number) {
+  return Array.from({ length: total }, (_, index) => index)
+    .sort((a, b) => seededUnit(a, salt) - seededUnit(b, salt) || a - b)
+    .slice(0, count);
 }
 
 async function bootstrap() {
@@ -166,9 +219,20 @@ async function bootstrap() {
   const clientId = String(client._id);
   const providerIds = providers.map((provider) => String(provider._id));
 
-  const city = await resolveCity(cities);
+  const seedCities = await resolveCities(cities);
   const nowMs = Date.now();
+  const today = new Date(nowMs);
+  today.setHours(0, 0, 0, 0);
+  const periodStartMs = today.getTime() - (PERIOD_DAYS - 1) * DAY_MS;
   const categoryPlan = buildCategoryPlan(COUNTS.requests);
+  const offerRequestIndexes = buildDistributedIndexes(COUNTS.requests, COUNTS.offers, 7);
+  const contractRequestIndexes = offerRequestIndexes.slice(0, COUNTS.closedContracts);
+  const completedRequestIndexes = new Set(contractRequestIndexes.slice(0, COUNTS.completedContracts));
+  const contractRequestIndexSet = new Set(contractRequestIndexes);
+  const acceptedOfferRequestIndexes = new Set(offerRequestIndexes.slice(0, COUNTS.acceptedOffers));
+  const offerIndexByRequestIndex = new Map(
+    offerRequestIndexes.map((requestIndex, offerIndex) => [requestIndex, offerIndex]),
+  );
 
   const existingSeedRequests = await requests
     .find({
@@ -187,22 +251,34 @@ async function bootstrap() {
 
   const requestDocs = Array.from({ length: COUNTS.requests }).map((_, index) => {
     const category = categoryPlan[index] ?? DEMAND_CATEGORY_TARGETS[0];
-    const createdAt = new Date(nowMs - (COUNTS.requests - index) * 6 * 60 * 60 * 1000);
+    const city = seedCities[index % seedCities.length] ?? seedCities[0];
+    const createdAt = buildDistributedCreatedAt(index, COUNTS.requests, periodStartMs);
     const preferredDate = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
+    const status = completedRequestIndexes.has(index)
+      ? 'closed'
+      : contractRequestIndexSet.has(index)
+        ? 'matched'
+        : 'published';
     return {
       title: `${SEED_TAG} Request ${String(index + 1).padStart(2, '0')}`,
       clientId,
       serviceKey: category.serviceKey,
       cityId: city.cityId,
       cityName: city.cityName,
+      location: city.location,
       propertyType: index % 2 === 0 ? 'apartment' : 'house',
       area: 40 + (index % 5) * 10,
+      price: 90 + (index % 8) * 35,
+      previousPrice: index % 3 === 0 ? 100 + (index % 8) * 30 : null,
+      priceTrend: index % 3 === 0 ? 'up' : index % 5 === 0 ? 'down' : null,
       preferredDate,
       comment: 'Seed request for statistics funnel demo.',
+      description: 'Distributed seed request for live-market statistics simulation.',
       categoryKey: category.categoryKey,
       categoryName: category.categoryName,
       subcategoryName: null,
-      status: 'published',
+      status,
+      publishedAt: createdAt,
       matchedProviderUserId: null,
       matchedAt: null,
       assignedContractId: null,
@@ -212,20 +288,30 @@ async function bootstrap() {
   });
 
   const insertedRequests = await requests.insertMany(requestDocs, { ordered: true });
-  const requestIds = Object.values(insertedRequests.insertedIds).map((id: any) => String(id));
+  const requestObjectIds = Object.values(insertedRequests.insertedIds);
+  const requestIds = requestObjectIds.map((id: any) => String(id));
 
-  const offerDocs = Array.from({ length: COUNTS.offers }).map((_, index) => {
-    const requestId = requestIds[index];
-    const providerUserId = providerIds[index % providerIds.length];
-    const createdAt = new Date(nowMs - (COUNTS.offers - index) * 5 * 60 * 60 * 1000);
+  const offerDocs = offerRequestIndexes.map((requestIndex, offerIndex) => {
+    const requestId = requestIds[requestIndex];
+    const providerUserId = providerIds[offerIndex % providerIds.length];
+    const requestCreatedAt = requestDocs[requestIndex]?.createdAt ?? new Date(nowMs - DAY_MS);
+    const responseDelayMinutes = 25 + Math.floor(seededUnit(offerIndex, 3) * 540);
+    const createdAt = clampToPast(addOffset(requestCreatedAt, responseDelayMinutes), nowMs);
     return {
       requestId,
       providerUserId,
       clientUserId: clientId,
-      status: index < COUNTS.acceptedOffers ? 'accepted' : 'sent',
-      message: null,
-      pricing: null,
-      availability: null,
+      status: acceptedOfferRequestIndexes.has(requestIndex) ? 'accepted' : 'sent',
+      message: 'Seed provider response for live-market statistics simulation.',
+      pricing: {
+        amount: 110 + (offerIndex % 9) * 45,
+        type: offerIndex % 4 === 0 ? 'estimate' : 'fixed',
+        details: 'Seed pricing for statistics demo.',
+      },
+      availability: {
+        date: addOffset(createdAt, 24 * 60).toISOString(),
+        note: 'Seed availability window.',
+      },
       metadata: { seedTag: 'stats-funnel' },
       createdAt,
       updatedAt: createdAt,
@@ -234,16 +320,23 @@ async function bootstrap() {
 
   const insertedOffers = await offers.insertMany(offerDocs, { ordered: true });
   const offerIds = Object.values(insertedOffers.insertedIds).map((id: any) => String(id));
+  const contractRequestIds = contractRequestIndexes
+    .map((requestIndex) => requestIds[requestIndex])
+    .filter((requestId): requestId is string => Boolean(requestId));
 
-  const contractDocs = Array.from({ length: COUNTS.closedContracts }).map((_, index) => {
-    const offerIndex = index;
-    const requestId = requestIds[offerIndex];
+  const contractDocs = contractRequestIndexes.map((requestIndex, index) => {
+    const offerIndex = offerIndexByRequestIndex.get(requestIndex) ?? index;
+    const requestId = requestIds[requestIndex];
     const offerId = offerIds[offerIndex];
     const providerUserId = providerIds[offerIndex % providerIds.length];
-    const createdAt = new Date(nowMs - (COUNTS.closedContracts - index) * 4 * 60 * 60 * 1000);
-    const confirmedAt = new Date(createdAt.getTime() + 60 * 60 * 1000);
+    const offerCreatedAt = offerDocs[offerIndex]?.createdAt ?? new Date(nowMs - DAY_MS);
+    const createdAt = clampToPast(addOffset(offerCreatedAt, 45 + Math.floor(seededUnit(index, 4) * 720)), nowMs);
+    const confirmedAt = clampToPast(addOffset(createdAt, 30 + Math.floor(seededUnit(index, 5) * 180)), nowMs);
     const isCompleted = index < COUNTS.completedContracts;
-    const completedAt = isCompleted ? new Date(confirmedAt.getTime() + 3 * 60 * 60 * 1000) : null;
+    const isInProgress = !isCompleted && index % 2 === 0;
+    const completedAt = isCompleted
+      ? clampToPast(addOffset(confirmedAt, 180 + Math.floor(seededUnit(index, 6) * 1800)), nowMs)
+      : null;
     const priceAmount = isCompleted ? 120 + index * 15 : null;
 
     return {
@@ -251,7 +344,7 @@ async function bootstrap() {
       offerId,
       clientId,
       providerUserId,
-      status: isCompleted ? 'completed' : 'confirmed',
+      status: isCompleted ? 'completed' : isInProgress ? 'in_progress' : 'confirmed',
       priceAmount,
       priceType: priceAmount ? 'fixed' : null,
       priceDetails: priceAmount ? 'Seed fixed price' : null,
@@ -265,6 +358,33 @@ async function bootstrap() {
   });
 
   await contracts.insertMany(contractDocs, { ordered: true });
+  const insertedContractsByRequest = (await contracts
+    .find({ requestId: { $in: contractRequestIds } })
+    .project({ _id: 1, requestId: 1, providerUserId: 1, confirmedAt: 1, completedAt: 1, createdAt: 1 })
+    .toArray()).reduce<Record<string, any>>((acc, item) => {
+      acc[String(item.requestId)] = item;
+      return acc;
+    }, {});
+
+  await Promise.all(
+    contractRequestIndexes.map((requestIndex) => {
+      const requestId = requestIds[requestIndex];
+      const contract = insertedContractsByRequest[requestId];
+      const requestObjectId = requestObjectIds[requestIndex];
+      if (!contract?._id) return Promise.resolve();
+      return requests.updateOne(
+        { _id: requestObjectId },
+        {
+          $set: {
+            matchedProviderUserId: String(contract.providerUserId),
+            matchedAt: contract.confirmedAt ?? contract.createdAt ?? new Date(),
+            assignedContractId: String(contract._id),
+            updatedAt: contract.completedAt ?? contract.confirmedAt ?? contract.createdAt ?? new Date(),
+          },
+        },
+      );
+    }),
+  );
 
   const completedProfit = contractDocs.reduce((sum, item) => (
     item.status === 'completed' && typeof item.priceAmount === 'number'
