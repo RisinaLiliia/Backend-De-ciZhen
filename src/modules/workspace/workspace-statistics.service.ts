@@ -526,7 +526,7 @@ export class WorkspaceStatisticsService extends WorkspaceStatisticsOverviewSuppo
 
     const requestFunnelMatch = hasActorScope
       ? { clientId: normalizedUserId }
-      : { status: 'published' };
+      : {};
     const offerFunnelMatch = hasActorScope
       ? { $or: [{ providerUserId: normalizedUserId }, { clientUserId: normalizedUserId }] }
       : {};

@@ -161,19 +161,13 @@ export class WorkspaceStatisticsMarketSnapshotsService {
             { $match: funnelRequestRefScopeMatch },
             {
               $group: {
-                _id: '$requestId',
-                hasAcceptedResponse: {
-                  $max: {
+                _id: null,
+                offersTotal: { $sum: 1 },
+                confirmedResponsesTotal: {
+                  $sum: {
                     $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0],
                   },
                 },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                offersTotal: { $sum: 1 },
-                confirmedResponsesTotal: { $sum: '$hasAcceptedResponse' },
               },
             },
           ])
