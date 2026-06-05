@@ -31,6 +31,7 @@ describe('AnalyticsService (unit)', () => {
 
   const offerModelMock = {
     find: jest.fn(),
+    aggregate: jest.fn(),
   };
 
   const aggregateModelMock = {
@@ -140,5 +141,33 @@ describe('AnalyticsService (unit)', () => {
         providerSearchCount: 3,
       },
     ]);
+  });
+
+  it('returns cumulative platform activity totals for the selected window', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-06-05T12:00:00.000Z'));
+
+    requestModelMock.find.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue([
+            { createdAt: new Date('2026-06-03T12:00:00.000Z') },
+            { createdAt: new Date('2026-06-05T12:00:00.000Z') },
+          ]),
+        }),
+      }),
+    });
+    offerModelMock.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([
+        { createdAt: new Date('2026-06-04T12:00:00.000Z') },
+      ]),
+    });
+
+    const result = await service.getPlatformActivity('7d');
+
+    expect(requestModelMock.find.mock.calls[0]?.[0]).not.toHaveProperty('status');
+    expect(result.data.map((point) => point.requests)).toEqual([0, 0, 0, 0, 1, 1, 2]);
+    expect(result.data.map((point) => point.offers)).toEqual([0, 0, 0, 0, 0, 1, 1]);
+
+    jest.useRealTimers();
   });
 });

@@ -49,10 +49,10 @@ export class WorkspaceStatisticsActivityPointDto {
   @ApiProperty({ example: '2026-03-02T00:00:00.000Z' })
   timestamp: string;
 
-  @ApiProperty({ example: 12 })
+  @ApiProperty({ example: 12, description: 'Cumulative request total at this point in the selected period.' })
   requests: number;
 
-  @ApiProperty({ example: 9 })
+  @ApiProperty({ example: 9, description: 'Cumulative offer total at this point in the selected period.' })
   offers: number;
 }
 

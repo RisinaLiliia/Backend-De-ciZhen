@@ -236,7 +236,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
     expect(activityComparison).toEqual(
       expect.objectContaining({
         title: 'Aktivität der Plattform',
-        subtitle: 'Neue Anfragen und Angebote im Zeitverlauf',
+        subtitle: 'Gesamtbestand von Anfragen und Angeboten im Zeitverlauf',
         hasReliableSeries: true,
         peakTimestamp: '2026-03-10T00:00:00.000Z',
         bestWindowTimestamp: '2026-03-10T00:00:00.000Z',
@@ -359,10 +359,10 @@ describe('WorkspaceStatisticsService (unit)', () => {
     const result = await service.getStatisticsOverview('30d');
 
     expect(result.mode).toBe('platform');
-    expect(result.summary.totalPublishedRequests).toBe(22);
+    expect(result.summary.totalPublishedRequests).toBe(12);
     expect(result.summary.totalActiveProviders).toBe(2);
-    expect(result.kpis.requestsTotal).toBe(22);
-    expect(result.kpis.offersTotal).toBe(16);
+    expect(result.kpis.requestsTotal).toBe(12);
+    expect(result.kpis.offersTotal).toBe(9);
     expect(result.filterOptions.cities).toEqual([{ value: 'public-c-1', label: 'Berlin' }]);
     expect(result.filterOptions.categories).toEqual([{ value: 'cleaning', label: 'Cleaning' }]);
     expect(result.decisionContext).toMatchObject({
@@ -409,7 +409,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
       categoryKey: 'cleaning',
       demand: 14,
       providers: 21,
-      score: 7.6,
+      score: 7.7,
       status: 'good',
       tone: 'high',
       summaryKey: 'good',
@@ -437,7 +437,7 @@ describe('WorkspaceStatisticsService (unit)', () => {
     });
     expect(result.priceIntelligence.recommendation).toContain('höchste Abschlussrate in Berlin');
     expect(result.activity.metrics).toMatchObject({
-      offerRatePercent: 73,
+      offerRatePercent: 75,
       responseMedianMinutes: 30,
       unansweredRequests24h: 1,
       cancellationRatePercent: 17,
