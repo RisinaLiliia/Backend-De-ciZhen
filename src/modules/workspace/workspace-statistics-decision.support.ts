@@ -886,10 +886,10 @@ export class WorkspaceStatisticsDecisionSupport extends WorkspaceStatisticsSuppo
   }
 
   protected toActivityTotals(points: Array<{ timestamp: string; requests: number; offers: number }>) {
-    const requestsTotal = points.reduce((sum, point) => sum + (point.requests ?? 0), 0);
-    const offersTotal = points.reduce((sum, point) => sum + (point.offers ?? 0), 0);
     const latest = points[points.length - 1] ?? null;
     const prev = points[points.length - 2] ?? null;
+    const requestsTotal = latest?.requests ?? 0;
+    const offersTotal = latest?.offers ?? 0;
 
     const peak = points.reduce<{ timestamp: string; score: number } | null>((acc, point) => {
       const score = (point.requests ?? 0) + (point.offers ?? 0);
@@ -996,7 +996,7 @@ export class WorkspaceStatisticsDecisionSupport extends WorkspaceStatisticsSuppo
 
     return {
       title: 'Aktivität der Plattform',
-      subtitle: 'Neue Anfragen und Angebote im Zeitverlauf',
+      subtitle: 'Gesamtbestand von Anfragen und Angeboten im Zeitverlauf',
       summary,
       peakTimestamp: params.activityTotals.peakTimestamp,
       bestWindowTimestamp: params.activityTotals.bestWindowTimestamp,

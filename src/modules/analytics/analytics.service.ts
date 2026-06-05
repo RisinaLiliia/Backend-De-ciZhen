@@ -375,7 +375,6 @@ export class AnalyticsService {
     const categoryKey = this.normalizeScopeFilter(filters?.categoryKey);
     const subcategoryKey = this.normalizeScopeFilter(filters?.subcategoryKey);
     const requestMatch: Record<string, unknown> = {
-      status: 'published',
       createdAt: { $gte: start, $lte: end },
     };
     if (cityId) requestMatch.cityId = cityId;
@@ -423,15 +422,15 @@ export class AnalyticsService {
       this.offerModel.aggregate<{ createdAt?: Date | string }>(offerPipeline).exec(),
     ]);
 
-    const requestCounts = new Array<number>(cfg.points).fill(0);
-    const offerCounts = new Array<number>(cfg.points).fill(0);
+    const requestDailyCounts = new Array<number>(cfg.points).fill(0);
+    const offerDailyCounts = new Array<number>(cfg.points).fill(0);
 
     for (const row of requestsRaw as Array<{ createdAt?: Date | string }>) {
       const ts = row?.createdAt ? new Date(row.createdAt).getTime() : Number.NaN;
       if (!Number.isFinite(ts)) continue;
       const index = Math.floor((ts - startMs) / cfg.stepMs);
       if (index < 0 || index >= cfg.points) continue;
-      requestCounts[index] += 1;
+      requestDailyCounts[index] += 1;
     }
 
     for (const row of offersRaw as Array<{ createdAt?: Date | string }>) {
@@ -439,14 +438,21 @@ export class AnalyticsService {
       if (!Number.isFinite(ts)) continue;
       const index = Math.floor((ts - startMs) / cfg.stepMs);
       if (index < 0 || index >= cfg.points) continue;
-      offerCounts[index] += 1;
+      offerDailyCounts[index] += 1;
     }
 
-    const data: PlatformActivityPoint[] = Array.from({ length: cfg.points }, (_, i) => ({
-      timestamp: new Date(startMs + i * cfg.stepMs).toISOString(),
-      requests: requestCounts[i] ?? 0,
-      offers: offerCounts[i] ?? 0,
-    }));
+    let requestStock = 0;
+    let offerStock = 0;
+    const data: PlatformActivityPoint[] = Array.from({ length: cfg.points }, (_, i) => {
+      requestStock += requestDailyCounts[i] ?? 0;
+      offerStock += offerDailyCounts[i] ?? 0;
+
+      return {
+        timestamp: new Date(startMs + i * cfg.stepMs).toISOString(),
+        requests: requestStock,
+        offers: offerStock,
+      };
+    });
 
     return {
       range,
