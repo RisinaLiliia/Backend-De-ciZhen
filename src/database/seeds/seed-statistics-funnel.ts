@@ -13,18 +13,27 @@ const SEED_PROVIDER_EMAILS = [
   'seed-funnel-provider-1@test.com',
   'seed-funnel-provider-2@test.com',
   'seed-funnel-provider-3@test.com',
+  'seed-funnel-provider-4@test.com',
+  'seed-funnel-provider-5@test.com',
 ] as const;
 
 const COUNTS = {
-  // Improved demo baseline (higher but realistic conversion):
-  // requests -> completed conversion ~= 35.19%
-  // Delta vs previous baseline:
-  // +12 requests, +20 offers, +18 confirmations, +14 closed, +10 completed
+  // Live-market demo baseline:
+  // 108 requests over 30 days, 82 provider responses, 64 positive responses, 50 contracts,
+  // 58 open/in negotiation, 6 in progress, 38 completed, 6 cancelled.
   requests: 108,
-  offers: 86,
-  acceptedOffers: 66,
+  acceptedOffers: 64,
   closedContracts: 50,
   completedContracts: 38,
+  cancelledContracts: 6,
+} as const;
+
+const OFFER_DISTRIBUTION = {
+  noOfferRequests: 30,
+  singleOfferRequests: 74,
+  twoOfferRequests: 4,
+  threeOfferRequests: 0,
+  fourOfferRequests: 0,
 } as const;
 
 const PERIOD_DAYS = 30;
@@ -43,6 +52,11 @@ const DEMAND_CATEGORY_TARGETS = [
   { categoryKey: 'home_cleaning', categoryName: 'Home Cleaning', serviceKey: 'home_cleaning', weightPercent: 8 },
   { categoryKey: 'appliance_repair', categoryName: 'Appliance Repair', serviceKey: 'appliance_repair_service', weightPercent: 6 },
 ] as const;
+
+type RequestImageRef = {
+  imageUrl: string | null;
+  photos: string[];
+};
 
 function requireMongoUri(): string {
   const value = String(process.env.MONGO_URI ?? '').trim();
@@ -164,8 +178,37 @@ function seededUnit(index: number, salt: number) {
   return value - Math.floor(value);
 }
 
-function buildDistributedCreatedAt(index: number, total: number, periodStartMs: number) {
-  const dayIndex = Math.min(PERIOD_DAYS - 1, Math.floor((index * PERIOD_DAYS) / total));
+function buildWeightedDayIndexes(total: number) {
+  const weights = Array.from({ length: PERIOD_DAYS }).map((_, dayIndex) => {
+    const weekdayBoost = [1, 2, 3].includes(dayIndex % 7) ? 1.7 : 0.7;
+    const spikeBoost = seededUnit(dayIndex, 37) > 0.84 ? 5.5 : 0;
+    const quietPenalty = seededUnit(dayIndex, 41) < 0.14 ? 0.15 : 1;
+    return (0.4 + seededUnit(dayIndex, 43) * 2.8 + weekdayBoost + spikeBoost) * quietPenalty;
+  });
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const exactCounts = weights.map((weight, dayIndex) => {
+    const exact = (weight / totalWeight) * total;
+    const floor = Math.floor(exact);
+    return {
+      dayIndex,
+      floor,
+      fraction: exact - floor,
+    };
+  });
+  const assigned = exactCounts.reduce((sum, item) => sum + item.floor, 0);
+  const rankedFractions = [...exactCounts].sort((a, b) => b.fraction - a.fraction || a.dayIndex - b.dayIndex);
+  const counts = exactCounts.map((item) => item.floor);
+
+  for (let cursor = 0; cursor < total - assigned; cursor += 1) {
+    const target = rankedFractions[cursor % rankedFractions.length];
+    counts[target.dayIndex] += 1;
+  }
+
+  return counts.flatMap((count, dayIndex) => Array.from({ length: count }).map(() => dayIndex));
+}
+
+function buildDistributedCreatedAt(index: number, dayIndexes: number[], periodStartMs: number) {
+  const dayIndex = dayIndexes[index] ?? Math.min(PERIOD_DAYS - 1, index % PERIOD_DAYS);
   const hour = 7 + Math.floor(seededUnit(index, 1) * 12);
   const minute = Math.floor(seededUnit(index, 2) * 60);
   return new Date(periodStartMs + dayIndex * DAY_MS + hour * HOUR_MS + minute * MINUTE_MS);
@@ -179,10 +222,74 @@ function clampToPast(date: Date, nowMs: number) {
   return date.getTime() >= nowMs ? new Date(nowMs - 5 * MINUTE_MS) : date;
 }
 
-function buildDistributedIndexes(total: number, count: number, salt: number) {
-  return Array.from({ length: total }, (_, index) => index)
+function buildEvenlySpacedIndexes(total: number, count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const exact = ((index + 0.5) * total) / count;
+    return Math.min(total - 1, Math.max(0, Math.floor(exact)));
+  });
+}
+
+function buildDistributedSubset(indexes: number[], count: number, salt: number) {
+  return [...indexes]
     .sort((a, b) => seededUnit(a, salt) - seededUnit(b, salt) || a - b)
     .slice(0, count);
+}
+
+function median(values: number[]) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[middle] ?? null;
+  const left = sorted[middle - 1] ?? 0;
+  const right = sorted[middle] ?? 0;
+  return Math.round((left + right) / 2);
+}
+
+function buildOfferMultiplicityPlan(requestIndexesWithOffers: number[]) {
+  const multiplicities = [
+    ...Array.from({ length: OFFER_DISTRIBUTION.singleOfferRequests }).map(() => 1),
+    ...Array.from({ length: OFFER_DISTRIBUTION.twoOfferRequests }).map(() => 2),
+    ...Array.from({ length: OFFER_DISTRIBUTION.threeOfferRequests }).map(() => 3),
+    ...Array.from({ length: OFFER_DISTRIBUTION.fourOfferRequests }).map(() => 4),
+  ];
+
+  return new Map(
+    requestIndexesWithOffers.map((requestIndex, index) => [
+      requestIndex,
+      multiplicities[index] ?? 1,
+    ]),
+  );
+}
+
+function normalizeRequestImage(doc: any): RequestImageRef | null {
+  const photos = Array.isArray(doc?.photos)
+    ? doc.photos.map((value: unknown) => String(value).trim()).filter(Boolean)
+    : [];
+  const imageUrl = String(doc?.imageUrl ?? photos[0] ?? '').trim() || null;
+
+  if (!imageUrl && photos.length === 0) return null;
+  return {
+    imageUrl,
+    photos: photos.length > 0 ? photos : imageUrl ? [imageUrl] : [],
+  };
+}
+
+async function loadReusableRequestImages(requests: any): Promise<RequestImageRef[]> {
+  const docs = await requests
+    .find({
+      title: { $not: new RegExp(`^\\${SEED_TAG}`) },
+      $or: [
+        { imageUrl: { $type: 'string', $ne: '' } },
+        { photos: { $exists: true, $ne: [] } },
+      ],
+    })
+    .project({ imageUrl: 1, photos: 1 })
+    .limit(32)
+    .toArray();
+
+  return docs
+    .map(normalizeRequestImage)
+    .filter((image: RequestImageRef | null): image is RequestImageRef => image !== null);
 }
 
 async function bootstrap() {
@@ -225,14 +332,52 @@ async function bootstrap() {
   today.setHours(0, 0, 0, 0);
   const periodStartMs = today.getTime() - (PERIOD_DAYS - 1) * DAY_MS;
   const categoryPlan = buildCategoryPlan(COUNTS.requests);
-  const offerRequestIndexes = buildDistributedIndexes(COUNTS.requests, COUNTS.offers, 7);
-  const contractRequestIndexes = offerRequestIndexes.slice(0, COUNTS.closedContracts);
-  const completedRequestIndexes = new Set(contractRequestIndexes.slice(0, COUNTS.completedContracts));
-  const contractRequestIndexSet = new Set(contractRequestIndexes);
-  const acceptedOfferRequestIndexes = new Set(offerRequestIndexes.slice(0, COUNTS.acceptedOffers));
-  const offerIndexByRequestIndex = new Map(
-    offerRequestIndexes.map((requestIndex, offerIndex) => [requestIndex, offerIndex]),
+  const requestDayIndexes = buildWeightedDayIndexes(COUNTS.requests);
+  const reusableRequestImages = await loadReusableRequestImages(requests);
+  const noOfferRequestIndexes = new Set(
+    buildEvenlySpacedIndexes(COUNTS.requests, OFFER_DISTRIBUTION.noOfferRequests),
   );
+  const requestIndexesWithOffers = Array.from({ length: COUNTS.requests }, (_, index) => index)
+    .filter((index) => !noOfferRequestIndexes.has(index))
+    .sort((a, b) => seededUnit(a, 11) - seededUnit(b, 11) || a - b);
+  const offerMultiplicityByRequestIndex = buildOfferMultiplicityPlan(requestIndexesWithOffers);
+  const offerPlan = requestIndexesWithOffers.flatMap((requestIndex) => {
+    const offerCount = offerMultiplicityByRequestIndex.get(requestIndex) ?? 1;
+    return Array.from({ length: offerCount }, (_, responseOrdinal) => ({
+      requestIndex,
+      responseOrdinal,
+    }));
+  });
+  const contractRequestIndexes = buildDistributedSubset(
+    requestIndexesWithOffers,
+    COUNTS.closedContracts,
+    17,
+  );
+  const contractRequestIndexLookup = new Set(contractRequestIndexes);
+  const acceptedOnlyRequestIndexes = buildDistributedSubset(
+    requestIndexesWithOffers.filter((requestIndex) => !contractRequestIndexLookup.has(requestIndex)),
+    Math.max(0, COUNTS.acceptedOffers - COUNTS.closedContracts),
+    23,
+  );
+  const acceptedOfferRequestIndexes = [
+    ...contractRequestIndexes,
+    ...acceptedOnlyRequestIndexes,
+  ];
+  const completedRequestIndexes = new Set(contractRequestIndexes.slice(0, COUNTS.completedContracts));
+  const cancelledRequestIndexes = new Set(
+    contractRequestIndexes.slice(
+      COUNTS.completedContracts,
+      COUNTS.completedContracts + COUNTS.cancelledContracts,
+    ),
+  );
+  const contractRequestIndexSet = new Set(contractRequestIndexes);
+  const acceptedOfferOrdinalByRequestIndex = new Map(
+    acceptedOfferRequestIndexes.map((requestIndex) => {
+      const offerCount = offerMultiplicityByRequestIndex.get(requestIndex) ?? 1;
+      return [requestIndex, Math.floor(seededUnit(requestIndex, 19) * offerCount)];
+    }),
+  );
+  const acceptedOfferIndexByRequestIndex = new Map<number, number>();
 
   const existingSeedRequests = await requests
     .find({
@@ -252,7 +397,8 @@ async function bootstrap() {
   const requestDocs = Array.from({ length: COUNTS.requests }).map((_, index) => {
     const category = categoryPlan[index] ?? DEMAND_CATEGORY_TARGETS[0];
     const city = seedCities[index % seedCities.length] ?? seedCities[0];
-    const createdAt = buildDistributedCreatedAt(index, COUNTS.requests, periodStartMs);
+    const image = reusableRequestImages[index % reusableRequestImages.length] ?? null;
+    const createdAt = buildDistributedCreatedAt(index, requestDayIndexes, periodStartMs);
     const preferredDate = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
     const status = completedRequestIndexes.has(index)
       ? 'closed'
@@ -274,6 +420,8 @@ async function bootstrap() {
       preferredDate,
       comment: 'Seed request for statistics funnel demo.',
       description: 'Distributed seed request for live-market statistics simulation.',
+      photos: image?.photos ?? [],
+      imageUrl: image?.imageUrl ?? null,
       categoryKey: category.categoryKey,
       categoryName: category.categoryName,
       subcategoryName: null,
@@ -291,17 +439,29 @@ async function bootstrap() {
   const requestObjectIds = Object.values(insertedRequests.insertedIds);
   const requestIds = requestObjectIds.map((id: any) => String(id));
 
-  const offerDocs = offerRequestIndexes.map((requestIndex, offerIndex) => {
+  const offerDocs = offerPlan.map(({ requestIndex, responseOrdinal }, offerIndex) => {
     const requestId = requestIds[requestIndex];
-    const providerUserId = providerIds[offerIndex % providerIds.length];
+    const providerUserId = providerIds[(requestIndex + responseOrdinal) % providerIds.length];
     const requestCreatedAt = requestDocs[requestIndex]?.createdAt ?? new Date(nowMs - DAY_MS);
-    const responseDelayMinutes = 25 + Math.floor(seededUnit(offerIndex, 3) * 540);
+    const lateResponseDelayMinutes = seededUnit(offerIndex, 13) > 0.88
+      ? 35 + Math.floor(seededUnit(offerIndex, 14) * 85)
+      : 0;
+    const responseDelayMinutes = 6
+      + responseOrdinal * 9
+      + Math.floor(seededUnit(offerIndex, 3) * 18)
+      + lateResponseDelayMinutes;
     const createdAt = clampToPast(addOffset(requestCreatedAt, responseDelayMinutes), nowMs);
+    const acceptedResponseOrdinal = acceptedOfferOrdinalByRequestIndex.get(requestIndex);
+    const isAccepted = acceptedResponseOrdinal === responseOrdinal;
+    if (isAccepted) {
+      acceptedOfferIndexByRequestIndex.set(requestIndex, offerIndex);
+    }
+
     return {
       requestId,
       providerUserId,
       clientUserId: clientId,
-      status: acceptedOfferRequestIndexes.has(requestIndex) ? 'accepted' : 'sent',
+      status: isAccepted ? 'accepted' : 'sent',
       message: 'Seed provider response for live-market statistics simulation.',
       pricing: {
         amount: 110 + (offerIndex % 9) * 45,
@@ -312,7 +472,7 @@ async function bootstrap() {
         date: addOffset(createdAt, 24 * 60).toISOString(),
         note: 'Seed availability window.',
       },
-      metadata: { seedTag: 'stats-funnel' },
+      metadata: { seedTag: 'stats-funnel', responseDelayMinutes, responseOrdinal },
       createdAt,
       updatedAt: createdAt,
     };
@@ -325,7 +485,7 @@ async function bootstrap() {
     .filter((requestId): requestId is string => Boolean(requestId));
 
   const contractDocs = contractRequestIndexes.map((requestIndex, index) => {
-    const offerIndex = offerIndexByRequestIndex.get(requestIndex) ?? index;
+    const offerIndex = acceptedOfferIndexByRequestIndex.get(requestIndex) ?? index;
     const requestId = requestIds[requestIndex];
     const offerId = offerIds[offerIndex];
     const providerUserId = providerIds[offerIndex % providerIds.length];
@@ -333,9 +493,14 @@ async function bootstrap() {
     const createdAt = clampToPast(addOffset(offerCreatedAt, 45 + Math.floor(seededUnit(index, 4) * 720)), nowMs);
     const confirmedAt = clampToPast(addOffset(createdAt, 30 + Math.floor(seededUnit(index, 5) * 180)), nowMs);
     const isCompleted = index < COUNTS.completedContracts;
-    const isInProgress = !isCompleted && index % 2 === 0;
+    const isCancelled = index >= COUNTS.completedContracts
+      && index < COUNTS.completedContracts + COUNTS.cancelledContracts;
+    const isInProgress = !isCompleted && !isCancelled && index % 2 === 0;
     const completedAt = isCompleted
-      ? clampToPast(addOffset(confirmedAt, 180 + Math.floor(seededUnit(index, 6) * 1800)), nowMs)
+      ? clampToPast(addOffset(confirmedAt, 720 + Math.floor(seededUnit(index, 6) * 20_160)), nowMs)
+      : null;
+    const cancelledAt = isCancelled
+      ? clampToPast(addOffset(confirmedAt, 180 + Math.floor(seededUnit(index, 21) * 2_880)), nowMs)
       : null;
     const priceAmount = isCompleted ? 120 + index * 15 : null;
 
@@ -344,16 +509,16 @@ async function bootstrap() {
       offerId,
       clientId,
       providerUserId,
-      status: isCompleted ? 'completed' : isInProgress ? 'in_progress' : 'confirmed',
+      status: isCompleted ? 'completed' : isCancelled ? 'cancelled' : isInProgress ? 'in_progress' : 'confirmed',
       priceAmount,
       priceType: priceAmount ? 'fixed' : null,
       priceDetails: priceAmount ? 'Seed fixed price' : null,
       confirmedAt,
       completedAt,
-      cancelledAt: null,
-      cancelReason: null,
+      cancelledAt,
+      cancelReason: isCancelled ? 'Seed cancellation: client and provider did not agree on timing.' : null,
       createdAt,
-      updatedAt: completedAt ?? confirmedAt,
+      updatedAt: completedAt ?? cancelledAt ?? confirmedAt,
     };
   });
 
@@ -372,15 +537,26 @@ async function bootstrap() {
       const contract = insertedContractsByRequest[requestId];
       const requestObjectId = requestObjectIds[requestIndex];
       if (!contract?._id) return Promise.resolve();
+      const requestIsCancelled = cancelledRequestIndexes.has(requestIndex);
+      const requestUpdate = requestIsCancelled
+        ? {
+          matchedProviderUserId: null,
+          matchedAt: null,
+          assignedContractId: null,
+          status: 'published',
+          updatedAt: contract.cancelledAt ?? contract.confirmedAt ?? contract.createdAt ?? new Date(),
+        }
+        : {
+          matchedProviderUserId: String(contract.providerUserId),
+          matchedAt: contract.confirmedAt ?? contract.createdAt ?? new Date(),
+          assignedContractId: String(contract._id),
+          updatedAt: contract.completedAt ?? contract.confirmedAt ?? contract.createdAt ?? new Date(),
+        };
+
       return requests.updateOne(
         { _id: requestObjectId },
         {
-          $set: {
-            matchedProviderUserId: String(contract.providerUserId),
-            matchedAt: contract.confirmedAt ?? contract.createdAt ?? new Date(),
-            assignedContractId: String(contract._id),
-            updatedAt: contract.completedAt ?? contract.confirmedAt ?? contract.createdAt ?? new Date(),
-          },
+          $set: requestUpdate,
         },
       );
     }),
@@ -391,6 +567,15 @@ async function bootstrap() {
       ? sum + item.priceAmount
       : sum
   ), 0);
+  const activeRequests = requestDocs.filter((item) => item.status !== 'closed').length;
+  const acceptedOffers = offerDocs.filter((item) => item.status === 'accepted').length;
+  const cancelledContracts = contractDocs.filter((item) => item.status === 'cancelled').length;
+  const cancellationRatePercent = (
+    cancelledContracts / Math.max(1, COUNTS.completedContracts + cancelledContracts)
+  ) * 100;
+  const medianResponseMinutes = median(
+    offerDocs.map((item) => Number(item.metadata.responseDelayMinutes)).filter(Number.isFinite),
+  );
   const requestsToCompletedConversion = COUNTS.requests > 0
     ? (COUNTS.completedContracts / COUNTS.requests) * 100
     : 0;
@@ -402,8 +587,15 @@ async function bootstrap() {
     const share = COUNTS.requests > 0 ? (count / COUNTS.requests) * 100 : 0;
     console.log(`  - ${category.categoryName}: ${count} (${share.toFixed(1)}%)`);
   }
-  console.log(`✓ Offers inserted: ${COUNTS.offers} (accepted: ${COUNTS.acceptedOffers})`);
-  console.log(`✓ Contracts inserted: ${COUNTS.closedContracts} (completed: ${COUNTS.completedContracts})`);
+  console.log(`✓ Offers inserted: ${offerDocs.length} (accepted: ${acceptedOffers})`);
+  console.log(`✓ Median response time: ${medianResponseMinutes ?? 0} minutes`);
+  console.log(`✓ Requests without offers: ${OFFER_DISTRIBUTION.noOfferRequests}`);
+  console.log(`✓ Active market requests: ${activeRequests}`);
+  console.log(`✓ Reused request image pool: ${reusableRequestImages.length}`);
+  console.log(
+    `✓ Contracts inserted: ${COUNTS.closedContracts} (completed: ${COUNTS.completedContracts}, cancelled: ${cancelledContracts})`,
+  );
+  console.log(`✓ Cancellation rate: ${cancellationRatePercent.toFixed(1)}%`);
   console.log(`📈 Requests → Completed conversion: ${requestsToCompletedConversion.toFixed(2)}%`);
   console.log(`€ Profit from completed contracts: ${completedProfit.toFixed(2)}`);
   console.log('✅ Statistics funnel seed completed');

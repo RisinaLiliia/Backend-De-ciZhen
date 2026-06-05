@@ -47,18 +47,12 @@ export class WorkspaceStatisticsProfileSupport extends WorkspaceStatisticsMarket
         ? this.roundMoney(selectedUserRevenueAmount / selectedUserCounts.completed)
         : null;
     const hasViewerScopedData = hasViewerModeCounts || selectedUserRevenueAmount > 0;
-    const requestsFunnelTotal =
-      params.mode === 'personalized' ? selectedUserCounts.requests : params.marketCounts.requests;
-    const offersFunnelTotal =
-      params.mode === 'personalized' ? selectedUserCounts.offers : params.marketCounts.offers;
-    const confirmedResponsesTotal =
-      params.mode === 'personalized' ? selectedUserCounts.responses : params.marketCounts.responses;
-    const closedContractsTotal =
-      params.mode === 'personalized' ? selectedUserCounts.contracts : params.marketCounts.contracts;
-    const completedFunnelTotal =
-      params.mode === 'personalized' ? selectedUserCounts.completed : params.marketCounts.completed;
-    const profitAmount =
-      params.mode === 'personalized' ? selectedUserRevenueAmount : params.marketRevenueAmount;
+    const requestsFunnelTotal = params.marketCounts.requests;
+    const offersFunnelTotal = params.marketCounts.offers;
+    const confirmedResponsesTotal = params.marketCounts.responses;
+    const closedContractsTotal = params.marketCounts.contracts;
+    const completedFunnelTotal = params.marketCounts.completed;
+    const profitAmount = params.marketRevenueAmount;
 
     const offerResponseRatePercent = this.clampPercent(
       (offersFunnelTotal / Math.max(1, requestsFunnelTotal)) * 100,
